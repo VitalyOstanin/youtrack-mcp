@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# editor / tooling artifacts
+.code/
+.DS_Store
+*.log
+
+# coverage / temp
+coverage/
+tmp/
+temp/

@@ -1,0 +1,37 @@
+{
+  "name": "youtrack-mcp",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "start": "node dist/index.js",
+    "dev:watch": "tsc -p tsconfig.json --watch",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "mcp",
+    "youtrack"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "MCP сервер для работы с YouTrack API",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "youtrack-mcp": "dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "axios": "^1.12.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "@types/node": "^22.18.10",
+    "@vitalyostanin/eslint-prefer-de-morgan-law": "^1.0.2",
+    "eslint": "^9.37.0",
+    "typescript": "^5.6.2",
+    "typescript-eslint": "^8.46.0",
+    "zod-to-json-schema": "^3.24.6"
+  }
+}
