@@ -1,18 +1,37 @@
+import type {
+  MappedYoutrackIssue,
+  MappedYoutrackIssueComment,
+  MappedYoutrackIssueDetails,
+  MappedYoutrackWorkItem,
+} from "./utils/mappers.js";
+
 export interface ServiceInfo {
   name: string;
   version: string;
   description?: string;
 }
 
+export type UserAliasMap = Record<string, string>;
+
 export interface YoutrackConfig {
   baseUrl: string;
   token: string;
+  timezone: string;
+  holidays?: string[];
+  preHolidays?: string[];
+  userAliases?: UserAliasMap;
+}
+
+export interface DurationValue {
+  minutes?: number;
+  presentation?: string;
+  $type?: string;
 }
 
 export interface YoutrackProject {
   id: string;
   shortName: string;
-  name: string;
+  name?: string;
 }
 
 export interface YoutrackIssue {
@@ -21,7 +40,8 @@ export interface YoutrackIssue {
   summary?: string;
   description?: string;
   project?: YoutrackProject;
-  assignee?: YoutrackUser;
+  parent?: { idReadable: string; id?: string } | null;
+  assignee?: YoutrackUser | null;
 }
 
 export interface YoutrackIssueCreateInput {
@@ -36,6 +56,7 @@ export interface YoutrackIssueUpdateInput {
   issueId: string;
   summary?: string;
   description?: string;
+  parentIssueId?: string | null;
 }
 
 export interface YoutrackIssueAssignInput {
@@ -51,13 +72,19 @@ export interface YoutrackUser {
   email?: string;
 }
 
+export interface YoutrackUserListPayload {
+  users: YoutrackUser[];
+}
+
+export interface YoutrackProjectListPayload {
+  projects: YoutrackProject[];
+}
+
 export interface YoutrackWorkItem {
   id: string;
   date: number;
-  duration: {
-    minutes: number;
-    presentation?: string;
-  };
+  updated?: number;
+  duration: DurationValue;
   text?: string;
   description?: string;
   issue: {
@@ -69,7 +96,7 @@ export interface YoutrackWorkItem {
 
 export interface YoutrackWorkItemCreateInput {
   issueId: string;
-  date: number;
+  date: string | number | Date;
   minutes: number;
   summary?: string;
   description?: string;
@@ -78,10 +105,43 @@ export interface YoutrackWorkItemCreateInput {
 export interface YoutrackWorkItemUpdateInput {
   issueId: string;
   workItemId: string;
-  date?: number;
+  date?: string | number | Date;
   minutes?: number;
   summary?: string;
   description?: string;
+}
+
+export interface YoutrackWorkItemPeriodCreateInput {
+  issueId: string;
+  startDate: string | number | Date;
+  endDate: string | number | Date;
+  minutes: number;
+  summary?: string;
+  description?: string;
+  excludeWeekends?: boolean;
+  excludeHolidays?: boolean;
+  holidays?: Array<string | number | Date>;
+  preHolidays?: Array<string | number | Date>;
+}
+
+export interface YoutrackWorkItemIdempotentCreateInput {
+  issueId: string;
+  date: string | number | Date;
+  minutes: number;
+  description: string;
+}
+
+export interface YoutrackWorkItemReportOptions {
+  author?: string;
+  startDate?: string | number | Date;
+  endDate?: string | number | Date;
+  issueId?: string;
+  expectedDailyMinutes?: number;
+  excludeWeekends?: boolean;
+  excludeHolidays?: boolean;
+  holidays?: Array<string | number | Date>;
+  preHolidays?: Array<string | number | Date>;
+  allUsers?: boolean;
 }
 
 export interface ServiceStatusPayload {
@@ -89,23 +149,25 @@ export interface ServiceStatusPayload {
   configuration: {
     hasToken: boolean;
     baseUrl: string | null;
+    holidays?: string[];
+    preHolidays?: string[];
   };
 }
 
 export interface IssueLookupPayload {
-  issue: YoutrackIssue;
+  issue: MappedYoutrackIssue;
 }
 
 export interface WorkItemsPayload {
-  items: YoutrackWorkItem[];
+  items: MappedYoutrackWorkItem[];
 }
 
 export interface WorkItemCreatePayload {
-  item: YoutrackWorkItem;
+  item: MappedYoutrackWorkItem;
 }
 
 export interface WorkItemUpdatePayload {
-  item: YoutrackWorkItem;
+  item: MappedYoutrackWorkItem;
 }
 
 export interface WorkItemDeletePayload {
@@ -115,15 +177,15 @@ export interface WorkItemDeletePayload {
 }
 
 export interface YoutrackIssueDetails extends YoutrackIssue {
-  created?: number;
-  updated?: number;
-  resolved?: number;
+  created?: number | null;
+  updated?: number | null;
+  resolved?: number | null;
   reporter?: YoutrackUser;
   updater?: YoutrackUser;
 }
 
 export interface IssueDetailsPayload {
-  issue: YoutrackIssueDetails;
+  issue: MappedYoutrackIssueDetails;
 }
 
 export interface YoutrackIssueComment {
@@ -135,7 +197,27 @@ export interface YoutrackIssueComment {
 }
 
 export interface IssueCommentsPayload {
-  comments: YoutrackIssueComment[];
+  comments: MappedYoutrackIssueComment[];
+}
+
+export interface IssueCommentCreateInput {
+  issueId: string;
+  text: string;
+}
+
+export interface YoutrackActivityItem {
+  id: string;
+  timestamp: number;
+  author?: YoutrackUser;
+  category?: { id: string };
+  target?: { text?: string };
+  added?: Array<{ name?: string; id?: string; login?: string }>;
+  removed?: Array<{ name?: string; id?: string; login?: string }>;
+  $type?: string;
+}
+
+export interface IssueCommentCreatePayload {
+  comment: MappedYoutrackIssueComment;
 }
 
 export interface WorkItemReportDay {
@@ -144,13 +226,16 @@ export interface WorkItemReportDay {
   actualMinutes: number;
   difference: number;
   percent: number;
-  items: YoutrackWorkItem[];
+  items: MappedYoutrackWorkItem[];
 }
 
 export interface WorkItemSummary {
   totalMinutes: number;
   totalHours: number;
+  expectedMinutes: number;
+  expectedHours: number;
   workDays: number;
+  averageHoursPerDay: number;
 }
 
 export interface WorkItemReportPayload {
@@ -160,14 +245,50 @@ export interface WorkItemReportPayload {
     startDate: string;
     endDate: string;
   };
+  invalidDays: WorkItemInvalidDay[];
 }
 
 export interface WorkItemBulkResultPayload {
-  created: YoutrackWorkItem[];
+  created: MappedYoutrackWorkItem[];
   failed: Array<{
     date: string;
     reason: string;
   }>;
+}
+
+export interface WorkItemInvalidDay {
+  date: string;
+  expectedMinutes: number;
+  actualMinutes: number;
+  difference: number;
+  percent: number;
+  items: MappedYoutrackWorkItem[];
+}
+
+export interface WorkItemUsersReportPayload {
+  reports: Array<{
+    userLogin: string;
+    summary: WorkItemSummary;
+    invalidDays: WorkItemInvalidDay[];
+    period: {
+      startDate: string;
+      endDate: string;
+    };
+  }>;
+}
+
+export interface WorkItemsForUsersPayload {
+  items: MappedYoutrackWorkItem[];
+  users: string[];
+}
+
+export interface WorkItemsAllUsersPayload {
+  items: MappedYoutrackWorkItem[];
+}
+
+export interface WorkItemIdempotentCreatePayload {
+  created: boolean;
+  item: MappedYoutrackWorkItem | null;
 }
 
 export interface YoutrackArticle {
@@ -179,6 +300,11 @@ export interface YoutrackArticle {
     id: string;
     idReadable: string;
   };
+  childArticles?: Array<{
+    id: string;
+    idReadable: string;
+    summary: string;
+  }>;
   project?: {
     id: string;
     shortName: string;
@@ -205,4 +331,59 @@ export interface ArticleUpdateInput {
   articleId: string;
   summary?: string;
   content?: string;
+}
+
+export interface ArticleSearchInput {
+  query: string;
+  projectId?: string;
+  parentArticleId?: string;
+  limit?: number;
+}
+
+export interface ArticleSearchPayload {
+  articles: YoutrackArticle[];
+  query: string;
+}
+
+export interface IssueSearchInput {
+  userLogins: string[];
+  startDate?: string | number | Date;
+  endDate?: string | number | Date;
+  dateFilterMode?: "issue_updated" | "user_activity";
+  limit?: number;
+  skip?: number;
+}
+
+export interface IssueSearchPayload {
+  issues: Array<MappedYoutrackIssue & { lastActivityDate?: string }>;
+  userLogins: string[];
+  period?: {
+    startDate?: string;
+    endDate?: string;
+  };
+  pagination: {
+    returned: number;
+    limit: number;
+    skip: number;
+  };
+}
+
+export interface IssueError {
+  issueId: string;
+  error: string;
+}
+
+export interface IssuesLookupPayload {
+  issues: MappedYoutrackIssue[];
+  errors?: IssueError[];
+}
+
+export interface IssuesDetailsPayload {
+  issues: MappedYoutrackIssueDetails[];
+  errors?: IssueError[];
+}
+
+export interface IssuesCommentsPayload {
+  commentsByIssue: Record<string, MappedYoutrackIssueComment[]>;
+  errors?: IssueError[];
 }

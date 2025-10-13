@@ -1,0 +1,36 @@
+# Source files
+src/
+index.ts
+
+# Development files
+scripts/
+eslint.config.mjs
+tsconfig.json
+tsconfig.eslint.json
+
+# Source maps (development only)
+dist/**/*.map
+
+# IDE and system files
+.vscode/
+.idea/
+.code/
+.claude/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+
+# Node modules
+node_modules/
+
+# Documentation (keep only README files)
+AGENTS.md
+
+# Test and coverage
+tests/
+coverage/

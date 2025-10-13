@@ -1,32 +1,59 @@
 {
-  "name": "youtrack-mcp",
+  "name": "@vitalyostanin/youtrack-mcp",
   "version": "0.1.0",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "postbuild": "chmod +x dist/index.js",
     "dev": "tsc -p tsconfig.json --watch",
     "start": "node dist/index.js",
     "dev:watch": "tsc -p tsconfig.json --watch",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
-    "youtrack"
+    "model-context-protocol",
+    "youtrack",
+    "jetbrains",
+    "issue-tracking",
+    "work-items",
+    "time-tracking",
+    "claude"
   ],
-  "author": "",
-  "license": "ISC",
-  "description": "MCP сервер для работы с YouTrack API",
+  "author": "Vitaly Ostanin <vitaly.ostanin@mail.ru>",
+  "license": "MIT",
+  "description": "MCP server for comprehensive YouTrack integration: issues, work items with reports, user activity search, knowledge base, projects and users",
   "type": "module",
-  "private": true,
   "bin": {
     "youtrack-mcp": "dist/index.js"
+  },
+  "homepage": "https://github.com/VitalyOstanin/youtrack-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VitalyOstanin/youtrack-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/VitalyOstanin/youtrack-mcp/issues"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "README.md",
+    "README-ru.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
     "axios": "^1.12.2",
+    "luxon": "^3.5.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
+    "@types/luxon": "^3.7.1",
     "@types/node": "^22.18.10",
     "@vitalyostanin/eslint-prefer-de-morgan-law": "^1.0.2",
     "eslint": "^9.37.0",

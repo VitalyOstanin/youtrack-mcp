@@ -5,10 +5,15 @@ export function toolSuccess<T>(payload: T): CallToolResult {
   const structuredContent = {
     success: true,
     payload,
-  } as Record<string, unknown>;
+  } satisfies Record<string, unknown>;
 
   return {
-    content: [],
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(structuredContent, null, 2),
+      },
+    ],
     structuredContent,
   };
 }

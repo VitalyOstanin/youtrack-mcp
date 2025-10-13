@@ -1,9 +1,13 @@
 import { z } from "zod";
-import type { YoutrackConfig } from "./types.js";
+import type { UserAliasMap, YoutrackConfig } from "./types.js";
 
 const configSchema = z.object({
   YOUTRACK_URL: z.string().url(),
   YOUTRACK_TOKEN: z.string().min(1),
+  YOUTRACK_TIMEZONE: z.string().optional(),
+  YOUTRACK_HOLIDAYS: z.string().optional(),
+  YOUTRACK_PRE_HOLIDAYS: z.string().optional(),
+  YOUTRACK_USER_ALIASES: z.string().optional(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig {
@@ -24,6 +28,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
   return {
     baseUrl: parsed.data.YOUTRACK_URL,
     token: parsed.data.YOUTRACK_TOKEN,
+    timezone: parsed.data.YOUTRACK_TIMEZONE ?? "Europe/Moscow",
+    holidays: parsed.data.YOUTRACK_HOLIDAYS
+      ? parseCsvList(parsed.data.YOUTRACK_HOLIDAYS)
+      : undefined,
+    preHolidays: parsed.data.YOUTRACK_PRE_HOLIDAYS
+      ? parseCsvList(parsed.data.YOUTRACK_PRE_HOLIDAYS)
+      : undefined,
+    userAliases: parsed.data.YOUTRACK_USER_ALIASES
+      ? parseAliasMap(parsed.data.YOUTRACK_USER_ALIASES)
+      : undefined,
   };
 }
 
@@ -31,5 +45,35 @@ export function enrichConfigWithRedaction(config: YoutrackConfig) {
   return {
     baseUrl: config.baseUrl,
     hasToken: config.token.length > 0,
+    timezone: config.timezone,
+    holidays: config.holidays,
+    preHolidays: config.preHolidays,
   };
+}
+
+function parseCsvList(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function parseAliasMap(value: string): UserAliasMap {
+  return value
+    .split(",")
+    .map((pair) => pair.trim())
+    .filter((pair) => pair.length > 0)
+    .reduce<UserAliasMap>((acc, pair) => {
+      const [alias, login] = pair.split(":").map((part) => part.trim());
+
+      if (!(alias && login)) {
+        throw new Error(
+          "Invalid YOUTRACK_USER_ALIASES format. Expected comma-separated list of alias:login pairs.",
+        );
+      }
+
+      acc[alias] = login;
+
+      return acc;
+    }, {});
 }
