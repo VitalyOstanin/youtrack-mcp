@@ -4,7 +4,7 @@ import preferDeMorganLaw from '@vitalyostanin/eslint-prefer-de-morgan-law';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**']
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'temp/**', 'tmp/**']
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
