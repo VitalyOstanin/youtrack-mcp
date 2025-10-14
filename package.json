@@ -25,6 +25,9 @@
   "license": "MIT",
   "description": "MCP server for comprehensive YouTrack integration: issues, work items with reports, user activity search, knowledge base, projects and users",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "bin": {
     "youtrack-mcp": "dist/index.js"
   },

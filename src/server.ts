@@ -12,6 +12,7 @@ import { registerAttachmentTools } from "./tools/attachment-tools.js";
 import { YoutrackClient } from "./youtrack-client.js";
 import { loadConfig } from "./config.js";
 import { initializeTimezone } from "./utils/date.js";
+import { VERSION } from "./version.js";
 
 export class YoutrackServer {
   private readonly server: McpServer;
@@ -21,7 +22,7 @@ export class YoutrackServer {
     this.server = new McpServer(
       {
         name: "youtrack-mcp",
-        version: "0.2.0",
+        version: VERSION,
       },
       {
         capabilities: {

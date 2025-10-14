@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { loadConfig, enrichConfigWithRedaction } from "../config.js";
 import type { ServiceStatusPayload } from "../types.js";
+import { VERSION } from "../version.js";
 
 export function registerServiceInfoTool(server: McpServer, client: YoutrackClient) {
   server.tool(
@@ -16,7 +17,7 @@ export function registerServiceInfoTool(server: McpServer, client: YoutrackClien
         const payload: ServiceStatusPayload = {
           service: {
             name: "youtrack-mcp",
-            version: "0.1.0",
+            version: VERSION,
           },
           configuration: enrichConfigWithRedaction(config),
         };
