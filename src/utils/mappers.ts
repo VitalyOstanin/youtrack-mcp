@@ -91,21 +91,25 @@ export function mapIssueDetails(issue: YoutrackIssueDetails): MappedYoutrackIssu
  * Map YoutrackWorkItem to MappedYoutrackWorkItem
  */
 export function mapWorkItem(item: YoutrackWorkItem): MappedYoutrackWorkItem {
-  return {
+  const mapped = {
     ...item,
     date: timestampToIsoDate(item.date) ?? "",
   };
+
+  return mapped;
 }
 
 /**
  * Map YoutrackIssueComment to MappedYoutrackIssueComment
  */
 export function mapComment(comment: YoutrackIssueComment): MappedYoutrackIssueComment {
-  return {
+  const mapped = {
     ...comment,
     created: timestampToIsoDateTime(comment.created) ?? "",
     updated: timestampToIsoDateTime(comment.updated),
   };
+
+  return mapped;
 }
 
 /**

@@ -21,6 +21,7 @@ const issueCreateArgs = {
   description: z.string().optional().describe("Full description"),
   parentIssueId: z.string().optional().describe("Parent issue ID"),
   assigneeLogin: z.string().optional().describe("Assignee login or me"),
+  usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const issueCreateSchema = z.object(issueCreateArgs);
 const issueUpdateArgs = {
@@ -28,6 +29,7 @@ const issueUpdateArgs = {
   summary: z.string().optional().describe("New summary"),
   description: z.string().optional().describe("New description"),
   parentIssueId: z.string().optional().describe("New parent or empty string to remove"),
+  usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const issueUpdateSchema = z.object(issueUpdateArgs);
 const issueAssignArgs = {
@@ -38,13 +40,14 @@ const issueAssignSchema = z.object(issueAssignArgs);
 const issueCommentCreateArgs = {
   issueId: z.string().min(1).describe("Issue ID or code"),
   text: z.string().min(1).describe("Comment text"),
+  usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const issueCommentCreateSchema = z.object(issueCommentCreateArgs);
 
 export function registerIssueTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_lookup",
-    "Get brief information about YouTrack issue. Note: Returns predefined fields only - id, idReadable, summary, description, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name). Custom fields are not included.",
+    "Get brief information about YouTrack issue. Note: Returns predefined fields only - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name). Custom fields are not included.",
     issueIdArgs,
     async (rawInput) => {
       try {
@@ -63,7 +66,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_details",
-    "Get detailed information about YouTrack issue. Note: Returns predefined fields only - id, idReadable, summary, description, created, updated, resolved, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). Custom fields are not included.",
+    "Get detailed information about YouTrack issue. Note: Returns predefined fields only - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, resolved, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). Custom fields are not included.",
     issueIdArgs,
     async (rawInput) => {
       try {
@@ -82,7 +85,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comments",
-    "Get issue comments. Note: Returns predefined fields only - id, text, author (id, login, name), created, updated.",
+    "Get issue comments. Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated.",
     issueIdArgs,
     async (rawInput) => {
       try {
@@ -101,7 +104,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_create",
-    "Create new issue in YouTrack. Note: Response includes standard fields only (id, idReadable, summary, description, project, parent, assignee). Custom fields are not included.",
+    "Create new issue in YouTrack. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
     issueCreateArgs,
     async (rawInput) => {
       try {
@@ -112,6 +115,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           description: payload.description,
           parentIssueId: payload.parentIssueId,
           assigneeLogin: payload.assigneeLogin,
+          usesMarkdown: payload.usesMarkdown,
         });
         const response = toolSuccess(issue);
 
@@ -126,7 +130,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_update",
-    "Update existing issue. Note: Response includes standard fields only (id, idReadable, summary, description, project, parent, assignee). Custom fields are not included.",
+    "Update existing issue. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
     issueUpdateArgs,
     async (rawInput) => {
       try {
@@ -145,6 +149,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           summary: payload.summary,
           description: payload.description,
           parentIssueId: payload.parentIssueId,
+          usesMarkdown: payload.usesMarkdown,
         });
         const response = toolSuccess(issue);
 
@@ -159,7 +164,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_assign",
-    "Assign assignee to issue. Note: Response includes standard fields only (id, idReadable, summary, description, project, parent, assignee). Custom fields are not included.",
+    "Assign assignee to issue. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
     issueAssignArgs,
     async (rawInput) => {
       try {
@@ -181,7 +186,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comment_create",
-    "Add comment to issue. Note: Response includes comment fields - id, text, author (id, login, name), created, updated.",
+    "Add comment to issue. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated.",
     issueCommentCreateArgs,
     async (rawInput) => {
       try {
@@ -189,6 +194,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
         const comment = await client.createIssueComment({
           issueId: payload.issueId,
           text: payload.text,
+          usesMarkdown: payload.usesMarkdown,
         });
         const response = toolSuccess(comment);
 
@@ -203,7 +209,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_lookup",
-    "Get brief information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, idReadable, summary, description, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name). Custom fields are not included.",
+    "Get brief information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name). Custom fields are not included.",
     issueIdsArgs,
     async (rawInput) => {
       try {
@@ -222,7 +228,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_details",
-    "Get detailed information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, idReadable, summary, description, created, updated, resolved, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). Custom fields are not included.",
+    "Get detailed information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, resolved, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). Custom fields are not included.",
     issueIdsArgs,
     async (rawInput) => {
       try {
@@ -241,7 +247,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_comments",
-    "Get comments for multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, text, author (id, login, name), created, updated.",
+    "Get comments for multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated.",
     issueIdsArgs,
     async (rawInput) => {
       try {

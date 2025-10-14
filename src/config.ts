@@ -52,17 +52,19 @@ export function enrichConfigWithRedaction(config: YoutrackConfig) {
 }
 
 function parseCsvList(value: string): string[] {
-  return value
+  const items = value
     .split(",")
     .map((item) => item.trim())
-    .filter((item) => item.length > 0);
+    .filter((item) => item.length);
+
+  return items;
 }
 
 function parseAliasMap(value: string): UserAliasMap {
-  return value
+  const aliasMap = value
     .split(",")
     .map((pair) => pair.trim())
-    .filter((pair) => pair.length > 0)
+    .filter((pair) => pair.length)
     .reduce<UserAliasMap>((acc, pair) => {
       const [alias, login] = pair.split(":").map((part) => part.trim());
 
@@ -76,4 +78,6 @@ function parseAliasMap(value: string): UserAliasMap {
 
       return acc;
     }, {});
+
+  return aliasMap;
 }

@@ -17,11 +17,9 @@ MCP server for comprehensive YouTrack integration. Manage issues, track work ite
     - [Work Items](#work-items)
     - [Users and Projects](#users-and-projects)
     - [Articles](#articles)
-    - [structuredContent Examples](#structuredcontent-examples)
     - [Search](#search)
   - [Build](#build)
   - [Development](#development)
-  - [Progress Log](#progress-log)
 
 ## Requirements
 
@@ -136,10 +134,10 @@ All tools return `structuredContent` with a `success` flag and payload formatted
 | `issue_lookup` | Brief issue information | `issueId` — issue code (e.g., PROJ-123) |
 | `issue_details` | Full issue data | `issueId` — issue code |
 | `issue_comments` | Issue comments | `issueId` — issue code |
-| `issue_create` | Create issue | `projectId`, `summary`, optionally `description`, `parentIssueId`, `assigneeLogin` |
-| `issue_update` | Update existing issue | `issueId`, optionally `summary`, `description`, `parentIssueId` (empty string clears parent) |
+| `issue_create` | Create issue | `projectId`, `summary`, optionally `description`, `parentIssueId`, `assigneeLogin`, `usesMarkdown` |
+| `issue_update` | Update existing issue | `issueId`, optionally `summary`, `description`, `parentIssueId` (empty string clears parent), `usesMarkdown` |
 | `issue_assign` | Assign issue to user | `issueId`, `assigneeLogin` (login or `me`) |
-| `issue_comment_create` | Add comment to issue | `issueId`, `text` — comment text |
+| `issue_comment_create` | Add comment to issue | `issueId`, `text` — comment text, optionally `usesMarkdown` |
 | `issue_search_by_user_activity` | Search issues with user activity | `userLogins[]` — array of user logins, optionally `startDate`, `endDate`, `dateFilterMode` (`issue_updated` fast mode or `user_activity` precise mode), `limit` (default 100, max 200). Finds issues where users updated, mentioned, reported, assigned, or commented. Fast mode filters by issue.updated field; precise mode checks actual user activity dates including comments, mentions, and field changes history (e.g., when user was assignee but later changed). In precise mode, returns `lastActivityDate` field. Sorted by activity time (newest first) |
 
 ### Work Items
@@ -150,11 +148,11 @@ All tools return `structuredContent` with a `success` flag and payload formatted
 | `workitems_all_users` | Get work items for all users | Optionally `issueId`, `startDate`, `endDate` |
 | `workitems_for_users` | Get work items for selected users | `users[]`, optionally `issueId`, `startDate`, `endDate` |
 | `workitems_recent` | Get recent work items sorted by update time (newest first) | Optionally `users[]` (defaults to current user), `limit` (default 50, max 200) |
-| `workitem_create` | Create work item entry | `issueId`, `date`, `minutes`, optionally `summary`, `description` |
-| `workitem_create_idempotent` | Create work item without duplicates (by description and date) | `issueId`, `date`, `minutes`, `description` |
-| `workitem_update` | Update work item (recreate) | `issueId`, `workItemId`, optionally `date`, `minutes`, `summary`, `description` |
+| `workitem_create` | Create work item entry | `issueId`, `date`, `minutes`, optionally `summary`, `description`, `usesMarkdown` |
+| `workitem_create_idempotent` | Create work item without duplicates (by description and date) | `issueId`, `date`, `minutes`, `description`, optionally `usesMarkdown` |
+| `workitem_update` | Update work item (recreate) | `issueId`, `workItemId`, optionally `date`, `minutes`, `summary`, `description`, `usesMarkdown` |
 | `workitem_delete` | Delete work item | `issueId`, `workItemId` |
-| `workitems_create_period` | Batch create for date range | `issueId`, `startDate`, `endDate`, `minutes`, optionally `summary`, `description`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]` |
+| `workitems_create_period` | Batch create for date range | `issueId`, `startDate`, `endDate`, `minutes`, optionally `summary`, `description`, `usesMarkdown`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]` |
 | `workitems_report_summary` | Summary report for work items | Common parameters: `author`, `issueId`, `startDate`, `endDate`, `expectedDailyMinutes`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]`, `allUsers` |
 | `workitems_report_invalid` | Days with deviation from expected hours | Same parameters as summary |
 | `workitems_report_users` | Work items report for list of users | `users[]` + common report parameters |
@@ -176,49 +174,15 @@ All tools return `structuredContent` with a `success` flag and payload formatted
 | --- | --- | --- |
 | `article_get` | Get article by ID | `articleId` |
 | `article_list` | List articles with filters | Optionally `parentArticleId`, `projectId` |
-| `article_create` | Create article in knowledge base | `summary`, optionally `content`, `parentArticleId`, `projectId` |
-| `article_update` | Update article | `articleId`, optionally `summary`, `content` |
-| `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit` |
-
-### structuredContent Examples
-
-```json
-{
-  "success": true,
-  "summary": {
-    "totalMinutes": 480,
-    "expectedMinutes": 480,
-    "totalHours": 8,
-    "expectedHours": 8,
-    "workDays": 1,
-    "averageHoursPerDay": 8
-  },
-  "period": {
-    "startDate": "2025-10-06",
-    "endDate": "2025-10-06"
-  },
-  "invalidDays": []
-}
-```
-
-```json
-{
-  "success": true,
-  "item": {
-    "id": "123-456",
-    "date": 1765238400000,
-    "duration": { "minutes": 120, "presentation": "2h" },
-    "text": "Code review",
-    "issue": { "idReadable": "PROJ-101" }
-  }
-}
-```
+| `article_create` | Create article in knowledge base | `summary`, optionally `content`, `parentArticleId`, `projectId`, `usesMarkdown`, `returnRendered` |
+| `article_update` | Update article | `articleId`, optionally `summary`, `content`, `usesMarkdown`, `returnRendered` |
+| `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered` |
 
 ### Search
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit` |
+| `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered` |
 
 ## Build
 
@@ -231,8 +195,3 @@ npm run build
 ```bash
 npm run dev
 ```
-
-## Progress Log
-
-- 2025-10-13 — added holiday configuration extensions, new work item and report tools, structuredContent examples for MCP clients.
-- 2025-10-13 — added `dateFilterMode` parameter to `issue_search_by_user_activity` tool with two modes: fast (`issue_updated`) filters by issue.updated field, precise (`user_activity`) checks actual user activity dates including comments, mentions, and field changes history (e.g., when user was assignee but later changed). Removed unreliable `commenter:` operator, added `reporter:` and `assignee:` operators.

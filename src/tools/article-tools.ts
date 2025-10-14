@@ -15,11 +15,15 @@ const articleCreateArgs = {
   content: z.string().optional().describe("Article content"),
   parentArticleId: z.string().optional().describe("Parent article ID"),
   projectId: z.string().optional().describe("Project ID"),
+  usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
+  returnRendered: z.boolean().optional().describe("Return rendered content preview"),
 };
 const articleUpdateArgs = {
   articleId: z.string().min(1).describe("Article ID"),
   summary: z.string().optional().describe("New title"),
   content: z.string().optional().describe("New content"),
+  usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
+  returnRendered: z.boolean().optional().describe("Return rendered content preview"),
 };
 const articleLookupSchema = z.object(articleLookupArgs);
 const articleListSchema = z.object(articleListArgs);
@@ -29,7 +33,7 @@ const articleUpdateSchema = z.object(articleUpdateArgs);
 export function registerArticleTools(server: McpServer, client: YoutrackClient): void {
   server.tool(
     "article_get",
-    "Get YouTrack article by ID. Note: Returns predefined fields only - id, idReadable, summary, content, parentArticle (id, idReadable), project (id, shortName, name).",
+    "Get YouTrack article by ID. Note: Returns predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name).",
     articleLookupArgs,
     async (rawInput) => {
       try {
@@ -48,7 +52,7 @@ export function registerArticleTools(server: McpServer, client: YoutrackClient):
 
   server.tool(
     "article_list",
-    "List Knowledge Base articles. Note: Returns predefined fields only - id, idReadable, summary, parentArticle (id, idReadable), project (id, shortName, name). Content field is not included for performance reasons.",
+    "List Knowledge Base articles. Note: Returns predefined fields only - id, idReadable, summary, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name). Content field is not included for performance reasons.",
     articleListArgs,
     async (rawInput: unknown) => {
       try {
@@ -70,7 +74,7 @@ export function registerArticleTools(server: McpServer, client: YoutrackClient):
 
   server.tool(
     "article_create",
-    "Create article in YouTrack knowledge base. Note: Response includes predefined fields only - id, idReadable, summary, content, parentArticle (id, idReadable), project (id, shortName, name).",
+    "Create article in YouTrack knowledge base. Note: Response includes predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name).",
     articleCreateArgs,
     async (rawInput: unknown) => {
       try {
@@ -80,6 +84,8 @@ export function registerArticleTools(server: McpServer, client: YoutrackClient):
           content: payload.content,
           parentArticleId: payload.parentArticleId,
           projectId: payload.projectId,
+          usesMarkdown: payload.usesMarkdown,
+          returnRendered: payload.returnRendered,
         });
         const response = toolSuccess(article);
 
@@ -94,7 +100,7 @@ export function registerArticleTools(server: McpServer, client: YoutrackClient):
 
   server.tool(
     "article_update",
-    "Update existing article. Note: Response includes predefined fields only - id, idReadable, summary, content, parentArticle (id, idReadable), project (id, shortName, name).",
+    "Update existing article. Note: Response includes predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name).",
     articleUpdateArgs,
     async (rawInput: unknown) => {
       try {
@@ -108,6 +114,8 @@ export function registerArticleTools(server: McpServer, client: YoutrackClient):
           articleId: payload.articleId,
           summary: payload.summary,
           content: payload.content,
+          usesMarkdown: payload.usesMarkdown,
+          returnRendered: payload.returnRendered,
         });
         const response = toolSuccess(article);
 

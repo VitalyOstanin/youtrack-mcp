@@ -31,6 +31,7 @@ import type {
   ArticleSearchPayload,
   ArticleUpdateInput,
   IssueCommentsPayload,
+  IssueCommentCreateInput,
   IssueDetailsPayload,
   IssueError,
   IssueLookupPayload,
@@ -69,18 +70,21 @@ import type {
 const DEFAULT_PAGE_SIZE = 200;
 const DEFAULT_EXPECTED_MINUTES = 8 * 60;
 const defaultFields = {
-  issue: "id,idReadable,summary,description,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
-  issueSearch: "id,idReadable,summary,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
+  issue:
+    "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
+  issueSearch:
+    "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
   issueDetails:
-    "id,idReadable,summary,description,created,updated,resolved,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name),reporter(id,login,name),updater(id,login,name)",
-  comments: "id,text,author(id,login,name),created,updated",
+    "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,created,updated,resolved,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name),reporter(id,login,name),updater(id,login,name)",
+  comments: "id,text,textPreview,usesMarkdown,author(id,login,name),created,updated",
   workItem:
-    "id,date,updated,duration(minutes,presentation),text,description,issue(id,idReadable),author(id,login,name,email)",
+    "id,date,updated,duration(minutes,presentation),text,textPreview,usesMarkdown,description,issue(id,idReadable),author(id,login,name,email)",
   workItems:
-    "id,date,updated,duration(minutes,presentation),text,description,issue(id,idReadable),author(id,login,name,email)",
+    "id,date,updated,duration(minutes,presentation),text,textPreview,usesMarkdown,description,issue(id,idReadable),author(id,login,name,email)",
   users: "id,login,name,fullName,email",
   projects: "id,shortName,name",
-  article: "id,idReadable,summary,content,parentArticle(id,idReadable),project(id,shortName,name)",
+  article:
+    "id,idReadable,summary,content,usesMarkdown,parentArticle(id,idReadable),project(id,shortName,name)",
   articleList: "id,idReadable,summary,parentArticle(id,idReadable),project(id,shortName,name)",
 } as const;
 
@@ -222,11 +226,28 @@ export class YoutrackClient {
     return project;
   }
 
+  private async getProjectById(projectId: string): Promise<YoutrackProject | null> {
+    // Check cache first by iterating through values
+    for (const project of this.projectsByShortName.values()) {
+      if (project.id === projectId) {
+        return project;
+      }
+    }
+
+    // If not in cache, fetch all projects and search
+    const { projects } = await this.listProjects();
+    const project = projects.find((candidate) => candidate.id === projectId) ?? null;
+
+    return project;
+  }
+
   async getIssue(issueId: string): Promise<IssueLookupPayload> {
     try {
       const issue = await this.getIssueRaw(issueId);
+      const mappedIssue = mapIssue(issue);
+      const payload = { issue: mappedIssue };
 
-      return { issue: mapIssue(issue) };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -237,8 +258,10 @@ export class YoutrackClient {
       const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${issueId}`, {
         params: { fields: defaultFields.issueDetails },
       });
+      const mappedIssue = mapIssueDetails(response.data);
+      const payload = { issue: mappedIssue };
 
-      return { issue: mapIssueDetails(response.data) };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -249,24 +272,32 @@ export class YoutrackClient {
       const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
         params: { fields: defaultFields.comments },
       });
+      const mappedComments = mapComments(response.data);
+      const payload = { comments: mappedComments };
 
-      return { comments: mapComments(response.data) };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
   }
 
-  async createIssueComment(input: { issueId: string; text: string }): Promise<{ comment: MappedYoutrackIssueComment }> {
-    const body = {
+  async createIssueComment(input: IssueCommentCreateInput): Promise<{ comment: MappedYoutrackIssueComment }> {
+    const body: Record<string, unknown> = {
       text: input.text,
     };
+
+    if (input.usesMarkdown !== undefined) {
+      body.usesMarkdown = input.usesMarkdown;
+    }
 
     try {
       const response = await this.http.post<YoutrackIssueComment>(`/api/issues/${input.issueId}/comments`, body, {
         params: { fields: defaultFields.comments },
       });
+      const mappedComment = mapComment(response.data);
+      const payload = { comment: mappedComment };
 
-      return { comment: mapComment(response.data) };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -274,35 +305,35 @@ export class YoutrackClient {
 
   async getIssueActivities(
     issueId: string,
-    params: { author?: string; startDate?: number; endDate?: number } = {},
+    { author, startDate, endDate }: { author?: string; startDate?: number; endDate?: number } = {},
   ): Promise<YoutrackActivityItem[]> {
     const categories = "CustomFieldCategory,CommentsCategory";
     const fields =
       "id,timestamp,author(id,login,name),category(id),target(text),added(name,id,login),removed(name,id,login),$type";
-
     const requestParams: Record<string, unknown> = {
       categories,
       fields,
     };
 
-    if (params.author) {
-      requestParams.author = params.author;
+    if (author) {
+      requestParams.author = author;
     }
 
-    if (params.startDate) {
-      requestParams.start = params.startDate;
+    if (startDate) {
+      requestParams.start = startDate;
     }
 
-    if (params.endDate) {
-      requestParams.end = params.endDate;
+    if (endDate) {
+      requestParams.end = endDate;
     }
 
     try {
       const response = await this.http.get<YoutrackActivityItem[]>(`/api/issues/${issueId}/activities`, {
         params: requestParams,
       });
+      const activities = response.data;
 
-      return response.data;
+      return activities;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -313,6 +344,7 @@ export class YoutrackClient {
       summary: input.summary,
       description: input.description,
       project: { id: input.project },
+      ...(input.usesMarkdown !== undefined ? { usesMarkdown: input.usesMarkdown } : {}),
     };
 
     if (input.parentIssueId) {
@@ -322,13 +354,14 @@ export class YoutrackClient {
     if (input.assigneeLogin) {
       body.assignee = { login: input.assigneeLogin };
     }
-
     try {
       const response = await this.http.post<YoutrackIssue>("/api/issues", body, {
         params: { fields: defaultFields.issue },
       });
+      const mappedIssue = mapIssue(response.data);
+      const payload = { issue: mappedIssue };
 
-      return { issue: mapIssue(response.data) };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -349,12 +382,18 @@ export class YoutrackClient {
       body.parent = input.parentIssueId ? { id: input.parentIssueId } : null;
     }
 
+    if (input.usesMarkdown !== undefined) {
+      body.usesMarkdown = input.usesMarkdown;
+    }
+
     try {
       await this.http.post(`/api/issues/${input.issueId}`, body);
 
       const issue = await this.getIssueRaw(input.issueId);
+      const mappedIssue = mapIssue(issue);
+      const payload = { issue: mappedIssue };
 
-      return { issue: mapIssue(issue) };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -376,8 +415,10 @@ export class YoutrackClient {
       await this.http.post(`/api/issues/${input.issueId}`, body);
 
       const issue = await this.getIssueRaw(input.issueId);
+      const mappedIssue = mapIssue(issue);
+      const payload = { issue: mappedIssue };
 
-      return { issue: mapIssue(issue) };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -415,7 +456,7 @@ export class YoutrackClient {
 
       return {
         issues: foundIssues.map(mapIssue),
-        errors: errors.length > 0 ? errors : undefined,
+        errors: errors.length ? errors : undefined,
       };
     } catch (error) {
       throw this.normalizeError(error);
@@ -454,7 +495,7 @@ export class YoutrackClient {
 
       return {
         issues: foundIssues.map(mapIssueDetails),
-        errors: errors.length > 0 ? errors : undefined,
+        errors: errors.length ? errors : undefined,
       };
     } catch (error) {
       throw this.normalizeError(error);
@@ -508,7 +549,7 @@ export class YoutrackClient {
 
     return {
       commentsByIssue,
-      errors: errors.length > 0 ? errors : undefined,
+      errors: errors.length ? errors : undefined,
     };
   }
 
@@ -529,8 +570,7 @@ export class YoutrackClient {
     // Note: 'commenter' operator removed as it's unreliable
     if (input.userLogins.length > 0) {
       const userClauses = input.userLogins.map(
-        (login) =>
-          `updater: {${login}} or mentions: {${login}} or reporter: {${login}} or assignee: {${login}}`,
+        (login) => `updater: {${login}} or mentions: {${login}} or reporter: {${login}} or assignee: {${login}}`,
       );
 
       if (userClauses.length === 1) {
@@ -589,8 +629,7 @@ export class YoutrackClient {
     // Build query for user activity without date filter
     if (input.userLogins.length > 0) {
       const userClauses = input.userLogins.map(
-        (login) =>
-          `updater: {${login}} or mentions: {${login}} or reporter: {${login}} or assignee: {${login}}`,
+        (login) => `updater: {${login}} or mentions: {${login}} or reporter: {${login}} or assignee: {${login}}`,
       );
 
       if (userClauses.length === 1) {
@@ -613,7 +652,6 @@ export class YoutrackClient {
           $top: DEFAULT_PAGE_SIZE,
         },
       });
-
       const candidateIssues = response.data;
 
       if (candidateIssues.length === 0) {
@@ -638,14 +676,11 @@ export class YoutrackClient {
         this.getIssuesDetails(issueIds),
         this.getMultipleIssuesComments(issueIds),
       ]);
-
       // Get activities for each issue
       const activitiesPromises = issueIds.map((issueId) => this.getIssueActivities(issueId));
       const activitiesResults = await Promise.all(activitiesPromises);
-
       const startTimestamp = input.startDate ? new Date(input.startDate).getTime() : 0;
       const endTimestamp = input.endDate ? new Date(input.endDate).getTime() : Date.now();
-
       // Process each issue to determine lastActivityDate
       const issuesWithActivity: Array<{ issue: YoutrackIssue; lastActivityDate: string }> = [];
 
@@ -655,7 +690,6 @@ export class YoutrackClient {
         const details = detailsResult.issues.find((d) => d.idReadable === issueId);
         const comments = commentsResult.commentsByIssue[issueId] ?? [];
         const activities = activitiesResults[i] ?? [];
-
         const dates: number[] = [];
 
         // Check comments from user
@@ -727,7 +761,6 @@ export class YoutrackClient {
       const skip = input.skip ?? 0;
       const limit = input.limit ?? 100;
       const paginatedIssues = issuesWithActivity.slice(skip, skip + limit);
-
       // Map issues with lastActivityDate
       const resultIssues = paginatedIssues.map(({ issue, lastActivityDate }) => ({
         ...mapIssue(issue),
@@ -753,7 +786,14 @@ export class YoutrackClient {
   }
 
   async listWorkItems(
-    params: {
+    {
+      author,
+      startDate,
+      endDate,
+      issueId,
+      top: limit,
+      allUsers = false,
+    }: {
       author?: string;
       startDate?: string | number | Date;
       endDate?: string | number | Date;
@@ -765,24 +805,23 @@ export class YoutrackClient {
     const requestParams: Record<string, unknown> = {
       fields: defaultFields.workItems,
     };
-    const limit = params.top;
 
-    if (params.issueId) {
-      requestParams.issueId = params.issueId;
+    if (issueId) {
+      requestParams.issueId = issueId;
     }
 
-    if (params.startDate) {
-      requestParams.startDate = toIsoDateString(params.startDate);
+    if (startDate) {
+      requestParams.startDate = toIsoDateString(startDate);
     }
 
-    if (params.endDate) {
-      requestParams.endDate = toIsoDateString(params.endDate);
+    if (endDate) {
+      requestParams.endDate = toIsoDateString(endDate);
     }
 
-    if (!params.allUsers) {
-      const author = params.author ?? (await this.getCurrentUser()).login;
+    if (!allUsers) {
+      const authorLogin = author ?? (await this.getCurrentUser()).login;
 
-      requestParams.author = author;
+      requestParams.author = authorLogin;
     }
 
     const items: YoutrackWorkItem[] = [];
@@ -855,10 +894,12 @@ export class YoutrackClient {
       issueId?: string;
     } = {},
   ): Promise<YoutrackWorkItem[]> {
-    return await this.listWorkItems({
+    const workItems = await this.listWorkItems({
       ...params,
       allUsers: true,
     });
+
+    return workItems;
   }
 
   async listRecentWorkItems(
@@ -902,12 +943,16 @@ export class YoutrackClient {
   }
 
   async createWorkItem(input: YoutrackWorkItemCreateInput): Promise<YoutrackWorkItem> {
-    const body = {
+    const body: Record<string, unknown> = {
       date: parseDateInput(input.date),
       duration: { minutes: input.minutes },
       text: input.summary ?? input.description,
       description: input.description ?? input.summary,
     };
+
+    if (input.usesMarkdown !== undefined) {
+      body.usesMarkdown = input.usesMarkdown;
+    }
 
     try {
       const response = await this.http.post<YoutrackWorkItem>(
@@ -917,8 +962,9 @@ export class YoutrackClient {
           params: { fields: defaultFields.workItem },
         },
       );
+      const workItem = response.data;
 
-      return response.data;
+      return workItem;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -960,6 +1006,7 @@ export class YoutrackClient {
       minutes,
       summary,
       description,
+      usesMarkdown: input.usesMarkdown ?? existing.usesMarkdown,
     });
   }
 
@@ -982,6 +1029,7 @@ export class YoutrackClient {
             minutes: input.minutes,
             summary: input.summary,
             description: input.description,
+            usesMarkdown: input.usesMarkdown,
           });
 
           return { success: true as const, item };
@@ -1036,6 +1084,7 @@ export class YoutrackClient {
       minutes: input.minutes,
       summary: input.description,
       description: input.description,
+      usesMarkdown: input.usesMarkdown,
     });
     const mappedWorkItem = mapWorkItem(item);
 
@@ -1171,8 +1220,10 @@ export class YoutrackClient {
       const response = await this.http.get<YoutrackArticle>(`/api/articles/${articleId}`, {
         params: { fields: defaultFields.article },
       });
+      const article = response.data;
+      const payload = { article };
 
-      return { article: response.data };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1191,7 +1242,14 @@ export class YoutrackClient {
     }
 
     if (args.projectId) {
-      queryParts.push(`project: {${args.projectId}}`);
+      // YouTrack articles API expects project shortName, not ID
+      const project = await this.getProjectById(args.projectId);
+
+      if (!project?.shortName) {
+        throw new YoutrackClientError(`Project with ID '${args.projectId}' not found or has no shortName`);
+      }
+
+      queryParts.push(`project: {${project.shortName}}`);
     }
 
     const query = queryParts.join(" and ");
@@ -1203,8 +1261,10 @@ export class YoutrackClient {
           ...(query ? { query } : {}),
         },
       });
+      const articles = response.data;
+      const payload = { articles };
 
-      return { articles: response.data };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1224,12 +1284,24 @@ export class YoutrackClient {
       body.project = { id: input.projectId };
     }
 
+    if (input.usesMarkdown !== undefined) {
+      body.usesMarkdown = input.usesMarkdown;
+    }
+
+    const params: Record<string, unknown> = { fields: defaultFields.article };
+
+    if (input.returnRendered) {
+      params.fields = `${defaultFields.article},contentPreview`;
+    }
+
     try {
       const response = await this.http.post<YoutrackArticle>("/api/articles", body, {
-        params: { fields: defaultFields.article },
+        params,
       });
+      const article = response.data;
+      const payload = { article };
 
-      return { article: response.data };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1246,12 +1318,24 @@ export class YoutrackClient {
       body.content = input.content;
     }
 
+    if (input.usesMarkdown !== undefined) {
+      body.usesMarkdown = input.usesMarkdown;
+    }
+
+    const params: Record<string, unknown> = { fields: defaultFields.article };
+
+    if (input.returnRendered) {
+      params.fields = `${defaultFields.article},contentPreview`;
+    }
+
     try {
       const response = await this.http.post<YoutrackArticle>(`/api/articles/${input.articleId}`, body, {
-        params: { fields: defaultFields.article },
+        params,
       });
+      const article = response.data;
+      const payload = { article };
 
-      return { article: response.data };
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1261,7 +1345,14 @@ export class YoutrackClient {
     const queryParts = [`{${input.query}}`];
 
     if (input.projectId) {
-      queryParts.push(`project: {${input.projectId}}`);
+      // YouTrack articles API expects project shortName, not ID
+      const project = await this.getProjectById(input.projectId);
+
+      if (!project?.shortName) {
+        throw new YoutrackClientError(`Project with ID '${input.projectId}' not found or has no shortName`);
+      }
+
+      queryParts.push(`project: {${project.shortName}}`);
     }
 
     if (input.parentArticleId) {
@@ -1269,11 +1360,12 @@ export class YoutrackClient {
     }
 
     const query = queryParts.join(" and ");
+    const fields = input.returnRendered ? `${defaultFields.articleList},contentPreview` : defaultFields.articleList;
 
     try {
       const response = await this.http.get<YoutrackArticle[]>("/api/articles", {
         params: {
-          fields: defaultFields.articleList,
+          fields,
           query,
           ...(input.limit ? { top: input.limit } : {}),
         },

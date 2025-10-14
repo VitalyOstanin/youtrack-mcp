@@ -33,8 +33,8 @@ export class YoutrackServer {
     );
 
     const config = loadConfig();
-    initializeTimezone(config.timezone);
 
+    initializeTimezone(config.timezone);
     this.client = new YoutrackClient(config);
 
     registerServiceInfoTool(this.server, this.client);

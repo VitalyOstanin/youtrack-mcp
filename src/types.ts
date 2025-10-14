@@ -39,6 +39,8 @@ export interface YoutrackIssue {
   idReadable: string;
   summary?: string;
   description?: string;
+  wikifiedDescription?: string;
+  usesMarkdown?: boolean;
   project?: YoutrackProject;
   parent?: { idReadable: string; id?: string } | null;
   assignee?: YoutrackUser | null;
@@ -50,6 +52,7 @@ export interface YoutrackIssueCreateInput {
   description?: string;
   parentIssueId?: string;
   assigneeLogin?: string;
+  usesMarkdown?: boolean;
 }
 
 export interface YoutrackIssueUpdateInput {
@@ -57,6 +60,7 @@ export interface YoutrackIssueUpdateInput {
   summary?: string;
   description?: string;
   parentIssueId?: string | null;
+  usesMarkdown?: boolean;
 }
 
 export interface YoutrackIssueAssignInput {
@@ -86,6 +90,8 @@ export interface YoutrackWorkItem {
   updated?: number;
   duration: DurationValue;
   text?: string;
+  textPreview?: string;
+  usesMarkdown?: boolean;
   description?: string;
   issue: {
     idReadable: string;
@@ -100,6 +106,7 @@ export interface YoutrackWorkItemCreateInput {
   minutes: number;
   summary?: string;
   description?: string;
+  usesMarkdown?: boolean;
 }
 
 export interface YoutrackWorkItemUpdateInput {
@@ -109,6 +116,7 @@ export interface YoutrackWorkItemUpdateInput {
   minutes?: number;
   summary?: string;
   description?: string;
+  usesMarkdown?: boolean;
 }
 
 export interface YoutrackWorkItemPeriodCreateInput {
@@ -118,6 +126,7 @@ export interface YoutrackWorkItemPeriodCreateInput {
   minutes: number;
   summary?: string;
   description?: string;
+  usesMarkdown?: boolean;
   excludeWeekends?: boolean;
   excludeHolidays?: boolean;
   holidays?: Array<string | number | Date>;
@@ -129,6 +138,7 @@ export interface YoutrackWorkItemIdempotentCreateInput {
   date: string | number | Date;
   minutes: number;
   description: string;
+  usesMarkdown?: boolean;
 }
 
 export interface YoutrackWorkItemReportOptions {
@@ -191,6 +201,8 @@ export interface IssueDetailsPayload {
 export interface YoutrackIssueComment {
   id: string;
   text?: string;
+  textPreview?: string;
+  usesMarkdown?: boolean;
   author?: YoutrackUser;
   created: number;
   updated?: number;
@@ -203,6 +215,7 @@ export interface IssueCommentsPayload {
 export interface IssueCommentCreateInput {
   issueId: string;
   text: string;
+  usesMarkdown?: boolean;
 }
 
 export interface YoutrackActivityItem {
@@ -296,6 +309,8 @@ export interface YoutrackArticle {
   idReadable: string;
   summary: string;
   content?: string;
+  contentPreview?: string;
+  usesMarkdown?: boolean;
   parentArticle?: {
     id: string;
     idReadable: string;
@@ -325,12 +340,16 @@ export interface ArticleCreateInput {
   content?: string;
   parentArticleId?: string;
   projectId?: string;
+  usesMarkdown?: boolean;
+  returnRendered?: boolean;
 }
 
 export interface ArticleUpdateInput {
   articleId: string;
   summary?: string;
   content?: string;
+  usesMarkdown?: boolean;
+  returnRendered?: boolean;
 }
 
 export interface ArticleSearchInput {
@@ -338,6 +357,7 @@ export interface ArticleSearchInput {
   projectId?: string;
   parentArticleId?: string;
   limit?: number;
+  returnRendered?: boolean;
 }
 
 export interface ArticleSearchPayload {
