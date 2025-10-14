@@ -1,5 +1,8 @@
 # YouTrack MCP Server
 
+[![CI](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@vitalyostanin/youtrack-mcp.svg)](https://www.npmjs.com/package/@vitalyostanin/youtrack-mcp)
+
 MCP server for comprehensive YouTrack integration. Manage issues, track work items with detailed reports, search by user activity, work with knowledge base articles, and access projects and users. Supports time tracking with holiday/pre-holiday configuration, batch operations, and structured responses for AI clients.
 
 ## Table of Contents
@@ -8,6 +11,7 @@ MCP server for comprehensive YouTrack integration. Manage issues, track work ite
   - [Table of Contents](#table-of-contents)
   - [Requirements](#requirements)
   - [Installation](#installation)
+  - [Development & Release](#development--release)
   - [Running the server (stdio)](#running-the-server-stdio)
   - [Configuration for Code (Recommended)](#configuration-for-code-recommended)
   - [Configuration for Claude Code CLI](#configuration-for-claude-code-cli)
@@ -18,8 +22,7 @@ MCP server for comprehensive YouTrack integration. Manage issues, track work ite
     - [Users and Projects](#users-and-projects)
     - [Articles](#articles)
     - [Search](#search)
-  - [Build](#build)
-  - [Development](#development)
+  - [Important Notes](#important-notes)
 
 ## Requirements
 
@@ -69,6 +72,95 @@ claude mcp remove youtrack-mcp --scope user
 ```bash
 npm install
 npm run build
+```
+
+## Development & Release
+
+### GitHub Actions Workflows
+
+This project uses GitHub Actions for continuous integration and automated releases:
+
+#### CI Workflow (`.github/workflows/ci.yml`)
+
+Runs automatically on every push and pull request:
+- **Triggers**: All branches, all pull requests
+- **Node.js versions**: 20.x, 22.x (matrix testing)
+- **Steps**:
+  1. Install dependencies (`npm ci`)
+  2. Run linter (`npm run lint`)
+  3. Build project (`npm run build`)
+  4. Verify build artifacts (executable check)
+
+#### Publish Workflow (`.github/workflows/publish.yml`)
+
+Runs automatically when you create a new version tag:
+- **Trigger**: Git tags matching `v*` pattern (e.g., `v0.1.0`, `v1.2.3`)
+- **Node.js version**: 20.x
+- **Steps**:
+  1. Install dependencies
+  2. Build project
+  3. Publish to npm registry
+  4. Create GitHub Release
+
+### Setting up NPM_TOKEN
+
+To enable automatic publishing to npm, you need to configure the `NPM_TOKEN` secret:
+
+1. **Generate npm Access Token**:
+   - Go to [npmjs.com](https://www.npmjs.com/) and log in
+   - Navigate to **Access Tokens** in your account settings
+   - Click **Generate New Token** → **Classic Token**
+   - Select **Automation** type (for CI/CD)
+   - Copy the generated token
+
+2. **Add Secret to GitHub**:
+   - Go to your GitHub repository
+   - Navigate to **Settings** → **Secrets and variables** → **Actions**
+   - Click **New repository secret**
+   - Name: `NPM_TOKEN`
+   - Value: Paste your npm token
+   - Click **Add secret**
+
+### Release Process
+
+To create a new release:
+
+```bash
+# 1. Update version in package.json and create git tag
+npm version patch   # for 0.1.0 → 0.1.1
+# or
+npm version minor   # for 0.1.0 → 0.2.0
+# or
+npm version major   # for 0.1.0 → 1.0.0
+
+# 2. Push the tag to GitHub
+git push --follow-tags
+
+# 3. GitHub Actions will automatically:
+#    - Run tests and build
+#    - Publish to npm
+#    - Create GitHub Release
+```
+
+**Note**: The `npm version` command automatically:
+- Updates `package.json` and `package-lock.json`
+- Creates a git commit with message like "0.1.1"
+- Creates a git tag like "v0.1.1"
+
+### Manual Build & Test
+
+```bash
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+
+# Run linter
+npm run lint
+
+# Watch mode for development
+npm run dev:watch
 ```
 
 ## Running the server (stdio)
@@ -196,15 +288,3 @@ All tools return `structuredContent` with a `success` flag and payload formatted
 Some operations cannot be undone and require explicit confirmation:
 
 - **`issue_attachment_delete`** - Requires `confirmation: true` parameter. Deleted attachments cannot be recovered.
-
-## Build
-
-```bash
-npm run build
-```
-
-## Development
-
-```bash
-npm run dev
-```

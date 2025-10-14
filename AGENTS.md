@@ -6,10 +6,24 @@
 - When formatting or refactoring code, default to running `npx eslint --fix` (without dry-run) so lintable issues are auto-corrected early.
 - Maintain `README.md` in English and `README-ru.md` in Russian so both stay aligned with the YouTrack MCP feature set.
 
+## Documentation Guidelines
+- **All Markdown files must include a Table of Contents (TOC)** after the main heading and before the first section.
+- TOC should use standard Markdown anchor links (e.g., `[Overview](#overview)`).
+- Include all level 2 (`##`) and level 3 (`###`) headers in the TOC for easy navigation.
+- Update the TOC whenever document structure changes (new sections, renamed headers, etc.).
+- Example TOC format:
+  ```markdown
+  ## Table of Contents
+  - [Section 1](#section-1)
+    - [Subsection 1.1](#subsection-11)
+  - [Section 2](#section-2)
+  ```
+
 ## Project Structure
 - `src/`: TypeScript sources for the MCP server, YouTrack client, and tool registrations.
 - `dist/`: Compiled JavaScript emitted by `npm run build` (ignored by git).
 - `index.ts`: Entry point that wires the stdio transport to the server.
+- `README-release.md`: Release procedure checklist in English — comprehensive guide for executing project releases.
 
 ## Build & Development Commands
 - `npm run build`: Compile TypeScript to `dist/`.
@@ -32,6 +46,65 @@
 ## MCP Tooling Expectations
 - Implement pagination for every MCP tool that may return large result sets; every tool must expose explicit pagination parameters and defaults in the schema.
 - Use conservative defaults (≤100 items per page unless the YouTrack API enforces a different limit) and document maximum supported sizes.
+
+## MCP Tool Registration
+- **Always use the `.tool()` method** for registering MCP tools instead of `registerTool()`.
+- The `.tool()` method provides better compatibility with Claude Code MCP client and ensures proper parameter parsing.
+
+### Method Signatures
+- **Preferred**: `.tool(name, description, argsObject, handler)`
+  - `name`: Tool name (string)
+  - `description`: Detailed usage description (string)
+  - `argsObject`: Plain object with Zod schema definitions (e.g., `{ param: z.string().describe("...") }`)
+  - `handler`: Async function that receives parsed arguments
+
+- **Avoid**: `registerTool(name, schema, handler)`
+  - This older API wraps args in `z.object()`, which can cause parameter parsing issues with some MCP clients
+
+### Tool File Export Pattern
+Each tool file should export both the args object and a composed schema:
+```typescript
+// ✅ Correct pattern
+export const issueDetailsArgs = {
+  issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+  // ... other parameters
+};
+
+export const issueDetailsSchema = z.object(issueDetailsArgs);
+
+export async function issueDetailsHandler(client: YouTrackClient, rawInput: unknown) {
+  const input = issueDetailsSchema.parse(rawInput);
+  // ... implementation
+}
+```
+
+### Registration Examples
+```typescript
+// ✅ CORRECT: Use .tool() with args object
+import { issueDetailsArgs, issueDetailsHandler } from "./tools/issue-details.js";
+
+this.youtrackMcpServer.tool(
+  "issue_details",
+  "Get detailed information about YouTrack issue. Use for: Viewing full issue details, checking assignee and status.",
+  issueDetailsArgs,
+  async (args) => issueDetailsHandler(this.client, args),
+);
+
+// ❌ INCORRECT: Using registerTool with schema
+import { issueDetailsSchema, issueDetailsHandler } from "./tools/issue-details.js";
+
+this.youtrackMcpServer.registerTool(
+  "issue_details",
+  issueDetailsSchema,
+  async (args) => issueDetailsHandler(this.client, args),
+);
+```
+
+### Why .tool() is Better
+- Direct parameter passing without double-wrapping in `z.object()`
+- Required description field encourages better documentation
+- Consistent parameter structure across all tools
+- Better error messages when parameters are missing or invalid
 
 ## MCP Tool Descriptions & Documentation
 - **All MCP tool descriptions must include usage hints** to help users understand when and how to use each tool effectively.

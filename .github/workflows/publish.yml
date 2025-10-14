@@ -1,0 +1,60 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # Required for creating GitHub releases
+      id-token: write  # Required for npm provenance
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        registry-url: 'https://registry.npmjs.org'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build project
+      run: npm run build
+
+    - name: Verify package contents
+      run: |
+        echo "📦 Package contents:"
+        npm pack --dry-run
+        echo ""
+        echo "✅ Package verification complete"
+
+    - name: Publish to npm
+      run: npm publish --provenance --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    - name: Create GitHub Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create ${{ github.ref_name }} \
+          --title "Release ${{ github.ref_name }}" \
+          --notes "🚀 New release of YouTrack MCP Server
+
+        **Package**: \`@vitalyostanin/youtrack-mcp@${{ github.ref_name }}\`
+
+        Install with:
+        \`\`\`bash
+        npm install @vitalyostanin/youtrack-mcp@${{ github.ref_name }}
+        \`\`\`
+
+        See [CHANGELOG](https://github.com/VitalyOstanin/youtrack-mcp/blob/${{ github.ref_name }}/README.md) for details."
