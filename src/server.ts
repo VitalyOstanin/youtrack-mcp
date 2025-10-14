@@ -8,6 +8,7 @@ import { registerArticleTools } from "./tools/article-tools.js";
 import { registerArticleSearchTools } from "./tools/article-search-tools.js";
 import { registerUserTools } from "./tools/user-tools.js";
 import { registerProjectTools } from "./tools/project-tools.js";
+import { registerAttachmentTools } from "./tools/attachment-tools.js";
 import { YoutrackClient } from "./youtrack-client.js";
 import { loadConfig } from "./config.js";
 import { initializeTimezone } from "./utils/date.js";
@@ -20,7 +21,7 @@ export class YoutrackServer {
     this.server = new McpServer(
       {
         name: "youtrack-mcp",
-        version: "0.1.0",
+        version: "0.2.0",
       },
       {
         capabilities: {
@@ -46,6 +47,7 @@ export class YoutrackServer {
     registerArticleSearchTools(this.server, this.client);
     registerUserTools(this.server, this.client);
     registerProjectTools(this.server, this.client);
+    registerAttachmentTools(this.server, this.client);
   }
 
   async connect(transport: Parameters<McpServer["connect"]>[0]): Promise<void> {

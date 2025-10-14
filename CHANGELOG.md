@@ -2,7 +2,23 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-10-14
+
 ### Added
+
+- **Attachment management** - Full support for working with issue attachments:
+  - `issue_attachments_list`: Get list of all attachments for an issue with metadata
+  - `issue_attachment_get`: Get detailed information about a specific attachment
+  - `issue_attachment_download`: Get signed download URL for attachment (no auth required)
+  - `issue_attachment_upload`: Upload multiple files to an issue (max 10 files per request)
+  - `issue_attachment_delete`: Delete attachment with mandatory confirmation parameter
+- File size formatting in attachment responses (e.g., "1.2 MB", "120.6 KB")
+- Safety mechanism for destructive operations:
+  - Attachment deletion requires explicit `confirmation: true` parameter
+  - Clear error messages when confirmation is missing or false
+  - Attachment name included in deletion response for verification
+- File validation before upload (checks file existence on local filesystem)
+- Support for muting update notifications when uploading attachments
 
 - Markdown formatting support via `usesMarkdown` parameter in issue tools:
   - `issue_create`: Create issues with Markdown-formatted descriptions
@@ -36,10 +52,19 @@
 - Enhanced AGENTS.md with clearer guidelines for tool development and documentation
 - Refined code formatting in `src/server.ts` for consistency
 
-### Removed
+### Changed
 
-- "Progress Log" section from README.md and README-ru.md (historical logs moved to changelog)
-- "structuredContent Examples" section from README.md and README-ru.md (examples consolidated in tool descriptions)
+- Updated README.md with attachment tools documentation
+- Added "Important Notes" section in README.md for destructive operations
+- Bumped version to 0.2.0 (minor version update - new functionality)
+
+### Technical
+
+- Added `form-data` dependency for multipart/form-data uploads
+- New types in `src/types.ts` for attachment operations
+- New mapper functions in `src/utils/mappers.ts` for attachment data transformation
+- New client methods in `src/youtrack-client.ts` for attachment API calls
+- New tool registration file `src/tools/attachment-tools.ts`
 
 ## [0.1.0] - 2025-10-13
 
@@ -58,5 +83,6 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/VitalyOstanin/youtrack-mcp/releases/tag/v0.1.0

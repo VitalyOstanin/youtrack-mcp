@@ -1,4 +1,6 @@
 import axios from "axios";
+import FormData from "form-data";
+import fs from "fs";
 
 import {
   calculateTotalMinutes,
@@ -13,6 +15,8 @@ import {
   validateDateRange,
 } from "./utils/date.js";
 import {
+  mapAttachment,
+  mapAttachments,
   mapComment,
   mapComments,
   mapIssue,
@@ -30,6 +34,13 @@ import type {
   ArticleSearchInput,
   ArticleSearchPayload,
   ArticleUpdateInput,
+  AttachmentDeleteInput,
+  AttachmentDeletePayload,
+  AttachmentDownloadPayload,
+  AttachmentPayload,
+  AttachmentsListPayload,
+  AttachmentUploadInput,
+  AttachmentUploadPayload,
   IssueCommentsPayload,
   IssueCommentCreateInput,
   IssueDetailsPayload,
@@ -48,6 +59,7 @@ import type {
   WorkItemUsersReportPayload,
   YoutrackActivityItem,
   YoutrackArticle,
+  YoutrackAttachment,
   YoutrackConfig,
   YoutrackIssue,
   YoutrackIssueAssignInput,
@@ -86,6 +98,8 @@ const defaultFields = {
   article:
     "id,idReadable,summary,content,usesMarkdown,parentArticle(id,idReadable),project(id,shortName,name)",
   articleList: "id,idReadable,summary,parentArticle(id,idReadable),project(id,shortName,name)",
+  attachment: "id,name,author(id,login,name),created,updated,size,mimeType,url,thumbnailURL,extension",
+  attachments: "id,name,author(id,login,name),created,updated,size,mimeType,extension",
 } as const;
 
 class YoutrackClientError extends Error {
@@ -1372,6 +1386,131 @@ export class YoutrackClient {
       });
 
       return { articles: response.data, query: input.query };
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async listAttachments(issueId: string): Promise<AttachmentsListPayload> {
+    try {
+      const response = await this.http.get<YoutrackAttachment[]>(`/api/issues/${issueId}/attachments`, {
+        params: { fields: defaultFields.attachments },
+      });
+      const mapped = mapAttachments(response.data);
+
+      return {
+        attachments: mapped,
+        issueId,
+      };
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async getAttachment(issueId: string, attachmentId: string): Promise<AttachmentPayload> {
+    try {
+      const response = await this.http.get<YoutrackAttachment>(`/api/issues/${issueId}/attachments/${attachmentId}`, {
+        params: { fields: defaultFields.attachment },
+      });
+      const mapped = mapAttachment(response.data);
+
+      return {
+        attachment: mapped,
+        issueId,
+      };
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async getAttachmentDownloadInfo(issueId: string, attachmentId: string): Promise<AttachmentDownloadPayload> {
+    try {
+      const response = await this.http.get<YoutrackAttachment>(`/api/issues/${issueId}/attachments/${attachmentId}`, {
+        params: { fields: defaultFields.attachment },
+      });
+      const attachment = response.data;
+
+      if (!attachment.url) {
+        throw new YoutrackClientError("Attachment URL is not available");
+      }
+
+      const downloadUrl = `${this.config.baseUrl}${attachment.url}`;
+      const mapped = mapAttachment(attachment);
+
+      return {
+        attachment: mapped,
+        downloadUrl,
+        issueId,
+      };
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async uploadAttachments(input: AttachmentUploadInput): Promise<AttachmentUploadPayload> {
+    // Validate file paths
+    for (const filePath of input.filePaths) {
+      if (!fs.existsSync(filePath)) {
+        throw new YoutrackClientError(`File not found: ${filePath}`);
+      }
+    }
+
+    const formData = new FormData();
+
+    // Add files to form data
+    for (const filePath of input.filePaths) {
+      formData.append("upload", fs.createReadStream(filePath));
+    }
+
+    const params: Record<string, unknown> = {
+      fields: defaultFields.attachment,
+    };
+
+    if (input.muteUpdateNotifications) {
+      params.muteUpdateNotifications = true;
+    }
+
+    try {
+      const response = await this.http.post<YoutrackAttachment[]>(
+        `/api/issues/${input.issueId}/attachments`,
+        formData,
+        {
+          params,
+          headers: formData.getHeaders(),
+        },
+      );
+      const mapped = mapAttachments(response.data);
+
+      return {
+        uploaded: mapped,
+        issueId: input.issueId,
+      };
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async deleteAttachment(input: AttachmentDeleteInput): Promise<AttachmentDeletePayload> {
+    // Check confirmation
+    if (input.confirmation !== true) {
+      throw new YoutrackClientError(
+        "Deletion requires explicit confirmation. Set 'confirmation' parameter to true. This is a destructive operation that cannot be undone.",
+      );
+    }
+
+    // Get attachment info before deletion
+    const attachmentInfo = await this.getAttachment(input.issueId, input.attachmentId);
+
+    // Perform deletion
+    try {
+      await this.http.delete(`/api/issues/${input.issueId}/attachments/${input.attachmentId}`);
+
+      return {
+        deleted: true,
+        issueId: input.issueId,
+        attachmentId: input.attachmentId,
+        attachmentName: attachmentInfo.attachment.name,
+      };
     } catch (error) {
       throw this.normalizeError(error);
     }

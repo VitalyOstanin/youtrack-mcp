@@ -1,6 +1,6 @@
 {
   "name": "@vitalyostanin/youtrack-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "postbuild": "chmod +x dist/index.js",
@@ -48,6 +48,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
     "axios": "^1.12.2",
+    "form-data": "^4.0.1",
     "luxon": "^3.5.0",
     "zod": "^3.25.76"
   },

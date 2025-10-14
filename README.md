@@ -139,6 +139,11 @@ All tools return `structuredContent` with a `success` flag and payload formatted
 | `issue_assign` | Assign issue to user | `issueId`, `assigneeLogin` (login or `me`) |
 | `issue_comment_create` | Add comment to issue | `issueId`, `text` — comment text, optionally `usesMarkdown` |
 | `issue_search_by_user_activity` | Search issues with user activity | `userLogins[]` — array of user logins, optionally `startDate`, `endDate`, `dateFilterMode` (`issue_updated` fast mode or `user_activity` precise mode), `limit` (default 100, max 200). Finds issues where users updated, mentioned, reported, assigned, or commented. Fast mode filters by issue.updated field; precise mode checks actual user activity dates including comments, mentions, and field changes history (e.g., when user was assignee but later changed). In precise mode, returns `lastActivityDate` field. Sorted by activity time (newest first) |
+| `issue_attachments_list` | Get list of attachments | `issueId` — issue code |
+| `issue_attachment_get` | Get attachment info | `issueId`, `attachmentId` |
+| `issue_attachment_download` | Get download URL for attachment | `issueId`, `attachmentId` — returns signed URL |
+| `issue_attachment_upload` | Upload files to issue | `issueId`, `filePaths[]` — array of file paths (max 10), optionally `muteUpdateNotifications` |
+| `issue_attachment_delete` | Delete attachment (requires confirmation) | `issueId`, `attachmentId`, `confirmation` (must be `true`) |
 
 ### Work Items
 
@@ -183,6 +188,14 @@ All tools return `structuredContent` with a `success` flag and payload formatted
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
 | `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered` |
+
+## Important Notes
+
+### Destructive Operations
+
+Some operations cannot be undone and require explicit confirmation:
+
+- **`issue_attachment_delete`** - Requires `confirmation: true` parameter. Deleted attachments cannot be recovered.
 
 ## Build
 

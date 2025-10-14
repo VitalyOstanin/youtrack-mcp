@@ -407,3 +407,76 @@ export interface IssuesCommentsPayload {
   commentsByIssue: Record<string, MappedYoutrackIssueComment[]>;
   errors?: IssueError[];
 }
+
+export interface YoutrackAttachment {
+  id: string;
+  name: string;
+  author?: YoutrackUser;
+  created: number;
+  updated?: number;
+  size: number;
+  mimeType?: string;
+  url?: string;
+  thumbnailURL?: string;
+  extension?: string;
+  charset?: string;
+  base64Content?: string;
+}
+
+export interface MappedYoutrackAttachment {
+  id: string;
+  name: string;
+  author?: {
+    id: string;
+    login: string;
+    name?: string;
+  };
+  created: string;
+  updated?: string;
+  size: number;
+  sizeFormatted: string;
+  mimeType?: string;
+  extension?: string;
+  url?: string;
+  thumbnailURL?: string;
+}
+
+export interface AttachmentsListPayload {
+  attachments: MappedYoutrackAttachment[];
+  issueId: string;
+}
+
+export interface AttachmentPayload {
+  attachment: MappedYoutrackAttachment;
+  issueId: string;
+}
+
+export interface AttachmentDownloadPayload {
+  attachment: MappedYoutrackAttachment;
+  downloadUrl: string;
+  issueId: string;
+}
+
+export interface AttachmentUploadInput {
+  issueId: string;
+  filePaths: string[];
+  muteUpdateNotifications?: boolean;
+}
+
+export interface AttachmentUploadPayload {
+  uploaded: MappedYoutrackAttachment[];
+  issueId: string;
+}
+
+export interface AttachmentDeleteInput {
+  issueId: string;
+  attachmentId: string;
+  confirmation: boolean;
+}
+
+export interface AttachmentDeletePayload {
+  deleted: true;
+  issueId: string;
+  attachmentId: string;
+  attachmentName: string;
+}

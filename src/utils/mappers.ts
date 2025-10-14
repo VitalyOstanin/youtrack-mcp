@@ -1,9 +1,11 @@
 import { DateTime } from "luxon";
 import type {
+  YoutrackAttachment,
   YoutrackIssue,
   YoutrackIssueComment,
   YoutrackIssueDetails,
   YoutrackWorkItem,
+  MappedYoutrackAttachment,
 } from "../types.js";
 
 /**
@@ -131,4 +133,51 @@ export function mapWorkItems(items: YoutrackWorkItem[]): MappedYoutrackWorkItem[
  */
 export function mapComments(comments: YoutrackIssueComment[]): MappedYoutrackIssueComment[] {
   return comments.map(mapComment);
+}
+
+/**
+ * Format file size in bytes to human-readable format
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) {
+    return "0 Bytes";
+  }
+
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
+}
+
+/**
+ * Map YoutrackAttachment to MappedYoutrackAttachment
+ */
+export function mapAttachment(attachment: YoutrackAttachment): MappedYoutrackAttachment {
+  return {
+    id: attachment.id,
+    name: attachment.name,
+    author: attachment.author
+      ? {
+          id: attachment.author.id,
+          login: attachment.author.login,
+          name: attachment.author.name,
+        }
+      : undefined,
+    created: timestampToIsoDateTime(attachment.created) ?? "",
+    updated: timestampToIsoDateTime(attachment.updated),
+    size: attachment.size,
+    sizeFormatted: formatFileSize(attachment.size),
+    mimeType: attachment.mimeType,
+    extension: attachment.extension,
+    url: attachment.url,
+    thumbnailURL: attachment.thumbnailURL,
+  };
+}
+
+/**
+ * Map array of attachments
+ */
+export function mapAttachments(attachments: YoutrackAttachment[]): MappedYoutrackAttachment[] {
+  return attachments.map(mapAttachment);
 }
