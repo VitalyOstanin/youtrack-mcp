@@ -85,7 +85,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comments",
-    "Get issue comments. Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated.",
+    "Get issue comments. Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
     issueIdArgs,
     async (rawInput) => {
       try {
@@ -186,7 +186,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comment_create",
-    "Add comment to issue. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated.",
+    "Add comment to issue. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
     issueCommentCreateArgs,
     async (rawInput) => {
       try {
@@ -247,7 +247,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_comments",
-    "Get comments for multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated.",
+    "Get comments for multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
     issueIdsArgs,
     async (rawInput) => {
       try {

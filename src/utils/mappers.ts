@@ -39,6 +39,13 @@ export function timestampToIsoDateTime(timestamp: number | null | undefined): st
 }
 
 /**
+ * Generate comment URL for direct navigation
+ */
+export function generateCommentUrl(baseUrl: string, issueId: string, commentId: string): string {
+  return `${baseUrl}/issue/${issueId}#focus=Comments-${commentId}.0-0`;
+}
+
+/**
  * Mapped issue with ISO date strings
  * Issue type doesn't have date fields, so it's the same as YoutrackIssue
  */
@@ -66,6 +73,7 @@ export interface MappedYoutrackWorkItem extends Omit<YoutrackWorkItem, "date"> {
 export interface MappedYoutrackIssueComment extends Omit<YoutrackIssueComment, "created" | "updated"> {
   created: string;
   updated?: string;
+  commentUrl?: string;
 }
 
 /**
@@ -104,11 +112,16 @@ export function mapWorkItem(item: YoutrackWorkItem): MappedYoutrackWorkItem {
 /**
  * Map YoutrackIssueComment to MappedYoutrackIssueComment
  */
-export function mapComment(comment: YoutrackIssueComment): MappedYoutrackIssueComment {
+export function mapComment(
+  comment: YoutrackIssueComment,
+  baseUrl?: string,
+  issueId?: string,
+): MappedYoutrackIssueComment {
   const mapped = {
     ...comment,
     created: timestampToIsoDateTime(comment.created) ?? "",
     updated: timestampToIsoDateTime(comment.updated),
+    commentUrl: baseUrl && issueId ? generateCommentUrl(baseUrl, issueId, comment.id) : undefined,
   };
 
   return mapped;
@@ -131,8 +144,12 @@ export function mapWorkItems(items: YoutrackWorkItem[]): MappedYoutrackWorkItem[
 /**
  * Map array of comments
  */
-export function mapComments(comments: YoutrackIssueComment[]): MappedYoutrackIssueComment[] {
-  return comments.map(mapComment);
+export function mapComments(
+  comments: YoutrackIssueComment[],
+  baseUrl?: string,
+  issueId?: string,
+): MappedYoutrackIssueComment[] {
+  return comments.map((comment) => mapComment(comment, baseUrl, issueId));
 }
 
 /**

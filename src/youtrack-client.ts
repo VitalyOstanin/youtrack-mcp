@@ -286,7 +286,7 @@ export class YoutrackClient {
       const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
         params: { fields: defaultFields.comments },
       });
-      const mappedComments = mapComments(response.data);
+      const mappedComments = mapComments(response.data, this.config.baseUrl, issueId);
       const payload = { comments: mappedComments };
 
       return payload;
@@ -308,7 +308,7 @@ export class YoutrackClient {
       const response = await this.http.post<YoutrackIssueComment>(`/api/issues/${input.issueId}/comments`, body, {
         params: { fields: defaultFields.comments },
       });
-      const mappedComment = mapComment(response.data);
+      const mappedComment = mapComment(response.data, this.config.baseUrl, input.issueId);
       const payload = { comment: mappedComment };
 
       return payload;
@@ -553,7 +553,7 @@ export class YoutrackClient {
 
     for (const result of results) {
       if (result.success) {
-        commentsByIssue[result.issueId] = mapComments(result.comments);
+        commentsByIssue[result.issueId] = mapComments(result.comments, this.config.baseUrl, result.issueId);
 
         continue;
       }
