@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-10-16
+
+### Fixed
+
+- Package configuration: `package.json` now correctly included in published npm package
+- Documentation: Improved installation guide with npx usage examples
+
 ## [0.3.0] - 2025-10-16
 
 ### Added
@@ -118,7 +125,8 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/VitalyOstanin/youtrack-mcp/releases/tag/v0.1.0
