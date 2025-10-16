@@ -3,7 +3,18 @@
 [![CI](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@vitalyostanin/youtrack-mcp.svg)](https://www.npmjs.com/package/@vitalyostanin/youtrack-mcp)
 
-MCP server for comprehensive YouTrack integration. Manage issues, track work items with detailed reports, search by user activity, work with knowledge base articles, and access projects and users. Supports time tracking with holiday/pre-holiday configuration, batch operations, and structured responses for AI clients.
+MCP server for comprehensive YouTrack integration with the following capabilities:
+
+- **Issue management** - create, update, comment, assign, change state, batch operations
+- **Attachment management** - upload files (up to 10), download with signed URLs, delete
+- **Work items tracking** - create entries with idempotent operations, batch creation for periods
+- **Detailed time reports** - summary reports, deviation analysis, multi-user statistics
+- **Advanced search** - find issues by user activity with fast/precise filtering modes
+- **Change history** - complete issue activity log with filtering and pagination
+- **Knowledge base** - create, update, search articles with hierarchical structure
+- **User and project access** - retrieve information about users and projects
+- **Batch operations** - efficient processing of up to 50 issues simultaneously
+- **Additional features** - Markdown support, folded sections, holiday configuration, user aliases
 
 ## Table of Contents
 
