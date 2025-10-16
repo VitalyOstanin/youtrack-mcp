@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import type {
+  YoutrackActivityItem,
   YoutrackAttachment,
   YoutrackIssue,
   YoutrackIssueComment,
@@ -197,4 +198,57 @@ export function mapAttachment(attachment: YoutrackAttachment): MappedYoutrackAtt
  */
 export function mapAttachments(attachments: YoutrackAttachment[]): MappedYoutrackAttachment[] {
   return attachments.map(mapAttachment);
+}
+
+/**
+ * Mapped activity item with ISO datetime strings
+ */
+export interface MappedYoutrackActivityItem {
+  id: string;
+  timestamp: string;
+  author?: {
+    id: string;
+    login: string;
+    name?: string;
+  };
+  category?: {
+    id: string;
+  };
+  target?: {
+    text?: string;
+  };
+  added?: Array<{
+    name?: string;
+    id?: string;
+    login?: string;
+  }>;
+  removed?: Array<{
+    name?: string;
+    id?: string;
+    login?: string;
+  }>;
+  $type?: string;
+}
+
+/**
+ * Map YoutrackActivityItem to MappedYoutrackActivityItem
+ */
+export function mapActivityItem(activity: YoutrackActivityItem): MappedYoutrackActivityItem {
+  return {
+    id: activity.id,
+    timestamp: timestampToIsoDateTime(activity.timestamp) ?? "",
+    author: activity.author,
+    category: activity.category,
+    target: activity.target,
+    added: activity.added,
+    removed: activity.removed,
+    $type: activity.$type,
+  };
+}
+
+/**
+ * Map array of activity items
+ */
+export function mapActivityItems(activities: YoutrackActivityItem[]): MappedYoutrackActivityItem[] {
+  return activities.map(mapActivityItem);
 }

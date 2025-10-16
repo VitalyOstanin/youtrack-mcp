@@ -480,3 +480,100 @@ export interface AttachmentDeletePayload {
   attachmentId: string;
   attachmentName: string;
 }
+
+// State change types
+export interface YoutrackStateEvent {
+  id: string;
+  presentation: string;
+  $type?: string;
+}
+
+export interface YoutrackCustomFieldValue {
+  id?: string;
+  name?: string;
+  presentation?: string;
+  $type?: string;
+}
+
+export interface YoutrackCustomField {
+  id: string;
+  name: string;
+  value?: YoutrackCustomFieldValue;
+  possibleEvents?: YoutrackStateEvent[];
+  $type: string;
+}
+
+// For StateMachineIssueCustomField (workflow-based states with transitions)
+export interface YoutrackStateField extends YoutrackCustomField {
+  $type: "StateMachineIssueCustomField";
+  possibleEvents: YoutrackStateEvent[];
+}
+
+// For StateIssueCustomField (simple bundle-based states)
+export interface YoutrackSimpleStateField extends YoutrackCustomField {
+  $type: "StateIssueCustomField";
+  value?: {
+    id: string;
+    name: string;
+    presentation?: string;
+    $type: "StateBundleElement";
+  };
+}
+
+export interface IssueChangeStateInput {
+  issueId: string;
+  stateName: string;
+}
+
+export interface IssueChangeStatePayload {
+  issueId: string;
+  previousState?: string;
+  newState: string;
+  transitionUsed?: string;
+}
+
+// Mapped activity item with ISO datetime strings
+export interface MappedYoutrackActivityItem {
+  id: string;
+  timestamp: string; // ISO datetime string
+  author?: {
+    id: string;
+    login: string;
+    name?: string;
+  };
+  category?: {
+    id: string;
+  };
+  target?: {
+    text?: string;
+  };
+  added?: Array<{
+    name?: string;
+    id?: string;
+    login?: string;
+  }>;
+  removed?: Array<{
+    name?: string;
+    id?: string;
+    login?: string;
+  }>;
+  $type?: string;
+}
+
+// Response payload for issue_activities tool
+export interface IssueActivitiesPayload {
+  activities: MappedYoutrackActivityItem[];
+  issueId: string;
+  filters?: {
+    author?: string;
+    startDate?: string;
+    endDate?: string;
+    categories?: string;
+  };
+  pagination?: {
+    returned: number;
+    total: number;
+    limit?: number;
+    skip?: number;
+  };
+}

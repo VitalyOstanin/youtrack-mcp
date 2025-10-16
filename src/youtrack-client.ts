@@ -41,6 +41,8 @@ import type {
   AttachmentsListPayload,
   AttachmentUploadInput,
   AttachmentUploadPayload,
+  IssueChangeStateInput,
+  IssueChangeStatePayload,
   IssueCommentsPayload,
   IssueCommentCreateInput,
   IssueDetailsPayload,
@@ -61,6 +63,7 @@ import type {
   YoutrackArticle,
   YoutrackAttachment,
   YoutrackConfig,
+  YoutrackCustomField,
   YoutrackIssue,
   YoutrackIssueAssignInput,
   YoutrackIssueComment,
@@ -69,6 +72,7 @@ import type {
   YoutrackIssueUpdateInput,
   YoutrackProject,
   YoutrackProjectListPayload,
+  YoutrackStateField,
   YoutrackUser,
   YoutrackUserListPayload,
   YoutrackWorkItem,
@@ -1538,15 +1542,20 @@ export class YoutrackClient {
 
       const fallbackMessage = typeof error.message === "string" && error.message.length > 0 ? error.message : undefined;
       const finalMessage = responseMessage ?? fallbackMessage ?? "Unknown error";
+      const clientError = new YoutrackClientError(`YouTrack API error: ${finalMessage}`, status, data);
 
-      return new YoutrackClientError(`YouTrack API error: ${finalMessage}`, status, data);
+      return clientError;
     }
 
     if (error instanceof Error) {
-      return new YoutrackClientError(error.message);
+      const errorFromMessage = new YoutrackClientError(error.message);
+
+      return errorFromMessage;
     }
 
-    return new YoutrackClientError(String(error));
+    const stringError = new YoutrackClientError(String(error));
+
+    return stringError;
   }
 
   private async resolveAssignee(login: string): Promise<YoutrackUser> {
@@ -1593,5 +1602,126 @@ export class YoutrackClient {
     const boundary = toIsoDateString(target);
 
     return boundary;
+  }
+
+  // State change methods
+  async getIssueCustomFields(issueId: string): Promise<YoutrackCustomField[]> {
+    try {
+      const response = await this.http.get<YoutrackCustomField[]>(`/api/issues/${issueId}/customFields`, {
+        params: {
+          fields: "id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)",
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async changeIssueState(input: IssueChangeStateInput): Promise<IssueChangeStatePayload> {
+    try {
+      // Get state field
+      const customFields = await this.getIssueCustomFields(input.issueId);
+      const stateField = customFields.find(
+        (field) =>
+          (field.$type === "StateMachineIssueCustomField" || field.$type === "StateIssueCustomField") &&
+          field.name === "State",
+      );
+
+      if (!stateField) {
+        throw new YoutrackClientError("State field not found for this issue");
+      }
+
+      const previousState = stateField.value?.presentation ?? stateField.value?.name ?? "Unknown";
+
+      // Handle StateMachineIssueCustomField (workflow-based)
+      if (stateField.$type === "StateMachineIssueCustomField") {
+        const stateMachineField = stateField as YoutrackStateField;
+
+        if (stateMachineField.possibleEvents.length === 0) {
+          throw new YoutrackClientError("No state transitions available for this issue");
+        }
+
+        const targetStateLower = input.stateName.toLowerCase();
+        const matchingEvent = stateMachineField.possibleEvents.find(
+          (event) =>
+            event.presentation.toLowerCase() === targetStateLower || event.id.toLowerCase() === targetStateLower,
+        );
+
+        if (!matchingEvent) {
+          const availableStates = stateMachineField.possibleEvents.map((e) => e.presentation).join(", ");
+
+          throw new YoutrackClientError(
+            `State transition to '${input.stateName}' is not available. Available transitions: ${availableStates}`,
+          );
+        }
+
+        // Execute state transition via event
+        const body = {
+          event: {
+            id: matchingEvent.id,
+            presentation: matchingEvent.presentation,
+            $type: "Event",
+          },
+        };
+
+        await this.http.post(`/api/issues/${input.issueId}/fields/${stateField.id}`, body);
+
+        return {
+          issueId: input.issueId,
+          previousState,
+          newState: matchingEvent.presentation,
+          transitionUsed: matchingEvent.id,
+        };
+      }
+
+      // Handle StateIssueCustomField (simple bundle-based)
+      if (stateField.$type === "StateIssueCustomField") {
+        // Note: We set state by name directly without pre-validation for performance.
+        // Invalid state names will be rejected by YouTrack API with appropriate error.
+        const body = {
+          customFields: [
+            {
+              name: "State",
+              $type: "StateIssueCustomField",
+              value: {
+                name: input.stateName,
+                $type: "StateBundleElement",
+              },
+            },
+          ],
+        };
+
+        try {
+          await this.http.post(`/api/issues/${input.issueId}`, body);
+        } catch (error) {
+          const normalized = this.normalizeError(error);
+
+          // Enhance error message if state name is invalid
+          if (normalized.status === 400 || normalized.status === 422) {
+            const enhancedError = new YoutrackClientError(
+              `Failed to set state to '${input.stateName}'. The state may not exist for this project. Original error: ${normalized.message}`,
+              normalized.status,
+              normalized.details,
+            );
+
+            throw enhancedError;
+          }
+
+          throw normalized;
+        }
+
+        return {
+          issueId: input.issueId,
+          previousState,
+          newState: input.stateName,
+        };
+      }
+
+      throw new YoutrackClientError(`Unsupported state field type: ${stateField.$type}`);
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
   }
 }

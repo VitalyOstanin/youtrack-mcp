@@ -43,6 +43,14 @@ const issueCommentCreateArgs = {
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const issueCommentCreateSchema = z.object(issueCommentCreateArgs);
+const issueChangeStateArgs = {
+  issueId: z.string().min(1).describe("Issue code (e.g., BC-9205)"),
+  stateName: z
+    .string()
+    .min(1)
+    .describe("Target state name (e.g., 'In Progress', 'Open', 'Fixed', 'Verified'). Case-insensitive."),
+};
+const issueChangeStateSchema = z.object(issueChangeStateArgs);
 
 export function registerIssueTools(server: McpServer, client: YoutrackClient) {
   server.tool(
@@ -253,6 +261,28 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdsSchema.parse(rawInput);
         const result = await client.getMultipleIssuesComments(payload.issueIds);
+        const response = toolSuccess(result);
+
+        return response;
+      } catch (error) {
+        const errorResponse = toolError(error);
+
+        return errorResponse;
+      }
+    },
+  );
+
+  server.tool(
+    "issue_change_state",
+    "Change issue state/status using state machine transitions. Use for: Moving issues through workflow states (e.g., from 'Open' to 'In Progress'), updating issue status, triggering state transitions. Note: Only valid transitions are allowed based on current state and workflow rules. The tool automatically discovers available transitions and validates the requested state change. Returns information about the previous state, new state, and the transition used.",
+    issueChangeStateArgs,
+    async (rawInput) => {
+      try {
+        const payload = issueChangeStateSchema.parse(rawInput);
+        const result = await client.changeIssueState({
+          issueId: payload.issueId,
+          stateName: payload.stateName,
+        });
         const response = toolSuccess(result);
 
         return response;

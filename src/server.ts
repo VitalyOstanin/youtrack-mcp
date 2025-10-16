@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerServiceInfoTool } from "./tools/service-info.js";
 import { registerIssueTools } from "./tools/issue-tools.js";
+import { registerIssueActivityTools } from "./tools/issue-activity-tools.js";
 import { registerIssueSearchTools } from "./tools/issue-search-tools.js";
 import { registerWorkitemTools } from "./tools/workitem-tools.js";
 import { registerWorkitemReportTools } from "./tools/workitem-report-tools.js";
@@ -41,6 +42,7 @@ export class YoutrackServer {
 
     registerServiceInfoTool(this.server, this.client);
     registerIssueTools(this.server, this.client);
+    registerIssueActivityTools(this.server, this.client);
     registerIssueSearchTools(this.server, this.client);
     registerWorkitemTools(this.server, this.client);
     registerWorkitemReportTools(this.server, this.client);
