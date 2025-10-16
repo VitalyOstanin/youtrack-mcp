@@ -27,7 +27,12 @@ const workItemCreateArgs = {
   date: dateInput.describe("Date"),
   minutes: z.number().int().positive().describe("Minutes"),
   summary: z.string().optional().describe("Brief text"),
-  description: z.string().optional().describe("Description"),
+  description: z
+    .string()
+    .optional()
+    .describe(
+      "Description. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const workItemCreateSchema = z.object(workItemCreateArgs);
@@ -35,7 +40,12 @@ const workItemIdempotentArgs = {
   issueId: z.string().min(1).describe("Issue ID"),
   date: dateInput.describe("Date"),
   minutes: z.number().int().positive().describe("Minutes"),
-  description: z.string().min(1).describe("Text to search for existing work item"),
+  description: z
+    .string()
+    .min(1)
+    .describe(
+      "Text to search for existing work item. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const workItemIdempotentSchema = z.object(workItemIdempotentArgs);
@@ -45,7 +55,12 @@ const workItemUpdateArgs = {
   date: dateInput.optional().describe("New date"),
   minutes: z.number().int().positive().optional().describe("New minutes"),
   summary: z.string().optional().describe("New text"),
-  description: z.string().optional().describe("New description"),
+  description: z
+    .string()
+    .optional()
+    .describe(
+      "New description. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const workItemUpdateSchema = z.object(workItemUpdateArgs);
@@ -60,7 +75,12 @@ const workItemsPeriodArgs = {
   endDate: dateInput.describe("Period end date"),
   minutes: z.number().int().positive().describe("Minutes per day"),
   summary: z.string().optional().describe("Brief text"),
-  description: z.string().optional().describe("Description"),
+  description: z
+    .string()
+    .optional()
+    .describe(
+      "Description. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
   excludeWeekends: z.boolean().optional().describe("Exclude weekends"),
   excludeHolidays: z.boolean().optional().describe("Exclude holidays"),
@@ -147,7 +167,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_create",
-    "Create work item record. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Create work item record. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
     workItemCreateArgs,
     async (rawInput) => {
       try {
@@ -173,7 +193,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_create_idempotent",
-    "Create work item record if similar one does not exist. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Create work item record if similar one does not exist. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
     workItemIdempotentArgs,
     async (rawInput) => {
       try {
@@ -198,7 +218,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_update",
-    "Update work item record. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Update work item record. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
     workItemUpdateArgs,
     async (rawInput) => {
       try {
@@ -254,7 +274,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitems_create_period",
-    "Create work items for period. Note: Created work items include predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Create work items for period. Supports markdown with folded sections (<details>/<summary>) in description. Note: Created work items include predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
     workItemsPeriodArgs,
     async (rawInput) => {
       try {

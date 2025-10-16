@@ -18,7 +18,12 @@ const issueIdsSchema = z.object(issueIdsArgs);
 const issueCreateArgs = {
   projectId: z.string().min(1).describe("Project ID (YouTrack internal id)"),
   summary: z.string().min(1).describe("Brief issue description"),
-  description: z.string().optional().describe("Full description"),
+  description: z
+    .string()
+    .optional()
+    .describe(
+      "Full description. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   parentIssueId: z.string().optional().describe("Parent issue ID"),
   assigneeLogin: z.string().optional().describe("Assignee login or me"),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
@@ -27,7 +32,12 @@ const issueCreateSchema = z.object(issueCreateArgs);
 const issueUpdateArgs = {
   issueId: z.string().min(1).describe("Issue ID or code"),
   summary: z.string().optional().describe("New summary"),
-  description: z.string().optional().describe("New description"),
+  description: z
+    .string()
+    .optional()
+    .describe(
+      "New description. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   parentIssueId: z.string().optional().describe("New parent or empty string to remove"),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
@@ -39,14 +49,24 @@ const issueAssignArgs = {
 const issueAssignSchema = z.object(issueAssignArgs);
 const issueCommentCreateArgs = {
   issueId: z.string().min(1).describe("Issue ID or code"),
-  text: z.string().min(1).describe("Comment text"),
+  text: z
+    .string()
+    .min(1)
+    .describe(
+      "Comment text. Supports folded sections for hiding large blocks (logs, code): <details> <summary>Title</summary>Content</details>",
+    ),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const issueCommentCreateSchema = z.object(issueCommentCreateArgs);
 const issueCommentUpdateArgs = {
   issueId: z.string().min(1).describe("Issue ID or code"),
   commentId: z.string().min(1).describe("Comment ID"),
-  text: z.string().optional().describe("New comment text"),
+  text: z
+    .string()
+    .optional()
+    .describe(
+      "New comment text. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
   muteUpdateNotifications: z.boolean().optional().describe("Do not send update notifications"),
 };
@@ -120,7 +140,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_create",
-    "Create new issue in YouTrack. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
+    "Create new issue in YouTrack. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
     issueCreateArgs,
     async (rawInput) => {
       try {
@@ -146,7 +166,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_update",
-    "Update existing issue. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
+    "Update existing issue. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
     issueUpdateArgs,
     async (rawInput) => {
       try {
@@ -202,7 +222,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comment_create",
-    "Add comment to issue. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
+    "Add comment to issue. Supports markdown with folded sections (<details>/<summary>) for hiding logs, code examples, etc. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
     issueCommentCreateArgs,
     async (rawInput) => {
       try {
@@ -225,7 +245,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comment_update",
-    "Update existing issue comment. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment). Use for: Editing comment text, changing formatting mode, correcting typos in comments.",
+    "Update existing issue comment. Supports markdown with folded sections (<details>/<summary>). Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment). Use for: Editing comment text, changing formatting mode, correcting typos in comments.",
     issueCommentUpdateArgs,
     async (rawInput) => {
       try {

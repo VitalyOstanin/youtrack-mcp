@@ -12,7 +12,12 @@ const articleListArgs = {
 };
 const articleCreateArgs = {
   summary: z.string().min(1).describe("Article title"),
-  content: z.string().optional().describe("Article content"),
+  content: z
+    .string()
+    .optional()
+    .describe(
+      "Article content. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   parentArticleId: z.string().optional().describe("Parent article ID"),
   projectId: z.string().optional().describe("Project ID"),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
@@ -21,7 +26,12 @@ const articleCreateArgs = {
 const articleUpdateArgs = {
   articleId: z.string().min(1).describe("Article ID"),
   summary: z.string().optional().describe("New title"),
-  content: z.string().optional().describe("New content"),
+  content: z
+    .string()
+    .optional()
+    .describe(
+      "New content. Supports folded sections: <details> <summary>Title</summary>Content</details>",
+    ),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
   returnRendered: z.boolean().optional().describe("Return rendered content preview"),
 };
@@ -74,7 +84,7 @@ export function registerArticleTools(server: McpServer, client: YoutrackClient):
 
   server.tool(
     "article_create",
-    "Create article in YouTrack knowledge base. Note: Response includes predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name).",
+    "Create article in YouTrack knowledge base. Supports markdown with folded sections (<details>/<summary>) in content. Note: Response includes predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name).",
     articleCreateArgs,
     async (rawInput: unknown) => {
       try {
@@ -100,7 +110,7 @@ export function registerArticleTools(server: McpServer, client: YoutrackClient):
 
   server.tool(
     "article_update",
-    "Update existing article. Note: Response includes predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name).",
+    "Update existing article. Supports markdown with folded sections (<details>/<summary>) in content. Note: Response includes predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name).",
     articleUpdateArgs,
     async (rawInput: unknown) => {
       try {
