@@ -45,6 +45,8 @@ import type {
   IssueChangeStatePayload,
   IssueCommentsPayload,
   IssueCommentCreateInput,
+  IssueCommentUpdateInput,
+  IssueCommentUpdatePayload,
   IssueDetailsPayload,
   IssueError,
   IssueLookupPayload,
@@ -314,6 +316,47 @@ export class YoutrackClient {
       });
       const mappedComment = mapComment(response.data, this.config.baseUrl, input.issueId);
       const payload = { comment: mappedComment };
+
+      return payload;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async updateIssueComment(input: IssueCommentUpdateInput): Promise<IssueCommentUpdatePayload> {
+    const body: Record<string, unknown> = {};
+
+    if (input.text !== undefined) {
+      body.text = input.text;
+    }
+
+    if (input.usesMarkdown !== undefined) {
+      body.usesMarkdown = input.usesMarkdown;
+    }
+
+    // Validate that at least one field is provided
+    if (Object.keys(body).length === 0) {
+      throw new YoutrackClientError("At least one field (text or usesMarkdown) must be provided for update");
+    }
+
+    const params: Record<string, unknown> = { fields: defaultFields.comments };
+
+    if (input.muteUpdateNotifications) {
+      params.muteUpdateNotifications = true;
+    }
+
+    try {
+      const response = await this.http.post<YoutrackIssueComment>(
+        `/api/issues/${input.issueId}/comments/${input.commentId}`,
+        body,
+        { params },
+      );
+      const mappedComment = mapComment(response.data, this.config.baseUrl, input.issueId);
+      const payload = {
+        comment: mappedComment,
+        issueId: input.issueId,
+        commentId: input.commentId,
+      };
 
       return payload;
     } catch (error) {

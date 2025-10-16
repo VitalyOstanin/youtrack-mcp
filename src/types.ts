@@ -218,6 +218,14 @@ export interface IssueCommentCreateInput {
   usesMarkdown?: boolean;
 }
 
+export interface IssueCommentUpdateInput {
+  issueId: string;
+  commentId: string;
+  text?: string;
+  usesMarkdown?: boolean;
+  muteUpdateNotifications?: boolean;
+}
+
 export interface YoutrackActivityItem {
   id: string;
   timestamp: number;
@@ -231,6 +239,12 @@ export interface YoutrackActivityItem {
 
 export interface IssueCommentCreatePayload {
   comment: MappedYoutrackIssueComment;
+}
+
+export interface IssueCommentUpdatePayload {
+  comment: MappedYoutrackIssueComment;
+  issueId: string;
+  commentId: string;
 }
 
 export interface WorkItemReportDay {

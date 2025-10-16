@@ -43,6 +43,14 @@ const issueCommentCreateArgs = {
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const issueCommentCreateSchema = z.object(issueCommentCreateArgs);
+const issueCommentUpdateArgs = {
+  issueId: z.string().min(1).describe("Issue ID or code"),
+  commentId: z.string().min(1).describe("Comment ID"),
+  text: z.string().optional().describe("New comment text"),
+  usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
+  muteUpdateNotifications: z.boolean().optional().describe("Do not send update notifications"),
+};
+const issueCommentUpdateSchema = z.object(issueCommentUpdateArgs);
 const issueChangeStateArgs = {
   issueId: z.string().min(1).describe("Issue code (e.g., BC-9205)"),
   stateName: z
@@ -205,6 +213,36 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           usesMarkdown: payload.usesMarkdown,
         });
         const response = toolSuccess(comment);
+
+        return response;
+      } catch (error) {
+        const errorResponse = toolError(error);
+
+        return errorResponse;
+      }
+    },
+  );
+
+  server.tool(
+    "issue_comment_update",
+    "Update existing issue comment. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment). Use for: Editing comment text, changing formatting mode, correcting typos in comments.",
+    issueCommentUpdateArgs,
+    async (rawInput) => {
+      try {
+        const payload = issueCommentUpdateSchema.parse(rawInput);
+
+        if (payload.text === undefined && payload.usesMarkdown === undefined) {
+          throw new Error("At least one field (text or usesMarkdown) must be provided for update");
+        }
+
+        const result = await client.updateIssueComment({
+          issueId: payload.issueId,
+          commentId: payload.commentId,
+          text: payload.text,
+          usesMarkdown: payload.usesMarkdown,
+          muteUpdateNotifications: payload.muteUpdateNotifications,
+        });
+        const response = toolSuccess(result);
 
         return response;
       } catch (error) {
