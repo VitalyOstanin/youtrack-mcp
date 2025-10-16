@@ -62,10 +62,11 @@ npx -y @vitalyostanin/youtrack-mcp
 Установка через Claude MCP CLI:
 
 ```bash
-claude mcp add --scope user youtrack-mcp npx -y @vitalyostanin/youtrack-mcp
+claude mcp add --scope user \
+--env YOUTRACK_URL='https://youtrack.example.com' \
+--env YOUTRACK_TOKEN='perm:my-token' \
+youtrack-mcp -- npx -y @vitalyostanin/youtrack-mcp@latest
 ```
-
-После выполнения команды вас попросят ввести URL YouTrack и токен.
 
 **Опции области видимости:**
 - `--scope user`: Установка для текущего пользователя (для всех проектов)

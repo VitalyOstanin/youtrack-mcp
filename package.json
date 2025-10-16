@@ -42,6 +42,7 @@
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts",
+    "dist/**/*.json",
     "README.md",
     "README-ru.md"
   ],
