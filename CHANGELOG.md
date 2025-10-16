@@ -2,6 +2,41 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-10-16
+
+### Added
+
+- **Issue comment updates** - `issue_comment_update` tool for editing existing comments:
+  - Update comment text with markdown support
+  - Change formatting mode (markdown/plain text)
+  - Optional mute update notifications
+  - Returns updated comment with metadata (id, text, author, timestamps, commentUrl)
+- **Issue activity tracking** - `issue_activities` tool for viewing complete change history:
+  - Track all field changes, comments, attachments, links, VCS changes
+  - Filter by author, date range, and activity categories
+  - Support for pagination with limit and skip parameters
+  - Returns detailed activity items with timestamps, authors, and change details
+- **State machine transitions** - `issue_change_state` tool for status updates:
+  - Change issue state through workflow transitions (e.g., 'Open' → 'In Progress')
+  - Automatic validation of allowed transitions based on workflow rules
+  - Case-insensitive state name matching
+  - Returns information about previous state, new state, and transition used
+- **Folded sections support** - Enhanced markdown capabilities:
+  - Support for `<details>/<summary>` tags in descriptions and comments
+  - Useful for hiding logs, code examples, and large content blocks
+  - Documented in all relevant tool descriptions
+
+### Fixed
+
+- Issue comment link generation in responses
+- Version display now uses package.json version directly
+
+### Changed
+
+- Restructured features list in documentation as bullet points for better readability
+- Updated tool descriptions to document folded sections support
+- Enhanced AGENTS.md with documentation about markdown folded sections
+
 ## [0.2.0] - 2025-10-14
 
 ### Added
@@ -83,6 +118,7 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/VitalyOstanin/youtrack-mcp/releases/tag/v0.1.0
