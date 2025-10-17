@@ -20,6 +20,7 @@ export interface YoutrackConfig {
   holidays?: string[];
   preHolidays?: string[];
   userAliases?: UserAliasMap;
+  compactMode: boolean;
 }
 
 export interface DurationValue {
@@ -384,6 +385,7 @@ export interface IssueSearchInput {
   startDate?: string | number | Date;
   endDate?: string | number | Date;
   dateFilterMode?: "issue_updated" | "user_activity";
+  briefOutput?: boolean;
   limit?: number;
   skip?: number;
 }

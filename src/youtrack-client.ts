@@ -20,6 +20,7 @@ import {
   mapComment,
   mapComments,
   mapIssue,
+  mapIssueBrief,
   mapIssueDetails,
   mapWorkItem,
   mapWorkItems,
@@ -92,9 +93,13 @@ const defaultFields = {
     "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
   issueSearch:
     "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
+  issueSearchBrief:
+    "id,idReadable,summary,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
   issueDetails:
     "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,created,updated,resolved,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name),reporter(id,login,name),updater(id,login,name)",
+  issueDetailsLight: "id,idReadable,updated,updater(login)",
   comments: "id,text,textPreview,usesMarkdown,author(id,login,name),created,updated",
+  commentsLight: "id,author(login),created,text",
   workItem:
     "id,date,updated,duration(minutes,presentation),text,textPreview,usesMarkdown,description,issue(id,idReadable),author(id,login,name,email)",
   workItems:
@@ -563,6 +568,33 @@ export class YoutrackClient {
     }
   }
 
+  /**
+   * Light version of getIssuesDetails() that fetches only minimal fields (id, idReadable, updated, updater)
+   * Used for filtering in user_activity mode to reduce payload size
+   */
+  async getIssuesDetailsLight(issueIds: string[]): Promise<YoutrackIssueDetails[]> {
+    if (!issueIds.length) {
+      return [];
+    }
+
+    // Build query: "issue id: BC-123 BC-124 BC-125"
+    const query = `issue id: ${issueIds.join(" ")}`;
+
+    try {
+      const response = await this.http.get<YoutrackIssueDetails[]>("/api/issues", {
+        params: {
+          fields: defaultFields.issueDetailsLight,
+          query,
+          $top: issueIds.length,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
   async getMultipleIssuesComments(issueIds: string[]): Promise<IssuesCommentsPayload> {
     if (!issueIds.length) {
       return { commentsByIssue: {}, errors: [] };
@@ -614,6 +646,53 @@ export class YoutrackClient {
     };
   }
 
+  /**
+   * Light version of getMultipleIssuesComments() that fetches only minimal comment fields
+   * (id, author.login, created, text) for filtering in user_activity mode to reduce payload size
+   */
+  async getMultipleIssuesCommentsLight(
+    issueIds: string[],
+  ): Promise<Record<string, YoutrackIssueComment[]>> {
+    if (!issueIds.length) {
+      return {};
+    }
+
+    interface SuccessResult {
+      issueId: string;
+      comments: YoutrackIssueComment[];
+      success: true;
+    }
+    interface ErrorResult {
+      issueId: string;
+      success: false;
+    }
+    type Result = SuccessResult | ErrorResult;
+
+    // Make parallel requests for all issues
+    const promises = issueIds.map(async (issueId): Promise<Result> => {
+      try {
+        const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
+          params: { fields: defaultFields.commentsLight },
+        });
+
+        return { issueId, comments: response.data, success: true };
+      } catch {
+        // Silently ignore errors in light mode - return empty array
+        return { issueId, success: false };
+      }
+    });
+    const results = await Promise.all(promises);
+    const commentsByIssue: Record<string, YoutrackIssueComment[]> = {};
+
+    for (const result of results) {
+      if (result.success) {
+        commentsByIssue[result.issueId] = result.comments;
+      }
+    }
+
+    return commentsByIssue;
+  }
+
   async searchIssuesByUserActivity(input: IssueSearchInput): Promise<IssueSearchPayload> {
     const mode = input.dateFilterMode ?? "issue_updated";
 
@@ -655,11 +734,12 @@ export class YoutrackClient {
     const query = filterQuery ? `${filterQuery} ${sortPart}` : sortPart;
     const limit = input.limit ?? 100;
     const skip = input.skip ?? 0;
+    const briefOutput = input.briefOutput ?? true;
 
     try {
       const response = await this.http.get<YoutrackIssue[]>("/api/issues", {
         params: {
-          fields: defaultFields.issueSearch,
+          fields: briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch,
           query,
           $top: Math.min(limit, DEFAULT_PAGE_SIZE),
           $skip: skip,
@@ -667,7 +747,7 @@ export class YoutrackClient {
       });
 
       return {
-        issues: response.data.map(mapIssue),
+        issues: briefOutput ? response.data.map(mapIssueBrief) : response.data.map(mapIssue),
         userLogins: input.userLogins,
         period: {
           startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
@@ -687,32 +767,35 @@ export class YoutrackClient {
   private async searchIssuesByUserActivityStrict(input: IssueSearchInput): Promise<IssueSearchPayload> {
     const filters: string[] = [];
 
-    // Build query for user activity without date filter
-    if (input.userLogins.length > 0) {
-      const userClauses = input.userLogins.map(
-        (login) => `updater: {${login}} or mentions: {${login}} or reporter: {${login}} or assignee: {${login}}`,
-      );
+    // Build query without user filters to avoid parser issues on some YT instances.
+    // We will fetch by date window only, then apply precise user-activity filtering client-side.
 
-      if (userClauses.length === 1) {
-        filters.push(userClauses[0]);
-      } else {
-        filters.push(`(${userClauses.join(" or ")})`);
-      }
+    // Add date range filter (align with simple mode) to avoid YT query parser quirks
+    // and to reduce candidate set before precise post-filtering.
+    if (input.startDate || input.endDate) {
+      const startDateStr = input.startDate ? toIsoDateString(input.startDate) : "1970-01-01";
+      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : toIsoDateString(new Date());
+
+      filters.push(`updated: ${startDateStr} .. ${endDateStr}`);
     }
 
     const sortPart = "sort by: updated desc";
     const filterQuery = filters.length > 0 ? filters.join(" and ") : undefined;
     const query = filterQuery ? `${filterQuery} ${sortPart}` : sortPart;
+    const briefOutput = input.briefOutput ?? true;
 
-    // Get candidate issues
+    // Get candidate issues (use brief fields to reduce payload)
     try {
+      // Fetch candidates by date only (no user filters) to ensure parser compatibility
       const response = await this.http.get<YoutrackIssue[]>("/api/issues", {
         params: {
-          fields: defaultFields.issueSearch,
-          query,
+          fields: briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch,
+          query, // use full query with date filter and sorting
           $top: DEFAULT_PAGE_SIZE,
         },
       });
+      // If no data returned, still attempt a fallback without braces
+      // No fallback needed here since we purposely avoided user filters in query
       const candidateIssues = response.data;
 
       if (candidateIssues.length === 0) {
@@ -731,100 +814,31 @@ export class YoutrackClient {
         };
       }
 
-      // Get issueIds and fetch details + comments + activities
+      // Get issueIds and fetch details + comments (light versions for filtering)
       const issueIds = candidateIssues.map((issue) => issue.idReadable);
-      const [detailsResult, commentsResult] = await Promise.all([
-        this.getIssuesDetails(issueIds),
-        this.getMultipleIssuesComments(issueIds),
+      const [detailsLight, commentsLight] = await Promise.all([
+        this.getIssuesDetailsLight(issueIds),
+        this.getMultipleIssuesCommentsLight(issueIds),
       ]);
       // Get activities for each issue
       const activitiesPromises = issueIds.map((issueId) => this.getIssueActivities(issueId));
       const activitiesResults = await Promise.all(activitiesPromises);
-      const startTimestamp = input.startDate ? new Date(input.startDate).getTime() : 0;
-      const endTimestamp = input.endDate ? new Date(input.endDate).getTime() : Date.now();
       // Process each issue to determine lastActivityDate
-      const issuesWithActivity: Array<{ issue: YoutrackIssue; lastActivityDate: string }> = [];
-
-      for (let i = 0; i < candidateIssues.length; i++) {
-        const issue = candidateIssues[i];
-        const issueId = issue.idReadable;
-        const details = detailsResult.issues.find((d) => d.idReadable === issueId);
-        const comments = commentsResult.commentsByIssue[issueId] ?? [];
-        const activities = activitiesResults[i] ?? [];
-        const dates: number[] = [];
-
-        // Check comments from user
-        for (const userLogin of input.userLogins) {
-          for (const comment of comments) {
-            if (comment.author?.login === userLogin && comment.created) {
-              const commentDate = new Date(comment.created).getTime();
-
-              if (commentDate >= startTimestamp && commentDate <= endTimestamp) {
-                dates.push(commentDate);
-              }
-            }
-
-            // Check mentions in comment text
-            if (comment.text?.includes(`@${userLogin}`) && comment.created) {
-              const commentDate = new Date(comment.created).getTime();
-
-              if (commentDate >= startTimestamp && commentDate <= endTimestamp) {
-                dates.push(commentDate);
-              }
-            }
-          }
-
-          // Check activities from user or where user is in added/removed
-          for (const activity of activities) {
-            if (activity.timestamp >= startTimestamp && activity.timestamp <= endTimestamp) {
-              // Activity by user
-              if (activity.author?.login === userLogin) {
-                dates.push(activity.timestamp);
-              }
-
-              // User added or removed in field change (e.g., assignee)
-              const inAdded = activity.added?.some((v) => v.login === userLogin);
-              const inRemoved = activity.removed?.some((v) => v.login === userLogin);
-
-              if (inAdded || inRemoved) {
-                dates.push(activity.timestamp);
-              }
-            }
-          }
-
-          // Check if user is updater and updated date is in range
-          if (details?.updater?.login === userLogin && details.updated) {
-            const updateDate = new Date(details.updated).getTime();
-
-            if (updateDate >= startTimestamp && updateDate <= endTimestamp) {
-              dates.push(updateDate);
-            }
-          }
-        }
-
-        if (dates.length > 0) {
-          const lastActivityTimestamp = Math.max(...dates);
-          const lastActivityDate = new Date(lastActivityTimestamp).toISOString();
-
-          issuesWithActivity.push({
-            issue,
-            lastActivityDate,
-          });
-        }
-      }
-
-      // Sort by lastActivityDate descending
-      issuesWithActivity.sort((a, b) => {
-        return new Date(b.lastActivityDate).getTime() - new Date(a.lastActivityDate).getTime();
-      });
-
+      const issuesWithActivity = this.filterIssuesByUserActivity(
+        candidateIssues,
+        detailsLight,
+        commentsLight,
+        activitiesResults,
+        input,
+      );
       // Apply pagination
       const skip = input.skip ?? 0;
       const limit = input.limit ?? 100;
       const paginatedIssues = issuesWithActivity.slice(skip, skip + limit);
-      // Map issues with lastActivityDate
+      // Map issues with lastActivityDate (use brief mapping if requested)
+      const mapperFn = briefOutput ? mapIssueBrief : mapIssue;
       const resultIssues = paginatedIssues.map(({ issue, lastActivityDate }) => ({
-        ...mapIssue(issue),
+        ...mapperFn(issue),
         lastActivityDate,
       }));
 
@@ -842,8 +856,196 @@ export class YoutrackClient {
         },
       };
     } catch (error) {
-      throw this.normalizeError(error);
+      const normalized = this.normalizeError(error);
+
+      // Retry once with a relaxed query (without braces) if YT parser rejects the original
+      if ((normalized.message || "").toLowerCase().includes("parse search query")) {
+        try {
+          const candidateIssues = await this.searchIssuesStrictFallbackRequest(briefOutput, sortPart, input);
+
+          if (candidateIssues.length === 0) {
+            return {
+              issues: [],
+              userLogins: input.userLogins,
+              period: {
+                startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
+                endDate: input.endDate ? toIsoDateString(input.endDate) : undefined,
+              },
+              pagination: {
+                returned: 0,
+                limit: input.limit ?? 100,
+                skip: input.skip ?? 0,
+              },
+            };
+          }
+
+          // Re-run the rest of the strict pipeline with the already fetched list
+          const issueIds = candidateIssues.map((issue) => issue.idReadable);
+          const [detailsLight, commentsLight] = await Promise.all([
+            this.getIssuesDetailsLight(issueIds),
+            this.getMultipleIssuesCommentsLight(issueIds),
+          ]);
+          const activitiesPromises = issueIds.map((issueId) => this.getIssueActivities(issueId));
+          const activitiesResults = await Promise.all(activitiesPromises);
+          const issuesWithActivity = this.filterIssuesByUserActivity(
+            candidateIssues,
+            detailsLight,
+            commentsLight,
+            activitiesResults,
+            input,
+          );
+          const skip = input.skip ?? 0;
+          const limit = input.limit ?? 100;
+          const paginatedIssues = issuesWithActivity.slice(skip, skip + limit);
+          const mapperFn = briefOutput ? mapIssueBrief : mapIssue;
+          const resultIssues = paginatedIssues.map(({ issue, lastActivityDate }) => ({ ...mapperFn(issue), lastActivityDate }));
+
+          return {
+            issues: resultIssues,
+            userLogins: input.userLogins,
+            period: {
+              startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
+              endDate: input.endDate ? toIsoDateString(input.endDate) : undefined,
+            },
+            pagination: {
+              returned: resultIssues.length,
+              limit,
+              skip,
+            },
+          };
+        } catch (fallbackError) {
+          // If fallback also fails, log for debugging and return original error
+          console.error("Fallback query also failed:", fallbackError);
+          throw normalized;
+        }
+      }
+
+      throw normalized;
     }
+  }
+
+  /**
+   * Filters candidate issues by user activity dates (comments, activities, updater)
+   * Used in user_activity mode to determine which issues had activity from specified users
+   */
+  private filterIssuesByUserActivity(
+    candidateIssues: YoutrackIssue[],
+    detailsLight: YoutrackIssueDetails[],
+    commentsLight: Record<string, YoutrackIssueComment[]>,
+    activitiesResults: YoutrackActivityItem[][],
+    input: IssueSearchInput,
+  ): Array<{ issue: YoutrackIssue; lastActivityDate: string }> {
+    const startTimestamp = input.startDate ? new Date(input.startDate).getTime() : 0;
+    const endTimestamp = input.endDate ? new Date(input.endDate).getTime() : Date.now();
+    const issuesWithActivity: Array<{ issue: YoutrackIssue; lastActivityDate: string }> = [];
+
+    for (let i = 0; i < candidateIssues.length; i++) {
+      const issue = candidateIssues[i];
+      const issueId = issue.idReadable;
+      const details = detailsLight.find((d) => d.idReadable === issueId);
+      const comments = commentsLight[issueId] ?? [];
+      const activities = activitiesResults[i] ?? [];
+      const dates: number[] = [];
+
+      for (const userLogin of input.userLogins) {
+        // Check comments from user
+        for (const comment of comments) {
+          if (comment.author?.login === userLogin && comment.created) {
+            const commentDate = comment.created;
+
+            if (commentDate >= startTimestamp && commentDate <= endTimestamp) {
+              dates.push(commentDate);
+            }
+          }
+
+          // Check mentions in comment text
+          if (comment.text?.includes(`@${userLogin}`) && comment.created) {
+            const commentDate = comment.created;
+
+            if (commentDate >= startTimestamp && commentDate <= endTimestamp) {
+              dates.push(commentDate);
+            }
+          }
+        }
+
+        // Check activities from user or where user is in added/removed
+        for (const activity of activities) {
+          if (activity.timestamp >= startTimestamp && activity.timestamp <= endTimestamp) {
+            // Activity by user
+            if (activity.author?.login === userLogin) {
+              dates.push(activity.timestamp);
+            }
+
+            // User added or removed in field change (e.g., assignee)
+            const inAdded = activity.added?.some((v) => v.login === userLogin);
+            const inRemoved = activity.removed?.some((v) => v.login === userLogin);
+
+            if (inAdded || inRemoved) {
+              dates.push(activity.timestamp);
+            }
+          }
+        }
+
+        // Check if user is updater and updated date is in range
+        if (details?.updater?.login === userLogin && details.updated) {
+          const updateDate = details.updated;
+
+          if (updateDate >= startTimestamp && updateDate <= endTimestamp) {
+            dates.push(updateDate);
+          }
+        }
+      }
+
+      if (dates.length > 0) {
+        const lastActivityTimestamp = Math.max(...dates);
+        const lastActivityDate = new Date(lastActivityTimestamp).toISOString();
+
+        issuesWithActivity.push({
+          issue,
+          lastActivityDate,
+        });
+      }
+    }
+
+    // Sort by lastActivityDate descending
+    issuesWithActivity.sort((a, b) => new Date(b.lastActivityDate).getTime() - new Date(a.lastActivityDate).getTime());
+
+    return issuesWithActivity;
+  }
+
+  // Helper to perform fallback request without braces in user filters
+  private async searchIssuesStrictFallbackRequest(
+    briefOutput: boolean,
+    sortPart: string,
+    input: IssueSearchInput,
+  ): Promise<YoutrackIssue[]> {
+    const fallbackFilters: string[] = [];
+
+    if (input.userLogins.length > 0) {
+      const noBraceClauses = input.userLogins.map(
+        (login) => `updater: ${login} or mentions: ${login} or reporter: ${login} or assignee: ${login}`,
+      );
+
+      fallbackFilters.push(noBraceClauses.length === 1 ? noBraceClauses[0] : `(${noBraceClauses.join(" or ")})`);
+    }
+
+    if (input.startDate || input.endDate) {
+      const startDateStr = input.startDate ? toIsoDateString(input.startDate) : "1970-01-01";
+      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : toIsoDateString(new Date());
+
+      fallbackFilters.push(`updated: ${startDateStr} .. ${endDateStr}`);
+    }
+
+    const fallbackQuery = (fallbackFilters.length ? `${fallbackFilters.join(" and ")} ` : "") + sortPart;
+    const response = await this.http.get<YoutrackIssue[]>("/api/issues", {
+      params: {
+        fields: briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch,
+        query: fallbackQuery,
+        $top: DEFAULT_PAGE_SIZE,
+      },
+    });
+
+    return response.data;
   }
 
   async listWorkItems(

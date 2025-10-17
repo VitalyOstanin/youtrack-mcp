@@ -99,6 +99,17 @@ export function mapIssueDetails(issue: YoutrackIssueDetails): MappedYoutrackIssu
 }
 
 /**
+ * Map YoutrackIssue to brief version (without description fields)
+ * Used for reducing payload size in issue_search_by_user_activity tool
+ */
+export function mapIssueBrief(issue: YoutrackIssue): MappedYoutrackIssue {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { description, wikifiedDescription, ...rest } = issue;
+
+  return rest;
+}
+
+/**
  * Map YoutrackWorkItem to MappedYoutrackWorkItem
  */
 export function mapWorkItem(item: YoutrackWorkItem): MappedYoutrackWorkItem {

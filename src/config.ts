@@ -8,6 +8,11 @@ const configSchema = z.object({
   YOUTRACK_HOLIDAYS: z.string().optional(),
   YOUTRACK_PRE_HOLIDAYS: z.string().optional(),
   YOUTRACK_USER_ALIASES: z.string().optional(),
+  YOUTRACK_COMPACT_MODE: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((val) => val !== "false"),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig {
@@ -38,6 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
     userAliases: parsed.data.YOUTRACK_USER_ALIASES
       ? parseAliasMap(parsed.data.YOUTRACK_USER_ALIASES)
       : undefined,
+    compactMode: parsed.data.YOUTRACK_COMPACT_MODE,
   };
 }
 
@@ -48,6 +54,7 @@ export function enrichConfigWithRedaction(config: YoutrackConfig) {
     timezone: config.timezone,
     holidays: config.holidays,
     preHolidays: config.preHolidays,
+    compactMode: config.compactMode,
   };
 }
 

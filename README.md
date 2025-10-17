@@ -46,6 +46,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
   - `YOUTRACK_HOLIDAYS` — optional comma-separated list of holiday dates (format `YYYY-MM-DD`), excluded from reports and batch operations
   - `YOUTRACK_PRE_HOLIDAYS` — optional comma-separated list of pre-holiday dates with reduced working hours
   - `YOUTRACK_USER_ALIASES` — optional comma-separated list of `alias:login` mappings (e.g., `me:vyt,petya:p.petrov`), used for automatic assignee selection
+  - `YOUTRACK_COMPACT_MODE` — optional, controls response minimization for AI context window optimization (default: `true`). Set to `false` for Claude Code to get full response text in MCP content field instead of minimal stub. When `true`, full data is available in `structuredContent` field
 
 ## Installation
 
@@ -213,7 +214,8 @@ To use this MCP server with [Claude Code CLI](https://github.com/anthropics/clau
       "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
-        "YOUTRACK_TOKEN": "perm:your-token-here"
+        "YOUTRACK_TOKEN": "perm:your-token-here",
+        "YOUTRACK_COMPACT_MODE": "false"
       }
     }
   }
@@ -221,6 +223,8 @@ To use this MCP server with [Claude Code CLI](https://github.com/anthropics/clau
 ```
 
 **Note:** This configuration uses npx to run the published package. For local development, use `"command": "node"` with `"args": ["/absolute/path/to/youtrack-mcp/dist/index.js"]`. The `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS`, and `YOUTRACK_USER_ALIASES` environment variables are optional.
+
+**For Claude Code users:** Set `YOUTRACK_COMPACT_MODE` to `"false"` to include full response data in the MCP content field. This helps Claude Code access structured data more easily. When `true` (default), only a minimal stub is returned in the content field to optimize context window usage for other AI agents.
 
 ## Configuration for VS Code Cline
 

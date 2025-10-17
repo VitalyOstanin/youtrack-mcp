@@ -39,12 +39,13 @@ MCP сервер для полноценной интеграции с YouTrack 
 
 - Node.js ≥ 20
 - Переменные окружения:
-- `YOUTRACK_URL` — базовый URL YouTrack
-- `YOUTRACK_TOKEN` — постоянный токен с правами на чтение задач и work items
-- `YOUTRACK_TIMEZONE` — опциональная таймзона для операций с датами (по умолчанию: `Europe/Moscow`), должна быть валидным идентификатором IANA (например, `Europe/London`, `America/New_York`, `Asia/Tokyo`)
-- `YOUTRACK_HOLIDAYS` — опциональный список праздничных дат через запятую (формат `YYYY-MM-DD`), исключаемых из отчётов и массовых операций
-- `YOUTRACK_PRE_HOLIDAYS` — опциональный список предпраздничных дат через запятую, для которых норма времени уменьшается автоматически
-- `YOUTRACK_USER_ALIASES` — опциональный список соответствий `alias:login` через запятую (например, `me:vyt,petya:p.petrov`), используется при автоматическом выборе исполнителей
+  - `YOUTRACK_URL` — базовый URL YouTrack
+  - `YOUTRACK_TOKEN` — постоянный токен с правами на чтение задач и work items
+  - `YOUTRACK_TIMEZONE` — опциональная таймзона для операций с датами (по умолчанию: `Europe/Moscow`), должна быть валидным идентификатором IANA (например, `Europe/London`, `America/New_York`, `Asia/Tokyo`)
+  - `YOUTRACK_HOLIDAYS` — опциональный список праздничных дат через запятую (формат `YYYY-MM-DD`), исключаемых из отчётов и массовых операций
+  - `YOUTRACK_PRE_HOLIDAYS` — опциональный список предпраздничных дат через запятую, для которых норма времени уменьшается автоматически
+  - `YOUTRACK_USER_ALIASES` — опциональный список соответствий `alias:login` через запятую (например, `me:vyt,petya:p.petrov`), используется при автоматическом выборе исполнителей
+  - `YOUTRACK_COMPACT_MODE` — опциональный, управляет минимизацией ответов для оптимизации контекстного окна AI (по умолчанию: `true`). Установите `false` для Claude Code, чтобы получать полный текст ответа в поле MCP content вместо минимальной заглушки. При `true` полные данные доступны в поле `structuredContent`
 
 ## Установка
 
@@ -212,7 +213,8 @@ env = { "YOUTRACK_URL" = "https://youtrack.example.com", "YOUTRACK_TOKEN" = "per
       "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
-        "YOUTRACK_TOKEN": "perm:your-token-here"
+        "YOUTRACK_TOKEN": "perm:your-token-here",
+        "YOUTRACK_COMPACT_MODE": "false"
       }
     }
   }
@@ -220,6 +222,8 @@ env = { "YOUTRACK_URL" = "https://youtrack.example.com", "YOUTRACK_TOKEN" = "per
 ```
 
 **Примечание:** Эта конфигурация использует npx для запуска опубликованного пакета. Для локальной разработки используйте `"command": "node"` с `"args": ["/абсолютный/путь/к/youtrack-mcp/dist/index.js"]`. Переменные окружения `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS` и `YOUTRACK_USER_ALIASES` являются опциональными.
+
+**Для пользователей Claude Code:** Установите `YOUTRACK_COMPACT_MODE` в `"false"`, чтобы включить полные данные ответа в поле MCP content. Это помогает Claude Code легче получать доступ к структурированным данным. При `true` (по умолчанию) в поле content возвращается только минимальная заглушка для оптимизации использования контекстного окна для других AI агентов.
 
 ## Конфигурация для VS Code Cline
 

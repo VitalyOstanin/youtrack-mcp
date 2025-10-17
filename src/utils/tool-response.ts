@@ -1,17 +1,23 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ZodError } from "zod";
 
-export function toolSuccess<T>(payload: T): CallToolResult {
+export function toolSuccess<T>(payload: T, compactMode = true): CallToolResult {
   const structuredContent = {
     success: true,
     payload,
   } satisfies Record<string, unknown>;
+  // In compact mode, minimize content field to reduce context window usage for AI agents.
+  // Claude Code (when compactMode=false) gets full data in content field for better accessibility.
+  // Other AI agents benefit from minimal content to save context window tokens.
+  const contentText = compactMode
+    ? "Success. Use structuredContent for full data."
+    : JSON.stringify(structuredContent, null, 2);
 
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify(structuredContent, null, 2),
+        text: contentText,
       },
     ],
     structuredContent,
