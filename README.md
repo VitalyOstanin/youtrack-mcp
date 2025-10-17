@@ -26,6 +26,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
   - [Running the server (stdio)](#running-the-server-stdio)
   - [Configuration for Code (Recommended)](#configuration-for-code-recommended)
   - [Configuration for Claude Code CLI](#configuration-for-claude-code-cli)
+  - [Configuration for VS Code Cline](#configuration-for-vs-code-cline)
   - [MCP Tools](#mcp-tools)
     - [Service](#service)
     - [Issues](#issues)
@@ -55,7 +56,7 @@ You can run the server directly with npx without installation:
 ```bash
 YOUTRACK_URL="https://youtrack.example.com" \
 YOUTRACK_TOKEN="perm:your-token-here" \
-npx -y @vitalyostanin/youtrack-mcp
+npx -y @vitalyostanin/youtrack-mcp@latest
 ```
 
 ### Using Claude MCP CLI
@@ -190,7 +191,7 @@ To use this MCP server with [Code](https://github.com/just-every/code), add the 
 ```toml
 [mcp_servers.youtrack-mcp]
 command = "npx"
-args = ["-y", "@vitalyostanin/youtrack-mcp"]
+args = ["-y", "@vitalyostanin/youtrack-mcp@latest"]
 env = { "YOUTRACK_URL" = "https://youtrack.example.com", "YOUTRACK_TOKEN" = "perm:your-token-here" }
 ```
 
@@ -209,7 +210,33 @@ To use this MCP server with [Claude Code CLI](https://github.com/anthropics/clau
     "youtrack-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@vitalyostanin/youtrack-mcp"],
+      "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
+      "env": {
+        "YOUTRACK_URL": "https://youtrack.example.com",
+        "YOUTRACK_TOKEN": "perm:your-token-here"
+      }
+    }
+  }
+}
+```
+
+**Note:** This configuration uses npx to run the published package. For local development, use `"command": "node"` with `"args": ["/absolute/path/to/youtrack-mcp/dist/index.js"]`. The `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS`, and `YOUTRACK_USER_ALIASES` environment variables are optional.
+
+## Configuration for VS Code Cline
+
+To use this MCP server with [Cline](https://github.com/cline/cline) extension in VS Code:
+
+1. Open VS Code with Cline extension installed
+2. Click the MCP Servers icon in Cline's top navigation
+3. Select the "Configure" tab and click "Configure MCP Servers"
+4. Add the following configuration to `cline_mcp_settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "youtrack-mcp": {
+      "command": "npx",
+      "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
         "YOUTRACK_TOKEN": "perm:your-token-here"

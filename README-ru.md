@@ -26,6 +26,7 @@ MCP сервер для полноценной интеграции с YouTrack 
   - [Запуск сервера (stdio)](#запуск-сервера-stdio)
   - [Конфигурация для Code (Рекомендуется)](#конфигурация-для-code-рекомендуется)
   - [Конфигурация для Claude Code CLI](#конфигурация-для-claude-code-cli)
+  - [Конфигурация для VS Code Cline](#конфигурация-для-vs-code-cline)
   - [Инструменты MCP](#инструменты-mcp)
     - [Сервис](#сервис)
     - [Задачи](#задачи)
@@ -54,7 +55,7 @@ MCP сервер для полноценной интеграции с YouTrack 
 ```bash
 YOUTRACK_URL="https://youtrack.example.com" \
 YOUTRACK_TOKEN="perm:your-token-here" \
-npx -y @vitalyostanin/youtrack-mcp
+npx -y @vitalyostanin/youtrack-mcp@latest
 ```
 
 ### Используя Claude MCP CLI
@@ -189,7 +190,7 @@ node dist/index.js
 ```toml
 [mcp_servers.youtrack-mcp]
 command = "npx"
-args = ["-y", "@vitalyostanin/youtrack-mcp"]
+args = ["-y", "@vitalyostanin/youtrack-mcp@latest"]
 env = { "YOUTRACK_URL" = "https://youtrack.example.com", "YOUTRACK_TOKEN" = "perm:your-token-here" }
 ```
 
@@ -208,7 +209,33 @@ env = { "YOUTRACK_URL" = "https://youtrack.example.com", "YOUTRACK_TOKEN" = "per
     "youtrack-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@vitalyostanin/youtrack-mcp"],
+      "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
+      "env": {
+        "YOUTRACK_URL": "https://youtrack.example.com",
+        "YOUTRACK_TOKEN": "perm:your-token-here"
+      }
+    }
+  }
+}
+```
+
+**Примечание:** Эта конфигурация использует npx для запуска опубликованного пакета. Для локальной разработки используйте `"command": "node"` с `"args": ["/абсолютный/путь/к/youtrack-mcp/dist/index.js"]`. Переменные окружения `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS` и `YOUTRACK_USER_ALIASES` являются опциональными.
+
+## Конфигурация для VS Code Cline
+
+Чтобы использовать этот MCP сервер с расширением [Cline](https://github.com/cline/cline) в VS Code:
+
+1. Откройте VS Code с установленным расширением Cline
+2. Нажмите на иконку MCP Servers в верхней навигации Cline
+3. Выберите вкладку "Configure" и нажмите "Configure MCP Servers"
+4. Добавьте следующую конфигурацию в `cline_mcp_settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "youtrack-mcp": {
+      "command": "npx",
+      "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
         "YOUTRACK_TOKEN": "perm:your-token-here"
