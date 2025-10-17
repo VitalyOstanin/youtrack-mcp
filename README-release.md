@@ -20,6 +20,10 @@ This document outlines the complete release procedure for the YouTrack MCP proje
   - [Monitor Release Progress](#monitor-release-progress)
   - [What GitHub Actions Does](#what-github-actions-does)
 - [Post-Release Verification](#post-release-verification)
+  - [1. Verify GitHub Actions Workflow](#1-verify-github-actions-workflow)
+  - [2. Verify npm Package](#2-verify-npm-package)
+  - [3. Smoke Test Published Package](#3-smoke-test-published-package)
+  - [4. Verify GitHub Release](#4-verify-github-release)
 
 ## Overview
 
@@ -325,15 +329,22 @@ npm view @vitalyostanin/youtrack-mcp
 npm view @vitalyostanin/youtrack-mcp --json | grep -i provenance
 ```
 
-### 3. Test Installation
+### 3. Smoke Test Published Package
+
+Run the published package through npx to verify it executes correctly:
 
 ```bash
-# Test fresh installation (in a temporary directory)
-cd $(mktemp -d)
-npx @vitalyostanin/youtrack-mcp@latest
+# Test that server starts and fails with expected configuration error
+npx @vitalyostanin/youtrack-mcp@latest 2>&1 | head -5
 
-# Expected: Server should start and show service info
+# Expected output (server should exit with configuration error):
+# YouTrack MCP server crashed Error: YouTrack configuration error: missing environment variables: YOUTRACK_URL, YOUTRACK_TOKEN
 ```
+
+**Success criteria:**
+- ✅ Package downloads and executes via npx
+- ✅ Server fails with expected configuration error (not runtime errors)
+- ✅ Error message clearly indicates missing required environment variables
 
 ### 4. Verify GitHub Release
 
