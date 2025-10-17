@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-10-17
+
+### Added
+
+- **Compact mode configuration** - `YOUTRACK_COMPACT_MODE` environment variable:
+  - Control tool response format (compact vs. verbose)
+  - Default: `true` (compact mode enabled)
+  - Set to `false` for verbose responses with full field details
+  - Improves performance and reduces token usage in Claude Code
+
+### Changed
+
+- Documentation improvements:
+  - Enhanced post-release verification section in README-release.md
+  - Added VS Code Cline setup instructions
+  - Unified `@latest` usage in npx examples across documentation
+- Refactored strict mode handling in YouTrack client for better maintainability
+
 ## [0.3.1] - 2025-10-16
 
 ### Fixed
@@ -125,7 +143,8 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.1.0...v0.2.0
