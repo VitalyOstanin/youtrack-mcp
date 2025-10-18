@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
+    "@vitalyostanin/mutex-pool": "^0.0.3",
     "axios": "^1.12.2",
     "form-data": "^4.0.1",
     "luxon": "^3.5.0",

@@ -1,6 +1,7 @@
 import axios from "axios";
 import FormData from "form-data";
 import fs from "fs";
+import { MutexPool } from "@vitalyostanin/mutex-pool";
 
 import {
   calculateTotalMinutes,
@@ -56,6 +57,9 @@ import type {
   IssuesCommentsPayload,
   IssuesDetailsPayload,
   IssuesLookupPayload,
+  IssueStarBatchPayload,
+  IssueStarPayload,
+  IssuesStarredPayload,
   WorkItemBulkResultPayload,
   WorkItemDeletePayload,
   WorkItemInvalidDay,
@@ -73,6 +77,7 @@ import type {
   YoutrackIssueCreateInput,
   YoutrackIssueDetails,
   YoutrackIssueUpdateInput,
+  YoutrackIssueWatcher,
   YoutrackProject,
   YoutrackProjectListPayload,
   YoutrackStateField,
@@ -89,14 +94,56 @@ import type {
 const DEFAULT_PAGE_SIZE = 200;
 const DEFAULT_EXPECTED_MINUTES = 8 * 60;
 const defaultFields = {
-  issue:
-    "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
-  issueSearch:
-    "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
-  issueSearchBrief:
-    "id,idReadable,summary,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name)",
-  issueDetails:
-    "id,idReadable,summary,description,wikifiedDescription,usesMarkdown,created,updated,resolved,project(id,shortName,name),parent(id,idReadable),assignee(id,login,name),reporter(id,login,name),updater(id,login,name)",
+  issue: [
+    "id",
+    "idReadable",
+    "summary",
+    "description",
+    "wikifiedDescription",
+    "usesMarkdown",
+    "project(id,shortName,name)",
+    "parent(id,idReadable)",
+    "assignee(id,login,name)",
+    "watchers(hasStar)",
+  ].join(","),
+  issueSearch: [
+    "id",
+    "idReadable",
+    "summary",
+    "description",
+    "wikifiedDescription",
+    "usesMarkdown",
+    "project(id,shortName,name)",
+    "parent(id,idReadable)",
+    "assignee(id,login,name)",
+    "watchers(hasStar)",
+  ].join(","),
+  issueSearchBrief: [
+    "id",
+    "idReadable",
+    "summary",
+    "project(id,shortName,name)",
+    "parent(id,idReadable)",
+    "assignee(id,login,name)",
+    "watchers(hasStar)",
+  ].join(","),
+  issueDetails: [
+    "id",
+    "idReadable",
+    "summary",
+    "description",
+    "wikifiedDescription",
+    "usesMarkdown",
+    "created",
+    "updated",
+    "resolved",
+    "project(id,shortName,name)",
+    "parent(id,idReadable)",
+    "assignee(id,login,name)",
+    "reporter(id,login,name)",
+    "updater(id,login,name)",
+    "watchers(hasStar)",
+  ].join(","),
   issueDetailsLight: "id,idReadable,updated,updater(login)",
   comments: "id,text,textPreview,usesMarkdown,author(id,login,name),created,updated",
   commentsLight: "id,author(login),created,text",
@@ -149,6 +196,30 @@ export class YoutrackClient {
         throw normalized;
       },
     );
+  }
+
+  /**
+   * Process items with concurrency limit using MutexPool
+   * @param items - Array of items to process
+   * @param processor - Async function to process each item
+   * @param limit - Maximum number of concurrent operations (default: 10)
+   * @returns Array of results in original order
+   */
+  private async processBatch<T, R>(items: T[], processor: (item: T) => Promise<R>, limit: number = 10): Promise<R[]> {
+    const pool = new MutexPool(limit);
+    const results: R[] = new Array(items.length);
+
+    // Submit all jobs to the pool
+    items.forEach((item, index) => {
+      pool.start(async () => {
+        results[index] = await processor(item);
+      });
+    });
+
+    // Wait for all jobs to complete
+    await pool.allJobsFinished();
+
+    return results;
   }
 
   async getCurrentUser(): Promise<YoutrackUser> {
@@ -209,7 +280,9 @@ export class YoutrackClient {
         this.usersByLogin.set(user.login, user);
       });
 
-      return { users: response.data };
+      const payload = { users: response.data };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -230,7 +303,9 @@ export class YoutrackClient {
         }
       });
 
-      return { projects: response.data };
+      const payload = { projects: response.data };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -520,10 +595,12 @@ export class YoutrackClient {
         }
       }
 
-      return {
+      const payload = {
         issues: foundIssues.map(mapIssue),
         errors: errors.length ? errors : undefined,
       };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -559,10 +636,12 @@ export class YoutrackClient {
         }
       }
 
-      return {
+      const payload = {
         issues: foundIssues.map(mapIssueDetails),
         errors: errors.length ? errors : undefined,
       };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -612,21 +691,24 @@ export class YoutrackClient {
     }
     type Result = SuccessResult | ErrorResult;
 
-    // Make parallel requests for all issues
-    const promises = issueIds.map(async (issueId): Promise<Result> => {
-      try {
-        const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
-          params: { fields: defaultFields.comments },
-        });
+    // Make parallel requests for all issues with concurrency limiting
+    const results = await this.processBatch(
+      issueIds,
+      async (issueId): Promise<Result> => {
+        try {
+          const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
+            params: { fields: defaultFields.comments },
+          });
 
-        return { issueId, comments: response.data, success: true };
-      } catch (error) {
-        const normalized = this.normalizeError(error);
+          return { issueId, comments: response.data, success: true };
+        } catch (error) {
+          const normalized = this.normalizeError(error);
 
-        return { issueId, error: normalized.message, success: false };
-      }
-    });
-    const results = await Promise.all(promises);
+          return { issueId, error: normalized.message, success: false };
+        }
+      },
+      10,
+    );
     const commentsByIssue: Record<string, MappedYoutrackIssueComment[]> = {};
     const errors: IssueError[] = [];
 
@@ -640,10 +722,12 @@ export class YoutrackClient {
       errors.push({ issueId: result.issueId, error: result.error });
     }
 
-    return {
+    const payload = {
       commentsByIssue,
       errors: errors.length ? errors : undefined,
     };
+
+    return payload;
   }
 
   /**
@@ -668,20 +752,23 @@ export class YoutrackClient {
     }
     type Result = SuccessResult | ErrorResult;
 
-    // Make parallel requests for all issues
-    const promises = issueIds.map(async (issueId): Promise<Result> => {
-      try {
-        const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
-          params: { fields: defaultFields.commentsLight },
-        });
+    // Make parallel requests for all issues with concurrency limiting
+    const results = await this.processBatch(
+      issueIds,
+      async (issueId): Promise<Result> => {
+        try {
+          const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
+            params: { fields: defaultFields.commentsLight },
+          });
 
-        return { issueId, comments: response.data, success: true };
-      } catch {
-        // Silently ignore errors in light mode - return empty array
-        return { issueId, success: false };
-      }
-    });
-    const results = await Promise.all(promises);
+          return { issueId, comments: response.data, success: true };
+        } catch {
+          // Silently ignore errors in light mode - return empty array
+          return { issueId, success: false };
+        }
+      },
+      10,
+    );
     const commentsByIssue: Record<string, YoutrackIssueComment[]> = {};
 
     for (const result of results) {
@@ -690,7 +777,9 @@ export class YoutrackClient {
       }
     }
 
-    return commentsByIssue;
+    const payload = commentsByIssue;
+
+    return payload;
   }
 
   async searchIssuesByUserActivity(input: IssueSearchInput): Promise<IssueSearchPayload> {
@@ -820,9 +909,16 @@ export class YoutrackClient {
         this.getIssuesDetailsLight(issueIds),
         this.getMultipleIssuesCommentsLight(issueIds),
       ]);
-      // Get activities for each issue
-      const activitiesPromises = issueIds.map((issueId) => this.getIssueActivities(issueId));
-      const activitiesResults = await Promise.all(activitiesPromises);
+      // Get activities for each issue with concurrency limiting
+      const activitiesResults = await this.processBatch(
+        issueIds,
+        async (issueId) => {
+          const activities = await this.getIssueActivities(issueId);
+
+          return activities;
+        },
+        10,
+      );
       // Process each issue to determine lastActivityDate
       const issuesWithActivity = this.filterIssuesByUserActivity(
         candidateIssues,
@@ -885,8 +981,15 @@ export class YoutrackClient {
             this.getIssuesDetailsLight(issueIds),
             this.getMultipleIssuesCommentsLight(issueIds),
           ]);
-          const activitiesPromises = issueIds.map((issueId) => this.getIssueActivities(issueId));
-          const activitiesResults = await Promise.all(activitiesPromises);
+          const activitiesResults = await this.processBatch(
+            issueIds,
+            async (issueId) => {
+              const activities = await this.getIssueActivities(issueId);
+
+              return activities;
+            },
+            10,
+          );
           const issuesWithActivity = this.filterIssuesByUserActivity(
             candidateIssues,
             detailsLight,
@@ -1136,18 +1239,21 @@ export class YoutrackClient {
       issueId?: string;
     } = {},
   ): Promise<YoutrackWorkItem[]> {
-    const promises = logins.map((login) =>
-      this.listWorkItems({
-        author: login,
-        startDate: params.startDate,
-        endDate: params.endDate,
-        issueId: params.issueId,
-      }),
+    const results = await this.processBatch(
+      logins,
+      async (login) =>
+        await this.listWorkItems({
+          author: login,
+          startDate: params.startDate,
+          endDate: params.endDate,
+          issueId: params.issueId,
+        }),
+      10,
     );
-    const results = await Promise.all(promises);
     const allItems = results.flat();
+    const payload = allItems;
 
-    return allItems;
+    return payload;
   }
 
   async listAllUsersWorkItems(
@@ -1161,8 +1267,9 @@ export class YoutrackClient {
       ...params,
       allUsers: true,
     });
+    const payload = workItems;
 
-    return workItems;
+    return payload;
   }
 
   async listRecentWorkItems(
@@ -1173,26 +1280,29 @@ export class YoutrackClient {
   ): Promise<YoutrackWorkItem[]> {
     const limit = params.limit ?? 50;
     const users = params.users ?? [(await this.getCurrentUser()).login];
-    const promises = users.map(async (login) => {
-      const requestParams: Record<string, unknown> = {
-        fields: defaultFields.workItems,
-        author: login,
-        top: limit,
-        orderBy: "updated desc",
-      };
+    const results = await this.processBatch(
+      users,
+      async (login) => {
+        const requestParams: Record<string, unknown> = {
+          fields: defaultFields.workItems,
+          author: login,
+          top: limit,
+          orderBy: "updated desc",
+        };
 
-      try {
-        const response = await this.http.get<YoutrackWorkItem[]>("/api/workItems", {
-          params: requestParams,
-        });
-        const workItems = response.data;
+        try {
+          const response = await this.http.get<YoutrackWorkItem[]>("/api/workItems", {
+            params: requestParams,
+          });
+          const workItems = response.data;
 
-        return workItems;
-      } catch (error) {
-        throw this.normalizeError(error);
-      }
-    });
-    const results = await Promise.all(promises);
+          return workItems;
+        } catch (error) {
+          throw this.normalizeError(error);
+        }
+      },
+      10,
+    );
     const allItems = results.flat();
     const sortedByUpdated = allItems.sort((left, right) => {
       const leftTimestamp = left.updated ?? left.date;
@@ -1201,8 +1311,9 @@ export class YoutrackClient {
       return rightTimestamp - leftTimestamp;
     });
     const limitedItems = sortedByUpdated.slice(0, limit);
+    const payload = limitedItems;
 
-    return limitedItems;
+    return payload;
   }
 
   async createWorkItem(input: YoutrackWorkItemCreateInput): Promise<YoutrackWorkItem> {
@@ -1234,8 +1345,8 @@ export class YoutrackClient {
   }
 
   async createWorkItemMapped(input: YoutrackWorkItemCreateInput): Promise<MappedYoutrackWorkItem> {
-    const result = await this.createWorkItem(input);
-    const mappedWorkItem = mapWorkItem(result);
+    const workItem = await this.createWorkItem(input);
+    const mappedWorkItem = mapWorkItem(workItem);
 
     return mappedWorkItem;
   }
@@ -1263,7 +1374,7 @@ export class YoutrackClient {
 
     await this.deleteWorkItem(input.issueId, input.workItemId);
 
-    return await this.createWorkItem({
+    const workItem = await this.createWorkItem({
       issueId: input.issueId,
       date,
       minutes,
@@ -1271,6 +1382,8 @@ export class YoutrackClient {
       description,
       usesMarkdown: input.usesMarkdown ?? existing.usesMarkdown,
     });
+
+    return workItem;
   }
 
   async createWorkItemsForPeriod(input: YoutrackWorkItemPeriodCreateInput): Promise<WorkItemBulkResultPayload> {
@@ -1283,8 +1396,9 @@ export class YoutrackClient {
       input.excludeHolidays ?? true,
       input.holidays ?? [],
     );
-    const results = await Promise.all(
-      filteredDates.map(async (dateIso) => {
+    const results = await this.processBatch(
+      filteredDates,
+      async (dateIso) => {
         try {
           const item = await this.createWorkItem({
             issueId: input.issueId,
@@ -1301,7 +1415,8 @@ export class YoutrackClient {
 
           return { success: false as const, date: dateIso, reason: normalized.message };
         }
-      }),
+      },
+      10,
     );
     const created: YoutrackWorkItem[] = [];
     const failed: Array<{ date: string; reason: string }> = [];
@@ -1316,10 +1431,12 @@ export class YoutrackClient {
       failed.push({ date: result.date, reason: result.reason });
     }
 
-    return {
+    const payload = {
       created: mapWorkItems(created),
       failed,
     };
+
+    return payload;
   }
 
   async createWorkItemIdempotent(input: YoutrackWorkItemIdempotentCreateInput): Promise<MappedYoutrackWorkItem | null> {
@@ -1349,9 +1466,9 @@ export class YoutrackClient {
       description: input.description,
       usesMarkdown: input.usesMarkdown,
     });
-    const mappedWorkItem = mapWorkItem(item);
+    const mappedItem = mapWorkItem(item);
 
-    return mappedWorkItem;
+    return mappedItem;
   }
 
   async generateWorkItemReport(options: YoutrackWorkItemReportOptions = {}): Promise<WorkItemReportPayload> {
@@ -1452,30 +1569,35 @@ export class YoutrackClient {
 
   async generateInvalidWorkItemReport(options: YoutrackWorkItemReportOptions = {}): Promise<WorkItemInvalidDay[]> {
     const report = await this.generateWorkItemReport(options);
+    const {invalidDays} = report;
 
-    return report.invalidDays;
+    return invalidDays;
   }
 
   async generateUsersWorkItemReports(
     logins: string[],
     options: YoutrackWorkItemReportOptions = {},
   ): Promise<WorkItemUsersReportPayload> {
-    const promises = logins.map(async (login) => {
-      const report = await this.generateWorkItemReport({
-        ...options,
-        author: login,
-      });
+    const reports = await this.processBatch(
+      logins,
+      async (login) => {
+        const report = await this.generateWorkItemReport({
+          ...options,
+          author: login,
+        });
 
-      return {
-        userLogin: login,
-        summary: report.summary,
-        invalidDays: report.invalidDays,
-        period: report.period,
-      };
-    });
-    const reports = await Promise.all(promises);
+        return {
+          userLogin: login,
+          summary: report.summary,
+          invalidDays: report.invalidDays,
+          period: report.period,
+        };
+      },
+      10,
+    );
+    const payload = { reports };
 
-    return { reports };
+    return payload;
   }
 
   async getArticle(articleId: string): Promise<ArticlePayload> {
@@ -1525,9 +1647,9 @@ export class YoutrackClient {
         },
       });
       const articles = response.data;
-      const payload = { articles };
+      const articlesPayload = { articles };
 
-      return payload;
+      return articlesPayload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1562,9 +1684,9 @@ export class YoutrackClient {
         params,
       });
       const article = response.data;
-      const payload = { article };
+      const articlePayload = { article };
 
-      return payload;
+      return articlePayload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1596,9 +1718,9 @@ export class YoutrackClient {
         params,
       });
       const article = response.data;
-      const payload = { article };
+      const articlePayload = { article };
 
-      return payload;
+      return articlePayload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1633,8 +1755,9 @@ export class YoutrackClient {
           ...(input.limit ? { top: input.limit } : {}),
         },
       });
+      const searchPayload = { articles: response.data, query: input.query };
 
-      return { articles: response.data, query: input.query };
+      return searchPayload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1646,11 +1769,12 @@ export class YoutrackClient {
         params: { fields: defaultFields.attachments },
       });
       const mapped = mapAttachments(response.data);
-
-      return {
+      const payload = {
         attachments: mapped,
         issueId,
       };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1662,11 +1786,12 @@ export class YoutrackClient {
         params: { fields: defaultFields.attachment },
       });
       const mapped = mapAttachment(response.data);
-
-      return {
+      const payload = {
         attachment: mapped,
         issueId,
       };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1685,12 +1810,13 @@ export class YoutrackClient {
 
       const downloadUrl = `${this.config.baseUrl}${attachment.url}`;
       const mapped = mapAttachment(attachment);
-
-      return {
+      const payload = {
         attachment: mapped,
         downloadUrl,
         issueId,
       };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1729,11 +1855,12 @@ export class YoutrackClient {
         },
       );
       const mapped = mapAttachments(response.data);
-
-      return {
+      const payload = {
         uploaded: mapped,
         issueId: input.issueId,
       };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1754,12 +1881,14 @@ export class YoutrackClient {
     try {
       await this.http.delete(`/api/issues/${input.issueId}/attachments/${input.attachmentId}`);
 
-      return {
-        deleted: true,
+      const payload = {
+        deleted: true as const,
         issueId: input.issueId,
         attachmentId: input.attachmentId,
         attachmentName: attachmentInfo.attachment.name,
       };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1787,20 +1916,20 @@ export class YoutrackClient {
 
       const fallbackMessage = typeof error.message === "string" && error.message.length > 0 ? error.message : undefined;
       const finalMessage = responseMessage ?? fallbackMessage ?? "Unknown error";
-      const clientError = new YoutrackClientError(`YouTrack API error: ${finalMessage}`, status, data);
+      const normalizedError = new YoutrackClientError(`YouTrack API error: ${finalMessage}`, status, data);
 
-      return clientError;
+      return normalizedError;
     }
 
     if (error instanceof Error) {
-      const errorFromMessage = new YoutrackClientError(error.message);
+      const normalizedError = new YoutrackClientError(error.message);
 
-      return errorFromMessage;
+      return normalizedError;
     }
 
-    const stringError = new YoutrackClientError(String(error));
+    const normalizedError = new YoutrackClientError(String(error));
 
-    return stringError;
+    return normalizedError;
   }
 
   private async resolveAssignee(login: string): Promise<YoutrackUser> {
@@ -1821,18 +1950,18 @@ export class YoutrackClient {
     const response = await this.http.get<YoutrackIssue>(`/api/issues/${issueId}`, {
       params: { fields: defaultFields.issue },
     });
-    const issue = response.data;
+    const rawIssue = response.data;
 
-    return issue;
+    return rawIssue;
   }
 
   private async getWorkItemById(workItemId: string): Promise<YoutrackWorkItem> {
     const response = await this.http.get<YoutrackWorkItem>(`/api/workItems/${workItemId}`, {
       params: { fields: defaultFields.workItem },
     });
-    const workItem = response.data;
+    const rawWorkItem = response.data;
 
-    return workItem;
+    return rawWorkItem;
   }
 
   private resolveReportBoundary(items: YoutrackWorkItem[], mode: "min" | "max"): string {
@@ -1844,9 +1973,9 @@ export class YoutrackClient {
 
     const timestamps = items.map((item) => item.date);
     const target = mode === "min" ? Math.min(...timestamps) : Math.max(...timestamps);
-    const boundary = toIsoDateString(target);
+    const boundaryDate = toIsoDateString(target);
 
-    return boundary;
+    return boundaryDate;
   }
 
   // State change methods
@@ -1857,8 +1986,9 @@ export class YoutrackClient {
           fields: "id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)",
         },
       });
+      const customFields = response.data;
 
-      return response.data;
+      return customFields;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1913,12 +2043,14 @@ export class YoutrackClient {
 
         await this.http.post(`/api/issues/${input.issueId}/fields/${stateField.id}`, body);
 
-        return {
+        const payload = {
           issueId: input.issueId,
           previousState,
           newState: matchingEvent.presentation,
           transitionUsed: matchingEvent.id,
         };
+
+        return payload;
       }
 
       // Handle StateIssueCustomField (simple bundle-based)
@@ -1957,14 +2089,223 @@ export class YoutrackClient {
           throw normalized;
         }
 
-        return {
+        const payload = {
           issueId: input.issueId,
           previousState,
           newState: input.stateName,
         };
+
+        return payload;
       }
 
       throw new YoutrackClientError(`Unsupported state field type: ${stateField.$type}`);
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  // Issue star management methods
+  /**
+   * Get watchers list for an issue (internal method)
+   */
+  private async getIssueWatchers(issueId: string): Promise<YoutrackIssueWatcher[]> {
+    try {
+      const response = await this.http.get<YoutrackIssueWatcher[]>(`/api/issues/${issueId}/watchers/issueWatchers`, {
+        params: { fields: "id,user(id,login,name),isStarred,$type" },
+      });
+      const watchers = response.data;
+
+      return watchers;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  /**
+   * Add star to an issue (idempotent)
+   */
+  async starIssue(issueId: string): Promise<IssueStarPayload> {
+    try {
+      const currentUser = await this.getCurrentUser();
+      const watchers = await this.getIssueWatchers(issueId);
+      const existingWatcher = watchers.find((w) => w.user.id === currentUser.id && w.isStarred);
+
+      if (existingWatcher) {
+        const payload = {
+          issueId,
+          starred: true,
+          message: "Issue already starred",
+        };
+
+        return payload;
+      }
+
+      const body = {
+        user: { id: currentUser.id },
+        isStarred: true,
+      };
+
+      await this.http.post(`/api/issues/${issueId}/watchers/issueWatchers`, body);
+
+      const payload = {
+        issueId,
+        starred: true,
+        message: "Issue starred successfully",
+      };
+
+      return payload;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  /**
+   * Remove star from an issue (idempotent)
+   */
+  async unstarIssue(issueId: string): Promise<IssueStarPayload> {
+    try {
+      const currentUser = await this.getCurrentUser();
+      const watchers = await this.getIssueWatchers(issueId);
+      const existingWatcher = watchers.find((w) => w.user.id === currentUser.id && w.isStarred);
+
+      if (!existingWatcher) {
+        const payload = {
+          issueId,
+          starred: false,
+          message: "Issue not starred",
+        };
+
+        return payload;
+      }
+
+      await this.http.delete(`/api/issues/${issueId}/watchers/issueWatchers/${existingWatcher.id}`);
+
+      const payload = {
+        issueId,
+        starred: false,
+        message: "Issue unstarred successfully",
+      };
+
+      return payload;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  /**
+   * Add stars to multiple issues with concurrency limiting (max 50 issues)
+   */
+  async starIssues(issueIds: string[]): Promise<IssueStarBatchPayload> {
+    if (issueIds.length > 50) {
+      throw new YoutrackClientError("Maximum 50 issues allowed per batch operation");
+    }
+
+    const results = await this.processBatch(
+      issueIds,
+      async (issueId) => {
+        try {
+          const result = await this.starIssue(issueId);
+
+          return { success: true as const, issueId, starred: result.starred };
+        } catch (error) {
+          const normalized = this.normalizeError(error);
+
+          return { success: false as const, issueId, error: normalized.message };
+        }
+      },
+      10,
+    );
+    const successful: Array<{ issueId: string; starred: boolean }> = [];
+    const failed: Array<{ issueId: string; error: string }> = [];
+
+    for (const result of results) {
+      if (result.success) {
+        successful.push({ issueId: result.issueId, starred: result.starred });
+
+        continue;
+      }
+
+      failed.push({ issueId: result.issueId, error: result.error });
+    }
+
+    const payload = {
+      successful,
+      failed,
+    };
+
+    return payload;
+  }
+
+  /**
+   * Remove stars from multiple issues with concurrency limiting (max 50 issues)
+   */
+  async unstarIssues(issueIds: string[]): Promise<IssueStarBatchPayload> {
+    if (issueIds.length > 50) {
+      throw new YoutrackClientError("Maximum 50 issues allowed per batch operation");
+    }
+
+    const results = await this.processBatch(
+      issueIds,
+      async (issueId) => {
+        try {
+          const result = await this.unstarIssue(issueId);
+
+          return { success: true as const, issueId, starred: result.starred };
+        } catch (error) {
+          const normalized = this.normalizeError(error);
+
+          return { success: false as const, issueId, error: normalized.message };
+        }
+      },
+      10,
+    );
+    const successful: Array<{ issueId: string; starred: boolean }> = [];
+    const failed: Array<{ issueId: string; error: string }> = [];
+
+    for (const result of results) {
+      if (result.success) {
+        successful.push({ issueId: result.issueId, starred: result.starred });
+
+        continue;
+      }
+
+      failed.push({ issueId: result.issueId, error: result.error });
+    }
+
+    const payload = {
+      successful,
+      failed,
+    };
+
+    return payload;
+  }
+
+  /**
+   * Get all starred issues for current user with pagination
+   */
+  async getStarredIssues(options: { limit?: number; skip?: number } = {}): Promise<IssuesStarredPayload> {
+    try {
+      const limit = options.limit ?? 50; // Default to 50 instead of 200
+      const skip = options.skip ?? 0;
+      const response = await this.http.get<YoutrackIssue[]>("/api/issues", {
+        params: {
+          fields: defaultFields.issueSearchBrief, // Use brief fields without description
+          query: "has: star",
+          $top: Math.min(limit, DEFAULT_PAGE_SIZE),
+          $skip: skip,
+        },
+      });
+      const payload = {
+        issues: response.data.map(mapIssueBrief),
+        returnedCount: response.data.length,
+        pagination: {
+          returned: response.data.length,
+          limit,
+          skip,
+        },
+      };
+
+      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }

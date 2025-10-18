@@ -35,6 +35,11 @@ export interface YoutrackProject {
   name?: string;
 }
 
+export interface YoutrackIssueWatchers {
+  hasStar: boolean;
+  $type: string;
+}
+
 export interface YoutrackIssue {
   id: string;
   idReadable: string;
@@ -45,6 +50,7 @@ export interface YoutrackIssue {
   project?: YoutrackProject;
   parent?: { idReadable: string; id?: string } | null;
   assignee?: YoutrackUser | null;
+  watchers?: YoutrackIssueWatchers | null;
 }
 
 export interface YoutrackIssueCreateInput {
@@ -592,4 +598,49 @@ export interface IssueActivitiesPayload {
     limit?: number;
     skip?: number;
   };
+}
+
+// Issue star management types
+export interface YoutrackIssueWatcher {
+  id: string;
+  user: YoutrackUser;
+  isStarred: boolean;
+  $type: string;
+}
+
+export interface IssueStarInput {
+  issueId: string;
+}
+
+export interface IssueStarBatchInput {
+  issueIds: string[];
+}
+
+export interface IssueStarPayload {
+  issueId: string;
+  starred: boolean;
+  message?: string;
+}
+
+export interface IssueStarBatchPayload {
+  successful: Array<{
+    issueId: string;
+    starred: boolean;
+  }>;
+  failed: Array<{
+    issueId: string;
+    error: string;
+  }>;
+}
+
+export interface PaginationInfo {
+  returned: number;
+  limit: number;
+  skip: number;
+}
+
+export interface IssuesStarredPayload {
+  issues: MappedYoutrackIssue[];
+  returnedCount: number;
+  pagination: PaginationInfo;
 }

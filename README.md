@@ -6,6 +6,7 @@
 MCP server for comprehensive YouTrack integration with the following capabilities:
 
 - **Issue management** - create, update, comment, assign, change state, batch operations
+- **Issue starring** - mark important issues with stars, batch starring (up to 50), list starred issues
 - **Attachment management** - upload files (up to 10), download with signed URLs, delete
 - **Work items tracking** - create entries with idempotent operations, batch creation for periods
 - **Detailed time reports** - summary reports, deviation analysis, multi-user statistics
@@ -30,6 +31,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
   - [MCP Tools](#mcp-tools)
     - [Service](#service)
     - [Issues](#issues)
+    - [Issue Stars](#issue-stars)
     - [Work Items](#work-items)
     - [Users and Projects](#users-and-projects)
     - [Articles](#articles)
@@ -282,6 +284,16 @@ All tools return `structuredContent` with a `success` flag and payload formatted
 | `issue_attachment_download` | Get download URL for attachment | `issueId`, `attachmentId` — returns signed URL |
 | `issue_attachment_upload` | Upload files to issue | `issueId`, `filePaths[]` — array of file paths (max 10), optionally `muteUpdateNotifications` |
 | `issue_attachment_delete` | Delete attachment (requires confirmation) | `issueId`, `attachmentId`, `confirmation` (must be `true`) |
+
+### Issue Stars
+
+| Tool | Description | Main Parameters |
+| --- | --- | --- |
+| `issue_star` | Add star to issue for current user | `issueId` — issue code (e.g., PROJ-123). Idempotent operation - returns success even if already starred |
+| `issue_unstar` | Remove star from issue for current user | `issueId` — issue code. Idempotent operation - returns success even if not currently starred |
+| `issues_star_batch` | Add stars to multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes (max 50). Returns object with `successful` and `failed` arrays. Processes with concurrency limit (10 concurrent requests) |
+| `issues_unstar_batch` | Remove stars from multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes (max 50). Returns object with `successful` and `failed` arrays. Processes with concurrency limit (10 concurrent requests) |
+| `issues_starred_list` | Get all starred issues for current user | Optionally `limit` (default 50, max 200), `skip` for pagination. Returns array of starred issues with basic information (id, idReadable, summary, project, parent, assignee) without description fields |
 
 ### Work Items
 
