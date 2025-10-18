@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-10-18
+
+### Added
+
+- **Issue starring** - Star/unstar issues to mark important items:
+  - `issue_star`: Add star to issue for current user (idempotent operation)
+  - `issue_unstar`: Remove star from issue for current user (idempotent operation)
+  - `issues_star_batch`: Batch starring up to 50 issues with concurrency control
+  - `issues_unstar_batch`: Batch unstarring up to 50 issues with concurrency control
+  - `issues_starred_list`: Get all starred issues with pagination (default 50, max 200)
+  - New field `watchers(hasStar)` in all issue responses to indicate star status
+- **Concurrency control** - Efficient batch operation processing:
+  - Added `@vitalyostanin/mutex-pool` dependency for managing concurrent API requests
+  - Implemented `processBatch` helper method with configurable concurrency limit (default: 10)
+  - Prevents API overload and timeout issues in batch operations
+  - Applied to all batch tools: comments fetching, issue lookups, starring operations
+
+### Changed
+
+- Refactored all batch operations to use MutexPool for concurrency limiting:
+  - `issues_comments`: Now processes up to 10 issues concurrently instead of unlimited
+  - `issues_lookup`: Limited to 10 concurrent requests for better stability
+  - `issues_details`: Controlled concurrency prevents API rate limiting
+- Enhanced issue field definitions with array-based formatting for better maintainability
+- Improved code organization with consistent result handling patterns
+
 ## [0.4.0] - 2025-10-17
 
 ### Added
@@ -143,7 +169,8 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.2.0...v0.3.0
