@@ -1,7 +1,17 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ZodError } from "zod";
 
-export function toolSuccess<T>(payload: T, compactMode = true): CallToolResult {
+let defaultCompactMode = true;
+
+export function setDefaultCompactMode(value: boolean) {
+  defaultCompactMode = value;
+}
+
+export function getDefaultCompactMode(): boolean {
+  return defaultCompactMode;
+}
+
+export function toolSuccess<T>(payload: T, compactMode: boolean = defaultCompactMode): CallToolResult {
   const structuredContent = {
     success: true,
     payload,

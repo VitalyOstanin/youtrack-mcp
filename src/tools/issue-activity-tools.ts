@@ -83,7 +83,7 @@ export function registerIssueActivityTools(server: McpServer, client: YoutrackCl
         };
 
         return toolSuccess(payload);
-      } catch (error) {
+     } catch (error) {
         return toolError(error);
       }
     },

@@ -15,6 +15,7 @@ import { YoutrackClient } from "./youtrack-client.js";
 import { loadConfig } from "./config.js";
 import { initializeTimezone } from "./utils/date.js";
 import { VERSION } from "./version.js";
+import { setDefaultCompactMode } from "./utils/tool-response.js";
 
 export class YoutrackServer {
   private readonly server: McpServer;
@@ -39,15 +40,16 @@ export class YoutrackServer {
     const config = loadConfig();
 
     initializeTimezone(config.timezone);
+    setDefaultCompactMode(config.compactMode);
     this.client = new YoutrackClient(config);
 
     registerServiceInfoTool(this.server, this.client);
     registerIssueTools(this.server, this.client);
     registerIssueActivityTools(this.server, this.client);
-    registerIssueSearchTools(this.server, this.client, config);
+    registerIssueSearchTools(this.server, this.client);
     registerWorkitemTools(this.server, this.client);
     registerWorkitemReportTools(this.server, this.client);
-    registerArticleTools(this.server, this.client, config);
+    registerArticleTools(this.server, this.client);
     registerArticleSearchTools(this.server, this.client);
     registerUserTools(this.server, this.client);
     registerProjectTools(this.server, this.client);

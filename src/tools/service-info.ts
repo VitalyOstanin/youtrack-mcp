@@ -12,22 +12,25 @@ export function registerServiceInfoTool(server: McpServer, client: YoutrackClien
     "Get YouTrack integration status and environment configuration",
     async () => {
       try {
-        const config = loadConfig();
+        const freshConfig = loadConfig();
         const currentUser = await client.getCurrentUser();
         const payload: ServiceStatusPayload = {
           service: {
             name: "youtrack-mcp",
             version: VERSION,
           },
-          configuration: enrichConfigWithRedaction(config),
+          configuration: enrichConfigWithRedaction(freshConfig),
         };
-        const result: CallToolResult = {
-          content: [],
-          structuredContent: {
-            ...payload,
-            currentUser,
-          },
-        };
+        const structuredContent = { ...payload, currentUser } as Record<string, unknown>;
+        const content = freshConfig.compactMode
+          ? []
+          : [
+              {
+                type: "text" as const,
+                text: JSON.stringify(structuredContent, null, 2),
+              },
+            ];
+        const result: CallToolResult = { content, structuredContent };
 
         return result;
       } catch (error) {

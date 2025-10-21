@@ -1,7 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import type { YoutrackConfig } from "../types.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 
 const issueSearchByUserActivityArgs = {
@@ -45,7 +44,7 @@ const issueSearchByUserActivityArgs = {
 };
 const issueSearchByUserActivitySchema = z.object(issueSearchByUserActivityArgs);
 
-export function registerIssueSearchTools(server: McpServer, client: YoutrackClient, config: YoutrackConfig): void {
+export function registerIssueSearchTools(server: McpServer, client: YoutrackClient): void {
   server.tool(
     "issue_search_by_user_activity",
     "Search for issues where specified users had activity (updated, mentioned, reported, assigned, commented) within a given time period. Supports two filter modes: 'issue_updated' (default, fast) uses issue.updated field, 'user_activity' (slow, precise) checks actual user activity dates including comments, mentions, and field changes history. Results are sorted by activity time (most recent first). When 'user_activity' mode is used, each issue includes 'lastActivityDate' field with exact timestamp of user's last activity. Supports pagination via limit and skip parameters. Note: By default (briefOutput=true), each issue includes minimal fields only - id, idReadable, summary, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name). Description fields are excluded to reduce response size. Set briefOutput=false to include full description and wikifiedDescription fields. Custom fields are not included.",
@@ -62,7 +61,7 @@ export function registerIssueSearchTools(server: McpServer, client: YoutrackClie
           limit: payload.limit,
           skip: payload.skip,
         });
-        const response = toolSuccess(results, config.compactMode);
+        const response = toolSuccess(results);
 
         return response;
       } catch (error) {

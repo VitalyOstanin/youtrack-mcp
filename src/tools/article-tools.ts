@@ -1,7 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import type { YoutrackConfig } from "../types.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 
 const articleLookupArgs = {
@@ -44,7 +43,6 @@ const articleUpdateSchema = z.object(articleUpdateArgs);
 export function registerArticleTools(
   server: McpServer,
   client: YoutrackClient,
-  config?: YoutrackConfig,
 ): void {
   server.tool(
     "article_get",
@@ -54,7 +52,7 @@ export function registerArticleTools(
       try {
         const payload = articleLookupSchema.parse(rawInput);
         const article = await client.getArticle(payload.articleId);
-        const response = toolSuccess(article, config?.compactMode);
+        const response = toolSuccess(article);
 
         return response;
       } catch (error) {
@@ -76,7 +74,7 @@ export function registerArticleTools(
           parentArticleId: payload.parentArticleId,
           projectId: payload.projectId,
         });
-        const response = toolSuccess(articles, config?.compactMode);
+        const response = toolSuccess(articles);
 
         return response;
       } catch (error) {
@@ -102,7 +100,7 @@ export function registerArticleTools(
           usesMarkdown: payload.usesMarkdown,
           returnRendered: payload.returnRendered,
         });
-        const response = toolSuccess(article, config?.compactMode);
+        const response = toolSuccess(article);
 
         return response;
       } catch (error) {
@@ -132,7 +130,7 @@ export function registerArticleTools(
           usesMarkdown: payload.usesMarkdown,
           returnRendered: payload.returnRendered,
         });
-        const response = toolSuccess(article, config?.compactMode);
+        const response = toolSuccess(article);
 
         return response;
       } catch (error) {
