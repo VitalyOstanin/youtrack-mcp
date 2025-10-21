@@ -277,3 +277,21 @@ this.youtrackMcpServer.registerTool(
 
 ## Build Artifacts
 - Only `dist/` should contain compiled assets; do not commit build output.
+
+### Pre‑Release TOC Verification (Release Rule)
+- Before every release, verify that README TOCs are present and accurate:
+  - Files: `README.md` and `README-ru.md`.
+  - Ensure each TOC includes all `##` and `###` headings in the correct order and with proper anchors.
+- Suggested quick checks:
+  - Presence: `rg -n "^## Table of Contents" README.md README-ru.md`
+  - Compare headers vs TOC entries:
+    ```bash
+    for f in README.md README-ru.md; do
+      echo "== $f ==";
+      echo "Headers (H2/H3):";
+      rg -n "^(##|###) " "$f" | sed -E 's/^[^ ]+\s+//' | sed -E 's/^#+ //';
+      echo "TOC entries:";
+      rg -n "^- \\[[^\\]]+\\\\]\\(#[^)]+\\)" "$f" || true;
+    done
+    ```
+  - If mismatches are found, update the TOC blocks in the README files accordingly.
