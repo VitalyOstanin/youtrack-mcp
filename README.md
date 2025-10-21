@@ -1,5 +1,7 @@
 # YouTrack MCP Server
 
+Also available in Russian: [README-ru.md](README-ru.md)
+
 [![CI](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@vitalyostanin/youtrack-mcp.svg)](https://www.npmjs.com/package/@vitalyostanin/youtrack-mcp)
 
@@ -244,12 +246,15 @@ To use this MCP server with [Cline](https://github.com/cline/cline) extension in
       "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
-        "YOUTRACK_TOKEN": "perm:your-token-here"
+        "YOUTRACK_TOKEN": "perm:your-token-here",
+        "YOUTRACK_COMPACT_MODE": "false"
       }
     }
   }
 }
 ```
+
+**Important for Cline:** Set `YOUTRACK_COMPACT_MODE` to `"false"` so full tool responses are also included in the MCP `content` field (in addition to `structuredContent`). This improves compatibility with some clients relying on text content.
 
 **Note:** This configuration uses npx to run the published package. For local development, use `"command": "node"` with `"args": ["/absolute/path/to/youtrack-mcp/dist/index.js"]`. The `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS`, and `YOUTRACK_USER_ALIASES` environment variables are optional.
 
