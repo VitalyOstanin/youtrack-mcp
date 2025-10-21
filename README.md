@@ -279,7 +279,7 @@ All tools return `structuredContent` with a `success` flag and payload formatted
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
 | `issue_lookup` | Brief issue information | `issueId` — issue code (e.g., PROJ-123) |
-| `issue_details` | Full issue data | `issueId` — issue code |
+| `issue_details` | Issue details with brief/full modes | `issueId` — issue code; `briefOutput` — optional boolean (default `true`). Brief: predefined fields only. Full (`false`): adds `customFields` including `State` |
 | `issue_comments` | Issue comments | `issueId` — issue code |
 | `issue_create` | Create issue | `projectId`, `summary`, optionally `description`, `parentIssueId`, `assigneeLogin`, `usesMarkdown` |
 | `issue_update` | Update existing issue | `issueId`, optionally `summary`, `description`, `parentIssueId` (empty string clears parent), `usesMarkdown` |

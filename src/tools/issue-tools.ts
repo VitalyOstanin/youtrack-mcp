@@ -5,6 +5,10 @@ import { toolError, toolSuccess } from "../utils/tool-response.js";
 
 const issueIdArgs = {
   issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+  briefOutput: z
+    .boolean()
+    .optional()
+    .describe("Brief mode (default: true). When false, include all available customFields including State."),
 };
 const issueIdSchema = z.object(issueIdArgs);
 const issueIdsArgs = {
@@ -13,6 +17,10 @@ const issueIdsArgs = {
     .min(1)
     .max(50)
     .describe("Array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50"),
+  briefOutput: z
+    .boolean()
+    .optional()
+    .describe("Brief mode (default: true). When false, include all available customFields for each issue."),
 };
 const issueIdsSchema = z.object(issueIdsArgs);
 const issueCreateArgs = {
@@ -102,12 +110,13 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_details",
-    "Get detailed information about YouTrack issue. Note: Returns predefined fields only - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, resolved, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). Custom fields are not included.",
+    "Get detailed information about YouTrack issue. Use for: Viewing full issue details.\n- Brief (default): returns predefined fields only — id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, resolved, project(id,shortName,name), parent(id,idReadable), assignee(id,login,name), reporter(id,login,name), updater(id,login,name), watchers(hasStar).\n- Full (briefOutput=false): adds customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)) so you can read State and other custom fields.",
     issueIdArgs,
     async (rawInput) => {
       try {
         const payload = issueIdSchema.parse(rawInput);
-        const details = await client.getIssueDetails(payload.issueId);
+        const brief = payload.briefOutput ?? true;
+        const details = await client.getIssueDetails(payload.issueId, !brief ? true : false);
         const response = toolSuccess(details);
 
         return response;
@@ -294,12 +303,13 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_details",
-    "Get detailed information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, resolved, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). Custom fields are not included.",
+    "Get detailed information about multiple YouTrack issues (batch mode, max 50). Use for: Efficiently fetching issue details.\n- Brief (default): returns predefined fields only — id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, resolved, project(id,shortName,name), parent(id,idReadable), assignee(id,login,name), reporter(id,login,name), updater(id,login,name), watchers(hasStar).\n- Full (briefOutput=false): adds customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)) for each issue. Note: payloads can be large; defaults stay brief.",
     issueIdsArgs,
     async (rawInput) => {
       try {
         const payload = issueIdsSchema.parse(rawInput);
-        const result = await client.getIssuesDetails(payload.issueIds);
+        const brief = payload.briefOutput ?? true;
+        const result = await client.getIssuesDetails(payload.issueIds, !brief ? true : false);
         const response = toolSuccess(result);
 
         return response;

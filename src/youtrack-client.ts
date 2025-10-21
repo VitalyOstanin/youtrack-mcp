@@ -353,10 +353,13 @@ export class YoutrackClient {
     }
   }
 
-  async getIssueDetails(issueId: string): Promise<IssueDetailsPayload> {
+  async getIssueDetails(issueId: string, includeCustomFields: boolean = false): Promise<IssueDetailsPayload> {
     try {
+      const fields = includeCustomFields
+        ? `${defaultFields.issueDetails},customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))`
+        : defaultFields.issueDetails;
       const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${issueId}`, {
-        params: { fields: defaultFields.issueDetails },
+        params: { fields },
       });
       const mappedIssue = mapIssueDetails(response.data);
       const payload = { issue: mappedIssue };
@@ -606,7 +609,7 @@ export class YoutrackClient {
     }
   }
 
-  async getIssuesDetails(issueIds: string[]): Promise<IssuesDetailsPayload> {
+  async getIssuesDetails(issueIds: string[], includeCustomFields: boolean = false): Promise<IssuesDetailsPayload> {
     if (!issueIds.length) {
       return { issues: [], errors: [] };
     }
@@ -615,9 +618,12 @@ export class YoutrackClient {
     const query = `issue id: ${issueIds.join(" ")}`;
 
     try {
+      const fields = includeCustomFields
+        ? `${defaultFields.issueDetails},customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))`
+        : defaultFields.issueDetails;
       const response = await this.http.get<YoutrackIssueDetails[]>("/api/issues", {
         params: {
-          fields: defaultFields.issueDetails,
+          fields,
           query,
           $top: issueIds.length,
         },
