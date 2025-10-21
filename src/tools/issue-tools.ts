@@ -116,7 +116,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdSchema.parse(rawInput);
         const brief = payload.briefOutput ?? true;
-        const details = await client.getIssueDetails(payload.issueId, !brief ? true : false);
+        const details = await client.getIssueDetails(payload.issueId, !brief);
         const response = toolSuccess(details);
 
         return response;
@@ -309,7 +309,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdsSchema.parse(rawInput);
         const brief = payload.briefOutput ?? true;
-        const result = await client.getIssuesDetails(payload.issueIds, !brief ? true : false);
+        const result = await client.getIssuesDetails(payload.issueIds, !brief);
         const response = toolSuccess(result);
 
         return response;

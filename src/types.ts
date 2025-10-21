@@ -20,7 +20,7 @@ export interface YoutrackConfig {
   holidays?: string[];
   preHolidays?: string[];
   userAliases?: UserAliasMap;
-  compactMode: boolean;
+  useStructuredContent: boolean;
 }
 
 export interface DurationValue {

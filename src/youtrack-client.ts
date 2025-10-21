@@ -199,6 +199,60 @@ export class YoutrackClient {
   }
 
   /**
+   * GET helper that prefers `$top`/`$skip` and retries with `top`/`skip` on 400.
+   * Returns only `data` for convenience.
+   */
+  private async getWithFlexibleTop<T>(
+    url: string,
+    params: Record<string, unknown>,
+  ): Promise<T> {
+    const hasTopLike =
+      Object.prototype.hasOwnProperty.call(params, "$top") ||
+      Object.prototype.hasOwnProperty.call(params, "top") ||
+      Object.prototype.hasOwnProperty.call(params, "$skip") ||
+      Object.prototype.hasOwnProperty.call(params, "skip");
+    // First attempt: prefer $top/$skip
+    const dollarParams: Record<string, unknown> = { ...params };
+
+    if (Object.prototype.hasOwnProperty.call(dollarParams, "top") && !Object.prototype.hasOwnProperty.call(dollarParams, "$top")) {
+      (dollarParams).$top = (dollarParams).top;
+      delete (dollarParams).top;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(dollarParams, "skip") && !Object.prototype.hasOwnProperty.call(dollarParams, "$skip")) {
+      (dollarParams).$skip = (dollarParams).skip;
+      delete (dollarParams).skip;
+    }
+
+    try {
+      const res = await this.http.get<T>(url, { params: dollarParams });
+
+      return res.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 400 && hasTopLike) {
+        // Retry with plain top/skip
+        const plainParams: Record<string, unknown> = { ...params };
+
+        if (Object.prototype.hasOwnProperty.call(plainParams, "$top")) {
+          (plainParams).top = (plainParams).$top;
+          delete (plainParams).$top;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(plainParams, "$skip")) {
+          (plainParams).skip = (plainParams).$skip;
+          delete (plainParams).$skip;
+        }
+
+        const res2 = await this.http.get<T>(url, { params: plainParams });
+
+        return res2.data;
+      }
+
+      throw error;
+    }
+  }
+
+  /**
    * Process items with concurrency limit using MutexPool
    * @param items - Array of items to process
    * @param processor - Async function to process each item
@@ -290,20 +344,33 @@ export class YoutrackClient {
 
   async listProjects(): Promise<YoutrackProjectListPayload> {
     try {
-      const response = await this.http.get<YoutrackProject[]>("/api/admin/projects", {
-        params: {
-          fields: defaultFields.projects,
-          top: DEFAULT_PAGE_SIZE,
-        },
-      });
+      const projects: YoutrackProject[] = [];
+      let skip = 0;
 
-      response.data.forEach((project) => {
+      // Paginate until a page returns less than DEFAULT_PAGE_SIZE
+      while (skip >= 0) {
+        const page = await this.http.get<YoutrackProject[]>("/api/admin/projects", {
+          params: {
+            fields: defaultFields.projects,
+            top: DEFAULT_PAGE_SIZE,
+            skip,
+          },
+        });
+
+        projects.push(...page.data);
+
+        if (page.data.length < DEFAULT_PAGE_SIZE) break;
+
+        skip += page.data.length;
+      }
+
+      projects.forEach((project) => {
         if (project.shortName) {
           this.projectsByShortName.set(project.shortName, project);
         }
       });
 
-      const payload = { projects: response.data };
+      const payload = { projects };
 
       return payload;
     } catch (error) {
@@ -577,14 +644,11 @@ export class YoutrackClient {
     const query = `issue id: ${issueIds.join(" ")}`;
 
     try {
-      const response = await this.http.get<YoutrackIssue[]>("/api/issues", {
-        params: {
-          fields: defaultFields.issue,
-          query,
-          $top: issueIds.length,
-        },
+      const foundIssues = await this.getWithFlexibleTop<YoutrackIssue[]>("/api/issues", {
+        fields: defaultFields.issue,
+        query,
+        $top: issueIds.length,
       });
-      const foundIssues = response.data;
       const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
       const errors: IssueError[] = [];
 
@@ -621,14 +685,11 @@ export class YoutrackClient {
       const fields = includeCustomFields
         ? `${defaultFields.issueDetails},customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))`
         : defaultFields.issueDetails;
-      const response = await this.http.get<YoutrackIssueDetails[]>("/api/issues", {
-        params: {
-          fields,
-          query,
-          $top: issueIds.length,
-        },
+      const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
+        fields,
+        query,
+        $top: issueIds.length,
       });
-      const foundIssues = response.data;
       const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
       const errors: IssueError[] = [];
 
@@ -666,15 +727,11 @@ export class YoutrackClient {
     const query = `issue id: ${issueIds.join(" ")}`;
 
     try {
-      const response = await this.http.get<YoutrackIssueDetails[]>("/api/issues", {
-        params: {
-          fields: defaultFields.issueDetailsLight,
-          query,
-          $top: issueIds.length,
-        },
+      return await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
+        fields: defaultFields.issueDetailsLight,
+        query,
+        $top: issueIds.length,
       });
-
-      return response.data;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -832,24 +889,22 @@ export class YoutrackClient {
     const briefOutput = input.briefOutput ?? true;
 
     try {
-      const response = await this.http.get<YoutrackIssue[]>("/api/issues", {
-        params: {
-          fields: briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch,
-          query,
-          $top: Math.min(limit, DEFAULT_PAGE_SIZE),
-          $skip: skip,
-        },
+      const page = await this.getWithFlexibleTop<YoutrackIssue[]>("/api/issues", {
+        fields: briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch,
+        query,
+        $top: Math.min(limit, DEFAULT_PAGE_SIZE),
+        $skip: skip,
       });
 
       return {
-        issues: briefOutput ? response.data.map(mapIssueBrief) : response.data.map(mapIssue),
+        issues: briefOutput ? page.map(mapIssueBrief) : page.map(mapIssue),
         userLogins: input.userLogins,
         period: {
           startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
           endDate: input.endDate ? toIsoDateString(input.endDate) : undefined,
         },
         pagination: {
-          returned: response.data.length,
+          returned: page.length,
           limit,
           skip,
         },
@@ -882,16 +937,13 @@ export class YoutrackClient {
     // Get candidate issues (use brief fields to reduce payload)
     try {
       // Fetch candidates by date only (no user filters) to ensure parser compatibility
-      const response = await this.http.get<YoutrackIssue[]>("/api/issues", {
-        params: {
-          fields: briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch,
-          query, // use full query with date filter and sorting
-          $top: DEFAULT_PAGE_SIZE,
-        },
+      const candidateIssues = await this.getWithFlexibleTop<YoutrackIssue[]>("/api/issues", {
+        fields: briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch,
+        query,
+        $top: DEFAULT_PAGE_SIZE,
       });
       // If no data returned, still attempt a fallback without braces
       // No fallback needed here since we purposely avoided user filters in query
-      const candidateIssues = response.data;
 
       if (candidateIssues.length === 0) {
         return {
@@ -1022,9 +1074,8 @@ export class YoutrackClient {
               skip,
             },
           };
-        } catch (fallbackError) {
-          // If fallback also fails, log for debugging and return original error
-          console.error("Fallback query also failed:", fallbackError);
+        } catch {
+          // If fallback also fails, return original error
           throw normalized;
         }
       }

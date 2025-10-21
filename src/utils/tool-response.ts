@@ -1,85 +1,85 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ZodError } from "zod";
 
-let defaultCompactMode = true;
+let defaultUseStructuredContent = true;
 
-export function setDefaultCompactMode(value: boolean) {
-  defaultCompactMode = value;
+export function setDefaultUseStructuredContent(value: boolean) {
+  defaultUseStructuredContent = value;
 }
 
-export function getDefaultCompactMode(): boolean {
-  return defaultCompactMode;
+export function getDefaultUseStructuredContent(): boolean {
+  return defaultUseStructuredContent;
 }
 
-export function toolSuccess<T>(payload: T, compactMode: boolean = defaultCompactMode): CallToolResult {
-  const structuredContent = {
-    success: true,
-    payload,
-  } satisfies Record<string, unknown>;
-  // In compact mode, minimize content field to reduce context window usage for AI agents.
-  // Claude Code (when compactMode=false) gets full data in content field for better accessibility.
-  // Other AI agents benefit from minimal content to save context window tokens.
-  const contentText = compactMode
-    ? "Success. Use structuredContent for full data."
-    : JSON.stringify(structuredContent, null, 2);
+export function toolSuccess<T>(payload: T, useStructuredContent: boolean = defaultUseStructuredContent): CallToolResult {
+  const base = { success: true, payload } as const;
+
+  if (useStructuredContent) {
+    return {
+      content: [],
+      structuredContent: base as unknown as Record<string, unknown>,
+    } as CallToolResult;
+  }
 
   return {
     content: [
       {
         type: "text",
-        text: contentText,
+        text: JSON.stringify(base),
       },
     ],
-    structuredContent,
   };
 }
 
-export function toolError(error: unknown): CallToolResult {
+export function toolError(error: unknown, useStructuredContent: boolean = defaultUseStructuredContent): CallToolResult {
   if (error instanceof ZodError) {
-    const structuredContent = {
-      success: false,
-      error: {
-        name: "ValidationError",
-        message: "Invalid input",
-        details: error.flatten(),
-      },
-    } as Record<string, unknown>;
+    const errObj = {
+      name: "ValidationError",
+      message: "Invalid input",
+      details: error.flatten(),
+    } as const;
 
-    return {
-      content: [],
-      isError: true,
-      structuredContent,
-    };
+    return useStructuredContent
+      ? ({ isError: true, content: [], structuredContent: errObj as unknown as Record<string, unknown> } as CallToolResult)
+      : ({
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errObj),
+            },
+          ],
+        } as CallToolResult);
   }
 
   if (error instanceof Error) {
-    const structuredContent = {
-      success: false,
-      error: {
-        name: error.name,
-        message: error.message,
-      },
-    } as Record<string, unknown>;
+    const errObj = {
+      name: error.name,
+      message: error.message,
+    } as const;
 
-    return {
-      content: [],
-      isError: true,
-      structuredContent,
-    };
+    return useStructuredContent
+      ? ({ isError: true, content: [], structuredContent: errObj as unknown as Record<string, unknown> } as CallToolResult)
+      : ({
+          isError: true,
+          content: [
+            { type: "text", text: JSON.stringify(errObj) },
+          ],
+        } as CallToolResult);
   }
 
-  const structuredContent = {
-    success: false,
-    error: {
-      name: "UnknownError",
-      message: "An unknown error occurred",
-      details: error,
-    },
-  } as Record<string, unknown>;
+  const errObj = {
+    name: "UnknownError",
+    message: "An unknown error occurred",
+    details: error,
+  } as const;
 
-  return {
-    content: [],
-    isError: true,
-    structuredContent,
-  };
+  return useStructuredContent
+    ? ({ isError: true, content: [], structuredContent: errObj as unknown as Record<string, unknown> } as CallToolResult)
+    : ({
+        isError: true,
+        content: [
+          { type: "text", text: JSON.stringify(errObj) },
+        ],
+      } as CallToolResult);
 }

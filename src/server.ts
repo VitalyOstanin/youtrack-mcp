@@ -15,7 +15,7 @@ import { YoutrackClient } from "./youtrack-client.js";
 import { loadConfig } from "./config.js";
 import { initializeTimezone } from "./utils/date.js";
 import { VERSION } from "./version.js";
-import { setDefaultCompactMode } from "./utils/tool-response.js";
+import { setDefaultUseStructuredContent } from "./utils/tool-response.js";
 
 export class YoutrackServer {
   private readonly server: McpServer;
@@ -40,7 +40,7 @@ export class YoutrackServer {
     const config = loadConfig();
 
     initializeTimezone(config.timezone);
-    setDefaultCompactMode(config.compactMode);
+    setDefaultUseStructuredContent(config.useStructuredContent);
     this.client = new YoutrackClient(config);
 
     registerServiceInfoTool(this.server, this.client);
