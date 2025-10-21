@@ -38,6 +38,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
 - [MCP Tools](#mcp-tools)
   - [Service](#service)
   - [Issues](#issues)
+  - [Issue Links](#issue-links)
   - [Issue Stars](#issue-stars)
   - [Work Items](#work-items)
   - [Users and Projects](#users-and-projects)
@@ -294,6 +295,15 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | `issue_attachment_download` | Get download URL for attachment | `issueId`, `attachmentId` — returns signed URL |
 | `issue_attachment_upload` | Upload files to issue | `issueId`, `filePaths[]` — array of file paths (max 10), optionally `muteUpdateNotifications` |
 | `issue_attachment_delete` | Delete attachment (requires confirmation) | `issueId`, `attachmentId`, `confirmation` (must be `true`) |
+
+### Issue Links
+
+| Tool | Description | Main Parameters |
+| --- | --- | --- |
+| `issue_links` | List links for an issue (relates to, duplicate, parent/child). Returns link id, direction, linkType, and counterpart issue brief | `issueId` — issue code |
+| `issue_link_types` | List available link types | — |
+| `issue_link_add` | Create a link between two issues | `sourceId`, `targetId`, `linkType` (name or id) |
+| `issue_link_delete` | Delete a link by id for a specific issue | `issueId`, `linkId` |
 
 ### Issue Stars
 

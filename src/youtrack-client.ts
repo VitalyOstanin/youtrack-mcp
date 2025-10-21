@@ -60,6 +60,14 @@ import type {
   IssueStarBatchPayload,
   IssueStarPayload,
   IssuesStarredPayload,
+  IssueLinksPayload,
+  IssueLinkTypesPayload,
+  IssueLinkCreateInput,
+  IssueLinkCreatePayload,
+  IssueLinkDeleteInput,
+  IssueLinkDeletePayload,
+  YoutrackIssueLink,
+  YoutrackIssueLinkType,
   WorkItemBulkResultPayload,
   WorkItemDeletePayload,
   WorkItemInvalidDay,
@@ -158,6 +166,10 @@ const defaultFields = {
   articleList: "id,idReadable,summary,parentArticle(id,idReadable),project(id,shortName,name)",
   attachment: "id,name,author(id,login,name),created,updated,size,mimeType,url,thumbnailURL,extension",
   attachments: "id,name,author(id,login,name),created,updated,size,mimeType,extension",
+  // Links
+  issueLinks:
+    "id,direction,linkType(id,name,directed,outwardName,inwardName),issues(idReadable,summary,project(id,shortName,name),assignee(id,login,name))",
+  linkTypes: "id,name,directed,outwardName,inwardName",
 } as const;
 
 class YoutrackClientError extends Error {
@@ -250,6 +262,99 @@ export class YoutrackClient {
 
       throw error;
     }
+  }
+
+  // =========================
+  // Issue Links API
+  // =========================
+
+  async getIssueLinks(issueId: string): Promise<IssueLinksPayload> {
+    try {
+      const response = await this.http.get<YoutrackIssueLink[]>(`/api/issues/${issueId}/links`, {
+        params: { fields: defaultFields.issueLinks },
+      });
+      const links = response.data
+        .flatMap((row) => this.mapIssueLinkRow(issueId, row))
+        // filter out entries that point back to the same issue or have no counterpart
+        .filter((l) => l.issue.idReadable && l.issue.idReadable !== issueId);
+      const payload = { issueId, links };
+
+      return payload;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async listLinkTypes(): Promise<IssueLinkTypesPayload> {
+    try {
+      const response = await this.http.get<YoutrackIssueLinkType[]>("/api/issueLinkTypes", {
+        params: { fields: defaultFields.linkTypes },
+      });
+      const payload = { types: response.data };
+
+      return payload;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async addIssueLink(input: IssueLinkCreateInput): Promise<IssueLinkCreatePayload> {
+    const body = {
+      linkType: /[a-f0-9-]{8,}/i.test(input.linkType) ? { id: input.linkType } : { name: input.linkType },
+      issues: [{ idReadable: input.targetId }],
+    };
+
+    try {
+      const response = await this.http.post<YoutrackIssueLink>(`/api/issues/${input.sourceId}/links`, body, {
+        params: { fields: defaultFields.issueLinks },
+      });
+      const variants = this.mapIssueLinkRow(input.sourceId, response.data);
+      const mapped = variants.find((v) => v.issue.idReadable === input.targetId) ?? variants[0];
+      const payload = { link: mapped };
+
+      return payload;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  async deleteIssueLink(input: IssueLinkDeleteInput): Promise<IssueLinkDeletePayload> {
+    try {
+      await this.http.delete(`/api/issues/${input.issueId}/links/${input.linkId}`);
+
+      return { issueId: input.issueId, linkId: input.linkId, deleted: true };
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  private mapIssueLinkRow(currentIssueId: string, row: {
+    id: string;
+    direction?: string;
+    linkType: YoutrackIssueLinkType;
+    issues?: Array<{ idReadable: string; summary?: string; project?: { id: string; shortName: string; name?: string }; assignee?: YoutrackUser | null }>;
+  }): YoutrackIssueLink[] {
+    const issues = row.issues ?? [];
+    const source = issues.find((i) => i.idReadable === currentIssueId) ?? { idReadable: currentIssueId };
+    const counterparts = issues.filter((i) => i.idReadable !== currentIssueId);
+
+    if (counterparts.length === 0) {
+      // No concrete counterpart provided by API for this row; return an empty array
+      return [];
+    }
+
+    return counterparts.map((counterpart) => ({
+      id: row.id,
+      direction: row.direction ?? (source.idReadable === currentIssueId ? "outward" : "inward"),
+      linkType: row.linkType,
+      source: { idReadable: source.idReadable },
+      issue: {
+        idReadable: counterpart.idReadable,
+        summary: counterpart.summary,
+        project: counterpart.project,
+        assignee: counterpart.assignee ?? null,
+      },
+    }));
   }
 
   /**

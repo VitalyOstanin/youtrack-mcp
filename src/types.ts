@@ -430,6 +430,69 @@ export interface IssuesCommentsPayload {
   errors?: IssueError[];
 }
 
+// =========================
+// Issue Links: types/payloads
+// =========================
+
+export interface YoutrackIssueLinkType {
+  id: string;
+  name: string; // e.g., "Relates", "Duplicate"
+  directed?: boolean;
+  outwardName?: string; // e.g., "relates to", "duplicates"
+  inwardName?: string; // e.g., "is related to", "is duplicated by"
+}
+
+// Keep direction flexible as YouTrack may return values like 'INWARD'/'OUTWARD'/'BOTH'
+export type YoutrackIssueLinkDirection = string;
+
+export interface YoutrackIssueLink {
+  id: string;
+  direction: YoutrackIssueLinkDirection; // direction relative to the current issue
+  linkType: YoutrackIssueLinkType;
+  // YouTrack returns both issues in the link; we expose the counterpart and the source briefly
+  source: {
+    idReadable: string;
+  };
+  issue: {
+    idReadable: string;
+    summary?: string;
+    project?: { id: string; shortName: string; name?: string };
+    assignee?: YoutrackUser | null;
+  };
+}
+
+export type MappedYoutrackIssueLink = YoutrackIssueLink;
+
+export interface IssueLinksPayload {
+  issueId: string;
+  links: MappedYoutrackIssueLink[];
+}
+
+export interface IssueLinkTypesPayload {
+  types: YoutrackIssueLinkType[];
+}
+
+export interface IssueLinkCreateInput {
+  sourceId: string; // idReadable of source issue
+  targetId: string; // idReadable of target issue
+  linkType: string; // name or id of link type
+}
+
+export interface IssueLinkCreatePayload {
+  link: MappedYoutrackIssueLink;
+}
+
+export interface IssueLinkDeleteInput {
+  issueId: string; // current issue idReadable
+  linkId: string; // YouTrack link id
+}
+
+export interface IssueLinkDeletePayload {
+  issueId: string;
+  linkId: string;
+  deleted: true;
+}
+
 export interface YoutrackAttachment {
   id: string;
   name: string;
