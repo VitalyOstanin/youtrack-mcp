@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-10-21
+
+### Added
+
+- Issue links: Introduced `issue_links`, `issue_link_types`, `issue_link_add`, and `issue_link_delete` MCP tools covering list, metadata, creation, and deletion flows with controlled per-issue mapping
+
+### Changed
+
+- Documentation: Added "Issue Links" section to README files describing new tooling and usage guidance
+
 ## [0.6.0] - 2025-10-21
 
 ### Added
@@ -186,7 +196,10 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.3.0...v0.3.1
