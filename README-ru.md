@@ -243,14 +243,17 @@ YOUTRACK_TOKEN = "perm:your-token-here"
       "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
-        "YOUTRACK_TOKEN": "perm:your-token-here"
+        "YOUTRACK_TOKEN": "perm:your-token-here",
+        "YOUTRACK_COMPACT_MODE": "false"
       }
     }
   }
 }
 ```
 
-**Примечание:** Эта конфигурация использует npx для запуска опубликованного пакета. Для локальной разработки используйте `"command": "node"` с `"args": ["/абсолютный/путь/к/youtrack-mcp/dist/index.js"]`. Переменные окружения `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS` и `YOUTRACK_USER_ALIASES` являются опциональными.
+**Важно для Cline:** Установите `YOUTRACK_COMPACT_MODE` в `"false"`, чтобы полные ответы инструментов также попадали в поле `content` MCP (в дополнение к `structuredContent`). Это повышает совместимость с клиентами, рассчитывающими на текстовое содержимое.
+
+**Примечание:** Эта конфигурация использует npx для запуска опубликованного пакета. Для локальной разработки используйте `"command": "node"` с `"args": ["/абсолютный/путь/к/youtrack-mcp/dist/index.js"]`. Переменные окружения `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HОЛИДAYS` и `YOUTRACK_USER_ALIASES` являются опциональными.
 
 ## Инструменты MCP
 

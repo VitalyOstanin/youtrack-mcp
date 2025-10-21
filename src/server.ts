@@ -47,7 +47,7 @@ export class YoutrackServer {
     registerIssueSearchTools(this.server, this.client, config);
     registerWorkitemTools(this.server, this.client);
     registerWorkitemReportTools(this.server, this.client);
-    registerArticleTools(this.server, this.client);
+    registerArticleTools(this.server, this.client, config);
     registerArticleSearchTools(this.server, this.client);
     registerUserTools(this.server, this.client);
     registerProjectTools(this.server, this.client);
