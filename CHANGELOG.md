@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-10-21
+
+### Added
+
+- Issues: `issue_details` now supports `briefOutput` flag; full mode returns `customFields` including `State` for richer metadata
+
+### Changed
+
+- MCP responses: Switched default to `YOUTRACK_USE_STRUCTURED_CONTENT=true` with unified response shaping; updated docs accordingly
+- MCP internals: Centralized compact/structured content handling and simplified tool responses
+
 ## [0.5.1] - 2025-10-21
 
 ### Changed
