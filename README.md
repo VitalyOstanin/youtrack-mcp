@@ -188,17 +188,16 @@ node dist/index.js
 ```
 
 ## Configuration for Code (Recommended)
-
-To use this MCP server with [Code](https://github.com/just-every/code), add the following configuration to your `~/.code/config.toml`:
-
+Add to `~/.code/config.toml`:
 ```toml
 [mcp_servers.youtrack-mcp]
 command = "npx"
 args = ["-y", "@vitalyostanin/youtrack-mcp@latest"]
-env = { "YOUTRACK_URL" = "https://youtrack.example.com", "YOUTRACK_TOKEN" = "perm:your-token-here" }
-```
 
-**Note:** This configuration uses npx to run the published package. Alternatively, for local development, use `command = "node"` with `args = ["/path/to/dist/index.js"]`.
+[mcp_servers.youtrack-mcp.env]
+YOUTRACK_URL = "https://youtrack.example.com"
+YOUTRACK_TOKEN = "perm:your-token-here"
+```
 
 ## Configuration for Claude Code CLI
 

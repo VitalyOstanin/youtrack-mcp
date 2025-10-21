@@ -25,6 +25,9 @@
 - Use the plan as a checklist during implementation - mark sections as completed as you progress.
 
 ## Documentation Guidelines
+### Language Policy
+- This AGENTS.md must always be written in English. Do not localize or translate this file.
+- Examples, code snippets, and rule text in this file should remain in English for consistency across all contributors and tools.
 - **Use professional style without emojis** in all documentation, commit messages, and code comments.
 - Keep documentation clear, concise, and technically accurate.
 - Focus on technical content rather than decorative elements.
@@ -42,6 +45,11 @@
     - [Subsection 1.1](#subsection-11)
   - [Section 2](#section-2)
   ```
+
+### TOC Exception for Robot-Facing Markdown
+- Robot-facing instruction files do not require a TOC to stay compact for agent ingestion and reduce noise.
+- Applies to: `AGENTS.md`, `CLAUDE.md`, and other docs intended primarily for AI agents.
+- Human-facing documentation (e.g., `README.md`, `README-ru.md`, `README-release.md`, `CHANGELOG.md`) must include a TOC.
 
 ## Project Structure
 - `src/`: TypeScript sources for the MCP server, YouTrack client, and tool registrations.
