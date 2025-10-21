@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-10-21
+
+### Changed
+
+- Documentation: Regenerated README TOCs (EN/RU) and fixed Code config snippet duplication
+
 ## [0.5.0] - 2025-10-18
 
 ### Added
