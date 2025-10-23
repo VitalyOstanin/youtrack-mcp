@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2025-10-23
+
+### Added
+
+- Issues: Introduced `issues_list` and `issues_count` MCP tools for paginated listings and per-project totals with comprehensive filtering and sorting controls
+- Query builder: Added `buildIssueQuery` utility to generate consistent search filters with project resolution support
+
+### Changed
+
+- Concurrency: Refined issue retrieval flows to reuse MutexPool-based batching so list/count operations honour concurrency limits across all underlying requests
+- Types & client: Expanded issue-related types and YouTrack client methods to surface pagination metadata and per-project counts
+- Documentation: Updated README (EN/RU) tool tables with new listing/counting capabilities and clarified usage guidance
+
 ## [0.7.0] - 2025-10-21
 
 ### Added
@@ -196,7 +209,8 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.5.0...v0.5.1
