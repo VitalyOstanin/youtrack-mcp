@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.7.3] - 2025-10-23
+
+### Fixed
+
+- Versioning: Corrected package.json and package-lock.json to reflect 0.7.3
+- Documentation: Verified README.md and README-ru.md TOC presence
+- Release Process: Followed full checklist from README-release.md including annotated tag creation and validation
+
 ## [0.7.2] - 2025-10-23
 
 ### Changed

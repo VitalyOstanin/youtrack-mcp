@@ -4,26 +4,31 @@ This document outlines the complete release procedure for the YouTrack MCP proje
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Pre-Release Checklist](#pre-release-checklist)
-  - [1. Version Update](#1-version-update)
-  - [2. Lock File Update](#2-lock-file-update)
-  - [3. Documentation Updates](#3-documentation-updates)
-  - [4. Build Validation](#4-build-validation)
-  - [5. Linter Validation](#5-linter-validation)
-  - [6. Final Code Review](#6-final-code-review)
-  - [7. Git Status Check](#7-git-status-check)
-- [Release Execution](#release-execution)
-  - [Automated Release via GitHub Actions](#automated-release-via-github-actions)
-  - [Prerequisites](#prerequisites)
-  - [Release Steps](#release-steps)
-  - [Monitor Release Progress](#monitor-release-progress)
-  - [What GitHub Actions Does](#what-github-actions-does)
-- [Post-Release Verification](#post-release-verification)
-  - [1. Verify GitHub Actions Workflow](#1-verify-github-actions-workflow)
-  - [2. Verify npm Package](#2-verify-npm-package)
-  - [3. Smoke Test Published Package](#3-smoke-test-published-package)
-  - [4. Verify GitHub Release](#4-verify-github-release)
+- [Release Procedure](#release-procedure)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Pre-Release Checklist](#pre-release-checklist)
+    - [1. Version Update](#1-version-update)
+    - [2. Lock File Update](#2-lock-file-update)
+    - [3. Documentation Updates](#3-documentation-updates)
+      - [CHANGELOG Updates](#changelog-updates)
+      - [README Updates](#readme-updates)
+      - [README TOC Verification](#readme-toc-verification)
+    - [4. Build Validation](#4-build-validation)
+    - [5. Linter Validation](#5-linter-validation)
+    - [6. Final Code Review](#6-final-code-review)
+    - [7. Git Status Check](#7-git-status-check)
+  - [Release Execution](#release-execution)
+    - [Automated Release via GitHub Actions](#automated-release-via-github-actions)
+      - [Prerequisites](#prerequisites)
+      - [Release Steps](#release-steps)
+      - [Monitor Release Progress](#monitor-release-progress)
+      - [What GitHub Actions Does](#what-github-actions-does)
+  - [Post-Release Verification](#post-release-verification)
+    - [1. Verify GitHub Actions Workflow](#1-verify-github-actions-workflow)
+    - [2. Verify npm Package](#2-verify-npm-package)
+    - [3. Smoke Test Published Package](#3-smoke-test-published-package)
+    - [4. Verify GitHub Release](#4-verify-github-release)
 
 ## Overview
 
@@ -270,6 +275,10 @@ npm version major   # for 0.1.0 → 1.0.0 (breaking changes)
 # - Updates package.json and package-lock.json
 # - Creates a git commit (e.g., "0.1.1")
 # - Creates a git tag (e.g., "v0.1.1")
+
+> **Important:** Always create annotated tags for releases.
+> Use `git tag -a vX.Y.Z -m "Release vX.Y.Z"` instead of lightweight tags.
+> Annotated tags include author, date, and message metadata, and are required for `git push --follow-tags` to publish them automatically.
 
 # 2. Push commit and tags to GitHub
 git push --follow-tags
