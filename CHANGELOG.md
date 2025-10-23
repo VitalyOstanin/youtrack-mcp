@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.7.2] - 2025-10-23
+
+### Changed
+
+- Documentation: Verified and aligned README.md and README-ru.md TOCs according to AGENTS.md and README-release.md requirements
+- Code Review: Applied internal consistency checks per `ai-prompts/code-review.md` (no `any`, proper destructuring, DRY compliance)
+- Build & Lint: Confirmed successful `npm run build` and `npx eslint .` with no errors
+- Release Process: Prepared for automated GitHub Actions release following `README-release.md` procedure
+
 ## [0.7.1] - 2025-10-23
 
 ### Added
