@@ -2,11 +2,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerServiceInfoTool } from "./tools/service-info.js";
 import { registerIssueTools } from "./tools/issue-tools.js";
 import { registerIssueActivityTools } from "./tools/issue-activity-tools.js";
-import { registerIssueSearchTools } from "./tools/issue-search-tools.js";
+import { issuesSearchArgs, issuesSearchHandler } from "./tools/issue-search-tools.js";
+import { articlesSearchArgs, articlesSearchHandler } from "./tools/article-search-tools.js";
 import { registerWorkitemTools } from "./tools/workitem-tools.js";
 import { registerWorkitemReportTools } from "./tools/workitem-report-tools.js";
 import { registerArticleTools } from "./tools/article-tools.js";
-import { registerArticleSearchTools } from "./tools/article-search-tools.js";
 import { registerUserTools } from "./tools/user-tools.js";
 import { registerProjectTools } from "./tools/project-tools.js";
 import { registerAttachmentTools } from "./tools/attachment-tools.js";
@@ -47,11 +47,23 @@ export class YoutrackServer {
     registerServiceInfoTool(this.server, this.client);
     registerIssueTools(this.server, this.client);
     registerIssueActivityTools(this.server, this.client);
-    registerIssueSearchTools(this.server, this.client);
+    this.server.tool(
+      "issues_search",
+      "Search YouTrack issues by text in summary, description, and comments.",
+      issuesSearchArgs,
+      async (args) => issuesSearchHandler(this.client, args),
+    );
+
+    this.server.tool(
+      "articles_search",
+      "Search YouTrack knowledge base articles by title and content.",
+      articlesSearchArgs,
+      async (args) => articlesSearchHandler(this.client, args),
+    );
     registerWorkitemTools(this.server, this.client);
     registerWorkitemReportTools(this.server, this.client);
     registerArticleTools(this.server, this.client);
-    registerArticleSearchTools(this.server, this.client);
+    // Removed redundant registerArticleSearchTools call (articles_search tool registered manually above)
     registerUserTools(this.server, this.client);
     registerProjectTools(this.server, this.client);
     registerAttachmentTools(this.server, this.client);

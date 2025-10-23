@@ -1,40 +1,47 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { toolSuccess, toolError } from "../utils/tool-response.js";
 
-const articleSearchArgs = {
-  query: z.string().min(2).describe("Search string for summary and content"),
+export const articlesSearchArgs = {
+  query: z.string().min(2).describe("Search string for articles (e.g., 'API token')"),
+  limit: z.number().int().positive().max(200).default(50).describe("Max results per page"),
+  skip: z.number().int().nonnegative().default(0).describe("Offset for pagination"),
   projectId: z.string().optional().describe("Filter by project ID"),
-  parentArticleId: z.string().optional().describe("Filter by parent article"),
-  limit: z.number().int().positive().max(200).optional().describe("Maximum number of results"),
-  returnRendered: z.boolean().optional().describe("Return rendered content preview"),
+  parentArticleId: z.string().optional().describe("Filter by parent article ID"),
 };
-const articleSearchSchema = z.object(articleSearchArgs);
 
-export function registerArticleSearchTools(server: McpServer, client: YoutrackClient): void {
-  server.tool(
-    "article_search",
-    "Search articles in knowledge base by text. Note: Returns predefined fields only - id, idReadable, summary, usesMarkdown, contentPreview (when returnRendered is true), parentArticle (id, idReadable), project (id, shortName, name). Content field is not included for performance reasons.",
-    articleSearchArgs,
-    async (rawInput) => {
-      try {
-        const payload = articleSearchSchema.parse(rawInput);
-        const articles = await client.searchArticles({
-          query: payload.query,
-          projectId: payload.projectId,
-          parentArticleId: payload.parentArticleId,
-          limit: payload.limit,
-          returnRendered: payload.returnRendered,
-        });
-        const response = toolSuccess(articles);
+export const articlesSearchSchema = z.object(articlesSearchArgs);
 
-        return response;
-      } catch (error) {
-        const errorResponse = toolError(error);
+export async function articlesSearchHandler(client: YoutrackClient, rawInput: unknown) {
+  const input = articlesSearchSchema.parse(rawInput);
 
-        return errorResponse;
-      }
-    },
-  );
+  try {
+    const params: Record<string, unknown> = {
+      fields: "id,idReadable,summary,parentArticle(id,idReadable),project(id,shortName,name)",
+      query: `{${input.query}}`,
+      $top: input.limit,
+      $skip: input.skip,
+    };
+
+    if (input.projectId) {
+      params.query += ` and project: {${input.projectId}}`;
+    }
+
+    if (input.parentArticleId) {
+      params.query += ` and parent article: {${input.parentArticleId}}`;
+    }
+
+    const data = await client["getWithFlexibleTop"]("/api/articles", params);
+    const baseUrl = (client as unknown as { config?: { baseUrl?: string } }).config?.baseUrl ?? "";
+    const articlesWithLinks = Array.isArray(data)
+      ? data.map((article: { idReadable: string }) => ({
+          ...article,
+          webUrl: `${baseUrl}/articles/${article.idReadable}`,
+        }))
+      : data;
+
+    return toolSuccess(articlesWithLinks);
+  } catch (error) {
+    return toolError(error);
+  }
 }

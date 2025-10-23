@@ -354,6 +354,8 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | `article_create` | Create article in knowledge base | `summary`, optionally `content`, `parentArticleId`, `projectId`, `usesMarkdown`, `returnRendered` |
 | `article_update` | Update article | `articleId`, optionally `summary`, `content`, `usesMarkdown`, `returnRendered` |
 | `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered` |
+| `articles_search` | Full-text search across YouTrack knowledge base articles by title and content. Returns `webUrl` for direct access. | `query`, `limit`, `skip`, optionally `projectId`, `parentArticleId` |
+| `issues_search` | Full-text search across YouTrack issues by summary, description, and comments. | `query`, `limit`, `skip` |
 
 ### Search
 
