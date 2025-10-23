@@ -105,8 +105,35 @@ export function mapIssueDetails(issue: YoutrackIssueDetails): MappedYoutrackIssu
 export function mapIssueBrief(issue: YoutrackIssue): MappedYoutrackIssue {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { description, wikifiedDescription, ...rest } = issue;
+  // Try to extract assignee from customFields if not present
+  let assignee = issue.assignee ?? null;
 
-  return rest;
+  interface CustomField { name: string; value?: { id?: string; login?: string; name?: string } }
+
+  if (!assignee && Array.isArray((issue as { customFields?: CustomField[] }).customFields)) {
+    const assigneeField = (issue as { customFields?: CustomField[] }).customFields?.find(
+      (f) => f.name === "Assignee" && f.value,
+    );
+
+    if (assigneeField?.value) {
+      const { id = "", login = "", name = "" } = assigneeField.value as {
+        id?: string;
+        login?: string;
+        name?: string;
+      };
+
+      assignee = {
+        id,
+        login,
+        name,
+      };
+    }
+  }
+
+  return {
+    ...rest,
+    assignee,
+  };
 }
 
 /**

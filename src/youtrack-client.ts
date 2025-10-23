@@ -138,7 +138,7 @@ const defaultFields = {
     "summary",
     "project(id,shortName,name)",
     "parent(id,idReadable)",
-    "assignee(id,login,name)",
+    "customFields(id,name,value(id,login,name,presentation),$type)",
     "watchers(hasStar)",
   ].join(","),
   issueDetails: [
