@@ -5,6 +5,7 @@
 - Run `npm run build` and `npx eslint .` before publishing changes to ensure type-checking and linting stay green.
 - When formatting or refactoring code, default to running `npx eslint --fix` (without dry-run) so lintable issues are auto-corrected early.
 - Maintain `README.md` in English and `README-ru.md` in Russian so both stay aligned with the YouTrack MCP feature set.
+- Ensure every data-mutating MCP tool description explicitly instructs clients to re-fetch the updated entity and verify that requested properties were applied.
 
 ## Planning Workflow
 - **Always create a plan document before implementation** for non-trivial tasks (new features, significant refactoring, or multi-file changes).
@@ -63,6 +64,7 @@
 - `npx eslint --print-config <file>`: Dry-run lint config inspection (first run rule).
 - After modifying `package.json` dependencies, always run `npm install` to update `package-lock.json` accordingly.
 - Keep documentation (`README*`, `TODO*`, ru variants when available) aligned with the current YouTrack feature set after each iteration.
+- When adding or modifying environment variables, update `README.md` and `README-ru.md` so setup instructions stay accurate.
 
 ## Coding Style & Tooling
 - Project uses TypeScript + ESLint (flat config). Follow the automated lint checks; avoid disabling rules without discussion.
@@ -199,6 +201,22 @@ async function testConcurrency() {
 testConcurrency();
 ```
 
+### MCP Stdio Debugging Workflow
+- To run the built server locally, execute `YOUTRACK_URL="https://youtrack.example.com" YOUTRACK_TOKEN="perm:example-token" node dist/index.js` (replace with real credentials).
+- For rapid manual testing without a full client, you can pipe JSON-RPC messages directly:
+  1. Start the server in one terminal with the environment variables above.
+  2. In another terminal, send the initialization sequence by writing JSON-RPC lines directly to the server STDIN:
+     ```bash
+     cat <<'JSON' | YOUTRACK_URL=... YOUTRACK_TOKEN=... node dist/index.js
+     {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"debug","version":"0.1"},"capabilities":{}}}
+     {"jsonrpc":"2.0","method":"notifications/initialized"}
+     {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"issue_create","arguments":{"projectId":"0-4","summary":"Sample","description":"Manual test"}}}
+     JSON
+     ```
+     For interactive sessions, you can keep the process running and append more requests either via `printf '...\n' >>pipe` (using a named pipe) or by entering lines manually.
+  3. After the server responds, continue sending `notifications/initialized` and subsequent `tools/call` payloads (e.g., `issue_create`, `issue_link_add`).
+- When debugging complex flows, prefer writing a short Node.js script that uses `StdioClientTransport` and `Client` from `@modelcontextprotocol/sdk/dist/esm/client/index.js`. Spawn the server via `child_process.spawn`, wire its `stdin`/`stdout` to the transport, call `await client.connect()`, then invoke `client.callTool(...)` with structured arguments. This provides richer logs and automatic initialization handling.
+
 Run test: `npx tsx temp/test-mutex-pool.ts`
 
 Expected output should show that no more than 3 tasks run concurrently.
@@ -283,6 +301,11 @@ this.youtrackMcpServer.registerTool(
   - **Limitations**: Any constraints or edge cases users should be aware of (e.g., "max 50 issues per request").
 - Keep descriptions concise but informative; prioritize clarity over brevity when it helps prevent common mistakes.
 - Update tool descriptions whenever adding new parameters or changing behavior.
+
+## Issue Creation Link Rules
+- Extend `issue_create` inputs to support link descriptors with `linkType`, `targetId`, optional `direction`, and optional `sourceId` so clients can build arbitrary relationship chains during creation.
+- Plain numeric identifiers provided via `parentIssueId`, `links[].targetId`, or `links[].sourceId` must resolve through `resolveIssueId`, applying `YOUTRACK_DEFAULT_PROJECT` when present so missing project prefixes do not break linking.
+- After creating an issue with links, always re-fetch the created issue or its links to confirm YouTrack applied every requested relationship; tool descriptions must remind clients to perform this verification step.
 
 ## Build Artifacts
 - Only `dist/` should contain compiled assets; do not commit build output.

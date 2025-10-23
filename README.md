@@ -55,9 +55,10 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
   - `YOUTRACK_TOKEN` — permanent token with read permissions for issues and work items
   - `YOUTRACK_TIMEZONE` — optional timezone for date operations (default: `Europe/Moscow`), must be a valid IANA timezone identifier (e.g., `Europe/London`, `America/New_York`, `Asia/Tokyo`)
   - `YOUTRACK_HOLIDAYS` — optional comma-separated list of holiday dates (format `YYYY-MM-DD`), excluded from reports and batch operations
-  - `YOUTRACK_PRE_HOLIDAYS` — optional comma-separated list of pre-holiday dates with reduced working hours
-  - `YOUTRACK_USER_ALIASES` — optional comma-separated list of `alias:login` mappings (e.g., `me:vyt,petya:p.petrov`), used for automatic assignee selection
-  - `YOUTRACK_USE_STRUCTURED_CONTENT` — optional, controls response format (default: `true`). When `true`, tools return only the MCP `structuredContent` node with full data. When `false`, tools return only the MCP `content` node (single text item with JSON string)
+- `YOUTRACK_PRE_HOLIDAYS` — optional comma-separated list of pre-holiday dates with reduced working hours
+- `YOUTRACK_USER_ALIASES` — optional comma-separated list of `alias:login` mappings (e.g., `me:vyt,petya:p.petrov`), used for automatic assignee selection
+- `YOUTRACK_DEFAULT_PROJECT` — optional project code used for manual verification tasks and default parent issues in docs/examples (use `PROJ` in documentation examples)
+- `YOUTRACK_USE_STRUCTURED_CONTENT` — optional, controls response format (default: `true`). When `true`, tools return only the MCP `structuredContent` node with full data. When `false`, tools return only the MCP `content` node (single text item with JSON string)
 
 ## Installation
 
@@ -68,6 +69,7 @@ You can run the server directly with npx without installation:
 ```bash
 YOUTRACK_URL="https://youtrack.example.com" \
 YOUTRACK_TOKEN="perm:your-token-here" \
+YOUTRACK_DEFAULT_PROJECT="PROJ" \
 npx -y @vitalyostanin/youtrack-mcp@latest
 ```
 
@@ -282,7 +284,7 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | `issue_lookup` | Brief issue information | `issueId` — issue code (e.g., PROJ-123) |
 | `issue_details` | Issue details with brief/full modes | `issueId` — issue code; `briefOutput` — optional boolean (default `true`). Brief: predefined fields only. Full (`false`): adds `customFields` including `State` |
 | `issue_comments` | Issue comments | `issueId` — issue code |
-| `issue_create` | Create issue | `projectId`, `summary`, optionally `description`, `parentIssueId`, `assigneeLogin`, `usesMarkdown` |
+| `issue_create` | Create issue | `projectId`, `summary`, optional `description`, `parentIssueId`, `assigneeLogin`, `stateName`, `usesMarkdown`, `links` (array of link objects) |
 | `issue_update` | Update existing issue | `issueId`, optionally `summary`, `description`, `parentIssueId` (empty string clears parent), `usesMarkdown` |
 | `issue_assign` | Assign issue to user | `issueId`, `assigneeLogin` (login or `me`) |
 | `issue_comment_create` | Add comment to issue | `issueId`, `text` — comment text, optionally `usesMarkdown` |
@@ -358,6 +360,8 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
 | `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered` |
+| `issues_list` | List issues across projects with filtering and sorting | Filters: `projectIds`, `createdAfter/Before`, `updatedAfter/Before`, `statuses`, `assigneeLogin`, `types`; Sorting: `sortField`, `sortDirection`; Pagination: `limit`, `skip`; Output mode: `briefOutput` |
+| `issues_count` | Count issues using same filters as `issues_list`, returns per-project breakdown | Same filters as above, optional `top` to cap manual aggregation when many projects are involved |
 
 ## Important Notes
 
@@ -366,3 +370,12 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 Some operations cannot be undone and require explicit confirmation:
 
 - **`issue_attachment_delete`** - Requires `confirmation: true` parameter. Deleted attachments cannot be recovered.
+**issue_create parameters:**
+
+- `parentIssueId` — resolves against `YOUTRACK_DEFAULT_PROJECT` when no project prefix is provided (e.g., `123` → `BC-123` if default project is `BC`).
+- `links[]` — optional array describing additional links to create after the issue is saved. Each item supports:
+  - `linkType` — name or id of the link type (e.g., `Subtask`, `Relates`).
+  - `targetId` — issue id or readable id. Plain numbers are resolved with the default project, matching `resolveIssueId` behaviour.
+  - `direction` — optional (`"outbound"` by default). Use `"inbound"` to flip direction for non-symmetric link types.
+  - `sourceId` — optional. When omitted, the new issue is treated as the source. Specify to create links from an existing issue to the new one (useful for complex chains).
+- After creation the tool automatically refreshes the issue and attempts to reopen link caches; always re-fetch links with `issue_links` to confirm the final state.

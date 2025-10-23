@@ -20,6 +20,7 @@ export interface YoutrackConfig {
   holidays?: string[];
   preHolidays?: string[];
   userAliases?: UserAliasMap;
+  defaultProject?: string;
   useStructuredContent: boolean;
 }
 
@@ -53,12 +54,28 @@ export interface YoutrackIssue {
   watchers?: YoutrackIssueWatchers | null;
 }
 
+export interface PartialOperationError {
+  operation: string;
+  message: string;
+}
+
+export interface IssueCreatePayload extends IssueLookupPayload {
+  partialErrors?: PartialOperationError[];
+}
+
 export interface YoutrackIssueCreateInput {
-  project: string;
+  projectId?: string;
   summary: string;
   description?: string;
   parentIssueId?: string;
   assigneeLogin?: string;
+  stateName?: string;
+  links?: Array<{
+    linkType: string;
+    targetId: string;
+    sourceId?: string;
+    direction?: "inbound" | "outbound";
+  }>;
   usesMarkdown?: boolean;
 }
 
@@ -410,6 +427,81 @@ export interface IssueSearchPayload {
   };
 }
 
+export interface IssueListInput {
+  projectIds?: string[];
+  createdAfter?: string | number | Date;
+  createdBefore?: string | number | Date;
+  updatedAfter?: string | number | Date;
+  updatedBefore?: string | number | Date;
+  statuses?: string[];
+  assigneeLogin?: string;
+  types?: string[];
+  sortField?: "created" | "updated";
+  sortDirection?: "asc" | "desc";
+  briefOutput?: boolean;
+  limit?: number;
+  skip?: number;
+}
+
+export interface IssueListPayload {
+  issues: MappedYoutrackIssue[];
+  filters: {
+    projectIds?: string[];
+    createdAfter?: string;
+    createdBefore?: string;
+    updatedAfter?: string;
+    updatedBefore?: string;
+    statuses?: string[];
+    assigneeLogin?: string;
+    types?: string[];
+  };
+  sort: {
+    field: "created" | "updated";
+    direction: "asc" | "desc";
+  };
+  pagination: {
+    returned: number;
+    limit: number;
+    skip: number;
+  };
+}
+
+export interface IssueCountInput {
+  projectIds?: string[];
+  createdAfter?: string | number | Date;
+  createdBefore?: string | number | Date;
+  updatedAfter?: string | number | Date;
+  updatedBefore?: string | number | Date;
+  statuses?: string[];
+  assigneeLogin?: string;
+  types?: string[];
+  top?: number;
+}
+
+export interface IssueProjectCount {
+  projectId: string | null;
+  projectShortName?: string;
+  projectName?: string;
+  requestedId?: string;
+  count: number;
+}
+
+export interface IssueCountPayload {
+  total: number;
+  projects: IssueProjectCount[];
+  filters: {
+    projectIds?: string[];
+    createdAfter?: string;
+    createdBefore?: string;
+    updatedAfter?: string;
+    updatedBefore?: string;
+    statuses?: string[];
+    assigneeLogin?: string;
+    types?: string[];
+    top?: number;
+  };
+}
+
 export interface IssueError {
   issueId: string;
   error: string;
@@ -436,10 +528,12 @@ export interface IssuesCommentsPayload {
 
 export interface YoutrackIssueLinkType {
   id: string;
-  name: string; // e.g., "Relates", "Duplicate"
+  name?: string; // e.g., "Relates", "Duplicate"
   directed?: boolean;
   outwardName?: string; // e.g., "relates to", "duplicates"
   inwardName?: string; // e.g., "is related to", "is duplicated by"
+  sourceToTarget?: string; // command keyword from source to target (YouTrack commands API)
+  targetToSource?: string; // command keyword from target to source (YouTrack commands API)
 }
 
 // Keep direction flexible as YouTrack may return values like 'INWARD'/'OUTWARD'/'BOTH'
@@ -476,22 +570,13 @@ export interface IssueLinkCreateInput {
   sourceId: string; // idReadable of source issue
   targetId: string; // idReadable of target issue
   linkType: string; // name or id of link type
+  direction?: "inbound" | "outbound";
 }
 
 export interface IssueLinkCreatePayload {
   link: MappedYoutrackIssueLink;
 }
 
-export interface IssueLinkDeleteInput {
-  issueId: string; // current issue idReadable
-  linkId: string; // YouTrack link id
-}
-
-export interface IssueLinkDeletePayload {
-  issueId: string;
-  linkId: string;
-  deleted: true;
-}
 
 export interface YoutrackAttachment {
   id: string;

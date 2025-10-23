@@ -167,7 +167,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_create",
-    "Create work item record. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Create work item record. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email). After the call, re-fetch work items to confirm the new record appears with expected duration and description.",
     workItemCreateArgs,
     async (rawInput) => {
       try {
@@ -193,7 +193,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_create_idempotent",
-    "Create work item record if similar one does not exist. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Create work item record if similar one does not exist. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email). After creation, reload work items to verify whether the entry was newly added or an existing one was reused.",
     workItemIdempotentArgs,
     async (rawInput) => {
       try {
@@ -218,7 +218,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_update",
-    "Update work item record. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Update work item record. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email). After updating, fetch the work item again to confirm the new values were applied.",
     workItemUpdateArgs,
     async (rawInput) => {
       try {
@@ -255,7 +255,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_delete",
-    "Delete work item record",
+    "Delete work item record. After deletion, list work items again to ensure the record was removed.",
     workItemDeleteArgs,
     async (rawInput) => {
       try {
@@ -274,7 +274,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitems_create_period",
-    "Create work items for period. Supports markdown with folded sections (<details>/<summary>) in description. Note: Created work items include predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Create work items for period. Supports markdown with folded sections (<details>/<summary>) in description. Note: Created work items include predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email). After bulk creation, reload work items to validate that each day received the expected entry.",
     workItemsPeriodArgs,
     async (rawInput) => {
       try {

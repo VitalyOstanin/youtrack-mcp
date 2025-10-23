@@ -8,6 +8,7 @@ const configSchema = z.object({
   YOUTRACK_HOLIDAYS: z.string().optional(),
   YOUTRACK_PRE_HOLIDAYS: z.string().optional(),
   YOUTRACK_USER_ALIASES: z.string().optional(),
+  YOUTRACK_DEFAULT_PROJECT: z.string().optional(),
   YOUTRACK_USE_STRUCTURED_CONTENT: z
     .string()
     .optional()
@@ -43,6 +44,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
     userAliases: parsed.data.YOUTRACK_USER_ALIASES
       ? parseAliasMap(parsed.data.YOUTRACK_USER_ALIASES)
       : undefined,
+    defaultProject: parsed.data.YOUTRACK_DEFAULT_PROJECT,
     useStructuredContent: parsed.data.YOUTRACK_USE_STRUCTURED_CONTENT,
   };
 }

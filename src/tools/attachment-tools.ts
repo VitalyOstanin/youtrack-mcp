@@ -93,7 +93,7 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
 
   server.tool(
     "issue_attachment_upload",
-    "Upload one or more files to a YouTrack issue. Files must exist on the local filesystem. Note: Can only attach files to existing issues, not during issue creation.",
+    "Upload one or more files to a YouTrack issue. Files must exist on the local filesystem. Note: Can only attach files to existing issues, not during issue creation. After uploading, fetch the attachments list to verify each file appears with correct metadata.",
     attachmentUploadArgs,
     async (rawInput) => {
       try {
@@ -116,7 +116,7 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
 
   server.tool(
     "issue_attachment_delete",
-    "Delete an attachment from a YouTrack issue. IMPORTANT: Requires explicit confirmation via the 'confirmation' parameter to prevent accidental deletion. This is a destructive operation that cannot be undone.",
+    "Delete an attachment from a YouTrack issue. IMPORTANT: Requires explicit confirmation via the 'confirmation' parameter to prevent accidental deletion. This is a destructive operation that cannot be undone. After deletion, list attachments again to ensure the file no longer appears.",
     attachmentDeleteArgs,
     async (rawInput) => {
       try {

@@ -52,6 +52,10 @@ import type {
   IssueDetailsPayload,
   IssueError,
   IssueLookupPayload,
+  IssueCountInput,
+  IssueCountPayload,
+  IssueListInput,
+  IssueListPayload,
   IssueSearchInput,
   IssueSearchPayload,
   IssuesCommentsPayload,
@@ -64,8 +68,8 @@ import type {
   IssueLinkTypesPayload,
   IssueLinkCreateInput,
   IssueLinkCreatePayload,
-  IssueLinkDeleteInput,
-  IssueLinkDeletePayload,
+  IssueCreatePayload,
+  PartialOperationError,
   YoutrackIssueLink,
   YoutrackIssueLinkType,
   WorkItemBulkResultPayload,
@@ -97,7 +101,9 @@ import type {
   YoutrackWorkItemPeriodCreateInput,
   YoutrackWorkItemReportOptions,
   YoutrackWorkItemUpdateInput,
+  IssueProjectCount,
 } from "./types.js";
+import { buildIssueQuery } from "./utils/issue-query.js";
 
 const DEFAULT_PAGE_SIZE = 200;
 const DEFAULT_EXPECTED_MINUTES = 8 * 60;
@@ -169,7 +175,7 @@ const defaultFields = {
   // Links
   issueLinks:
     "id,direction,linkType(id,name,directed,outwardName,inwardName),issues(idReadable,summary,project(id,shortName,name),assignee(id,login,name))",
-  linkTypes: "id,name,directed,outwardName,inwardName",
+  linkTypes: "id,name,directed,outwardName,inwardName,sourceToTarget,targetToSource",
 } as const;
 
 class YoutrackClientError extends Error {
@@ -189,6 +195,10 @@ export class YoutrackClient {
   private cachedCurrentUser?: YoutrackUser;
   private readonly usersByLogin = new Map<string, YoutrackUser>();
   private readonly projectsByShortName = new Map<string, YoutrackProject>();
+  private readonly defaultProject?: string;
+  private readonly linkTypesById = new Map<string, YoutrackIssueLinkType>();
+  private readonly linkTypesByName = new Map<string, YoutrackIssueLinkType>();
+  private cachedCommandSupport?: boolean;
 
   constructor(private readonly config: YoutrackConfig) {
     this.http = axios.create({
@@ -208,6 +218,8 @@ export class YoutrackClient {
         throw normalized;
       },
     );
+
+    this.defaultProject = config.defaultProject;
   }
 
   /**
@@ -269,15 +281,17 @@ export class YoutrackClient {
   // =========================
 
   async getIssueLinks(issueId: string): Promise<IssueLinksPayload> {
+    const resolvedId = this.resolveIssueId(issueId);
+
     try {
-      const response = await this.http.get<YoutrackIssueLink[]>(`/api/issues/${issueId}/links`, {
+      const response = await this.http.get<YoutrackIssueLink[]>(`/api/issues/${resolvedId}/links`, {
         params: { fields: defaultFields.issueLinks },
       });
       const links = response.data
-        .flatMap((row) => this.mapIssueLinkRow(issueId, row))
+        .flatMap((row) => this.mapIssueLinkRow(resolvedId, row))
         // filter out entries that point back to the same issue or have no counterpart
-        .filter((l) => l.issue.idReadable && l.issue.idReadable !== issueId);
-      const payload = { issueId, links };
+        .filter((l) => l.issue.idReadable && l.issue.idReadable !== resolvedId);
+      const payload = { issueId: resolvedId, links };
 
       return payload;
     } catch (error) {
@@ -285,11 +299,41 @@ export class YoutrackClient {
     }
   }
 
+  private buildPartialError(operation: string, error: unknown): PartialOperationError {
+    return {
+      operation,
+      message: this.buildPartialErrorMessage(error),
+    };
+  }
+
+  private buildPartialErrorMessage(error: unknown): string {
+    const normalized = this.normalizeError(error);
+
+    if (normalized.details && typeof normalized.details === "object") {
+      try {
+        return JSON.stringify(normalized.details);
+      } catch {
+        // ignore
+      }
+    }
+
+    return normalized.message;
+  }
+
   async listLinkTypes(): Promise<IssueLinkTypesPayload> {
     try {
       const response = await this.http.get<YoutrackIssueLinkType[]>("/api/issueLinkTypes", {
         params: { fields: defaultFields.linkTypes },
       });
+
+      response.data.forEach((type) => {
+        this.linkTypesById.set(type.id, type);
+
+        if (type.name) {
+          this.linkTypesByName.set(type.name.toLowerCase(), type);
+        }
+      });
+
       const payload = { types: response.data };
 
       return payload;
@@ -298,33 +342,143 @@ export class YoutrackClient {
     }
   }
 
+  private async getLinkTypeByNameOrId(identifier: string): Promise<YoutrackIssueLinkType | null> {
+    const normalizedName = identifier.toLowerCase();
+
+    if (this.linkTypesById.size === 0 && this.linkTypesByName.size === 0) {
+      try {
+        const { types } = await this.listLinkTypes();
+
+        types.forEach((type) => {
+          this.linkTypesById.set(type.id, type);
+
+          if (type.name) {
+            this.linkTypesByName.set(type.name.toLowerCase(), type);
+          }
+        });
+      } catch {
+        // If fetching link types fails, fall back to best effort without caching.
+      }
+    }
+
+    if (this.linkTypesById.has(identifier)) {
+      return this.linkTypesById.get(identifier) ?? null;
+    }
+
+    if (this.linkTypesByName.has(normalizedName)) {
+      return this.linkTypesByName.get(normalizedName) ?? null;
+    }
+
+    return null;
+  }
+
   async addIssueLink(input: IssueLinkCreateInput): Promise<IssueLinkCreatePayload> {
-    const body = {
+    const sourceId = this.resolveIssueId(input.sourceId);
+    const targetId = this.resolveIssueId(input.targetId);
+    const restBody = {
       linkType: /[a-f0-9-]{8,}/i.test(input.linkType) ? { id: input.linkType } : { name: input.linkType },
-      issues: [{ idReadable: input.targetId }],
+      issues: [{ idReadable: targetId }],
     };
 
     try {
-      const response = await this.http.post<YoutrackIssueLink>(`/api/issues/${input.sourceId}/links`, body, {
+      const response = await this.http.post<YoutrackIssueLink>(`/api/issues/${sourceId}/links`, restBody, {
         params: { fields: defaultFields.issueLinks },
       });
-      const variants = this.mapIssueLinkRow(input.sourceId, response.data);
-      const mapped = variants.find((v) => v.issue.idReadable === input.targetId) ?? variants[0];
+      const variants = this.mapIssueLinkRow(sourceId, response.data);
+      const mapped = variants.find((v) => v.issue.idReadable === targetId) ?? variants[0];
       const payload = { link: mapped };
 
       return payload;
     } catch (error) {
-      throw this.normalizeError(error);
+      const normalized = this.normalizeError(error);
+
+      if (normalized.status === 404 || normalized.status === 405) {
+        const fallback = await this.createIssueLinkViaCommand({
+          ...input,
+          sourceId,
+          targetId,
+        }, normalized);
+
+        return fallback;
+      }
+
+      throw normalized;
     }
   }
 
-  async deleteIssueLink(input: IssueLinkDeleteInput): Promise<IssueLinkDeletePayload> {
-    try {
-      await this.http.delete(`/api/issues/${input.issueId}/links/${input.linkId}`);
+  private async createIssueLinkViaCommand(
+    input: IssueLinkCreateInput,
+    originalError: YoutrackClientError,
+  ): Promise<IssueLinkCreatePayload> {
+    if (this.cachedCommandSupport === false) {
+      throw originalError;
+    }
 
-      return { issueId: input.issueId, linkId: input.linkId, deleted: true };
+    const linkType = await this.getLinkTypeByNameOrId(input.linkType);
+
+    if (!linkType) {
+      throw originalError;
+    }
+
+    const targetDirection = input.direction ?? "outbound";
+    const isSubtask = linkType.name?.toLowerCase() === "subtask";
+    let commandQuery: string;
+    let { sourceId, targetId } = input;
+
+    if (isSubtask) {
+      if (targetDirection === "inbound") {
+        commandQuery = `subtask of ${sourceId}`;
+        targetId = sourceId;
+        sourceId = input.targetId;
+      } else {
+        commandQuery = `subtask of ${targetId}`;
+      }
+    } else {
+      const displayText = linkType.name ?? input.linkType;
+      const outward = linkType.sourceToTarget ?? linkType.outwardName ?? displayText;
+      const inward = linkType.targetToSource ?? linkType.inwardName ?? displayText;
+      const keyword = targetDirection === "inbound" ? inward : outward;
+
+      if (!keyword) {
+        throw originalError;
+      }
+
+      const needsColon = /\s/.test(keyword) && !keyword.trimEnd().endsWith(":");
+      const normalizedKeyword = needsColon ? `${keyword}:` : keyword;
+
+      commandQuery = `${normalizedKeyword} ${targetId}`;
+    }
+
+    const commandBody = {
+      query: commandQuery,
+      issues: [{ idReadable: sourceId }],
+      silent: true,
+    };
+
+    try {
+      await this.http.post("/api/commands", commandBody);
+
+      const { links } = await this.getIssueLinks(sourceId);
+      const createdLink = links.find((candidate) => candidate.issue.idReadable === targetId);
+
+      if (!createdLink) {
+        throw new YoutrackClientError(
+          "Issue link command executed but the new link was not found when refreshing issue links",
+        );
+      }
+
+      this.cachedCommandSupport = true;
+
+      return { link: createdLink };
     } catch (error) {
-      throw this.normalizeError(error);
+      const normalized = this.normalizeError(error);
+
+      if (normalized.status === 404) {
+        this.cachedCommandSupport = false;
+        throw originalError;
+      }
+
+      throw normalized;
     }
   }
 
@@ -513,9 +667,41 @@ export class YoutrackClient {
     return project;
   }
 
+  private async findProject(identifier: string): Promise<YoutrackProject | null> {
+    const byId = await this.getProjectById(identifier);
+
+    if (byId) {
+      return byId;
+    }
+
+    const byShortName = await this.getProjectByShortName(identifier);
+
+    return byShortName;
+  }
+
+  private resolveIssueId(rawIssueId: string): string {
+    const trimmed = rawIssueId.trim();
+
+    if (!this.defaultProject) {
+      return trimmed;
+    }
+
+    if (trimmed.includes("-")) {
+      return trimmed;
+    }
+
+    return `${this.defaultProject}-${trimmed}`;
+  }
+
+  private resolveIssueIds(issueIds: string[]): string[] {
+    return issueIds.map((id) => this.resolveIssueId(id));
+  }
+
   async getIssue(issueId: string): Promise<IssueLookupPayload> {
+    const resolvedId = this.resolveIssueId(issueId);
+
     try {
-      const issue = await this.getIssueRaw(issueId);
+      const issue = await this.getIssueRaw(resolvedId);
       const mappedIssue = mapIssue(issue);
       const payload = { issue: mappedIssue };
 
@@ -526,11 +712,13 @@ export class YoutrackClient {
   }
 
   async getIssueDetails(issueId: string, includeCustomFields: boolean = false): Promise<IssueDetailsPayload> {
+    const resolvedId = this.resolveIssueId(issueId);
+
     try {
       const fields = includeCustomFields
         ? `${defaultFields.issueDetails},customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))`
         : defaultFields.issueDetails;
-      const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${issueId}`, {
+      const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${resolvedId}`, {
         params: { fields },
       });
       const mappedIssue = mapIssueDetails(response.data);
@@ -543,11 +731,13 @@ export class YoutrackClient {
   }
 
   async getIssueComments(issueId: string): Promise<IssueCommentsPayload> {
+    const resolvedId = this.resolveIssueId(issueId);
+
     try {
-      const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
+      const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${resolvedId}/comments`, {
         params: { fields: defaultFields.comments },
       });
-      const mappedComments = mapComments(response.data, this.config.baseUrl, issueId);
+      const mappedComments = mapComments(response.data, this.config.baseUrl, resolvedId);
       const payload = { comments: mappedComments };
 
       return payload;
@@ -656,28 +846,95 @@ export class YoutrackClient {
   }
 
   async createIssue(input: YoutrackIssueCreateInput): Promise<IssueLookupPayload> {
+    const projectIdentifier = input.projectId ?? this.defaultProject;
+
+    if (!projectIdentifier) {
+      throw new YoutrackClientError(
+        "Project ID is required for issue creation. Provide 'projectId' or configure YOUTRACK_DEFAULT_PROJECT.",
+      );
+    }
+
     const body: Record<string, unknown> = {
       summary: input.summary,
       description: input.description,
-      project: { id: input.project },
+      project: { id: projectIdentifier },
       ...(input.usesMarkdown !== undefined ? { usesMarkdown: input.usesMarkdown } : {}),
     };
 
     if (input.parentIssueId) {
-      body.parent = { id: input.parentIssueId };
+      const resolvedParentIdReadable = this.resolveIssueId(input.parentIssueId);
+      const parentIssue = await this.getIssueRaw(resolvedParentIdReadable);
+
+      if (!parentIssue.id) {
+        throw new YoutrackClientError(
+          `Parent issue '${resolvedParentIdReadable}' does not expose an internal id required for linking`,
+        );
+      }
+
+      body.parent = { id: parentIssue.id };
     }
 
-    if (input.assigneeLogin) {
-      body.assignee = { login: input.assigneeLogin };
-    }
     try {
       const response = await this.http.post<YoutrackIssue>("/api/issues", body, {
         params: { fields: defaultFields.issue },
       });
-      const mappedIssue = mapIssue(response.data);
-      const payload = { issue: mappedIssue };
+      const createdIssue = mapIssue(response.data);
+      const partialErrors: PartialOperationError[] = [];
+      let currentIssue = createdIssue;
 
-      return payload;
+      if (input.assigneeLogin) {
+        try {
+          currentIssue = (
+            await this.assignIssue({ issueId: currentIssue.idReadable, assigneeLogin: input.assigneeLogin })
+          ).issue;
+        } catch (error) {
+          partialErrors.push(this.buildPartialError("assignIssue", error));
+        }
+      }
+
+      if (input.stateName) {
+        try {
+          await this.changeIssueState({ issueId: currentIssue.idReadable, stateName: input.stateName });
+
+          const refreshed = await this.getIssue(currentIssue.idReadable);
+
+          currentIssue = refreshed.issue;
+        } catch (error) {
+          partialErrors.push(this.buildPartialError("changeIssueState", error));
+        }
+      }
+
+      if (input.links?.length) {
+        const linkErrors: Array<{ index: number; message: string }> = [];
+
+        for (const [index, link] of input.links.entries()) {
+          try {
+            await this.addIssueLink({
+              sourceId: link.sourceId ?? currentIssue.idReadable,
+              targetId: link.targetId,
+              linkType: link.linkType,
+              direction: link.direction,
+            });
+          } catch (error) {
+            linkErrors.push({
+              index,
+              message: this.buildPartialErrorMessage(error),
+            });
+          }
+        }
+
+        if (linkErrors.length > 0) {
+          partialErrors.push({
+            operation: "addIssueLink",
+            message: JSON.stringify(linkErrors),
+          });
+        }
+      }
+
+      return {
+        issue: currentIssue,
+        ...(partialErrors.length > 0 ? { partialErrors } : {}),
+      } satisfies IssueCreatePayload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -707,7 +964,7 @@ export class YoutrackClient {
 
       const issue = await this.getIssueRaw(input.issueId);
       const mappedIssue = mapIssue(issue);
-      const payload = { issue: mappedIssue };
+      const payload: IssueLookupPayload = { issue: mappedIssue };
 
       return payload;
     } catch (error) {
@@ -716,6 +973,7 @@ export class YoutrackClient {
   }
 
   async assignIssue(input: YoutrackIssueAssignInput): Promise<IssueLookupPayload> {
+    const resolvedId = this.resolveIssueId(input.issueId);
     const assignee = await this.resolveAssignee(input.assigneeLogin);
     const body = {
       customFields: [
@@ -728,9 +986,9 @@ export class YoutrackClient {
     };
 
     try {
-      await this.http.post(`/api/issues/${input.issueId}`, body);
+      await this.http.post(`/api/issues/${resolvedId}`, body);
 
-      const issue = await this.getIssueRaw(input.issueId);
+      const issue = await this.getIssueRaw(resolvedId);
       const mappedIssue = mapIssue(issue);
       const payload = { issue: mappedIssue };
 
@@ -1788,12 +2046,16 @@ export class YoutrackClient {
       queryParts.push(`parent article: {${args.parentArticleId}}`);
     }
 
-    if (args.projectId) {
+    const projectIdentifier = args.projectId ?? this.defaultProject;
+
+    if (projectIdentifier) {
       // YouTrack articles API expects project shortName, not ID
-      const project = await this.getProjectById(args.projectId);
+      const project = await this.findProject(projectIdentifier);
 
       if (!project?.shortName) {
-        throw new YoutrackClientError(`Project with ID '${args.projectId}' not found or has no shortName`);
+        throw new YoutrackClientError(
+          `Project '${projectIdentifier}' not found or has no shortName configured for knowledge base operations`,
+        );
       }
 
       queryParts.push(`project: {${project.shortName}}`);
@@ -1827,8 +2089,16 @@ export class YoutrackClient {
       body.parentArticle = { id: input.parentArticleId };
     }
 
-    if (input.projectId) {
-      body.project = { id: input.projectId };
+    const projectIdentifier = input.projectId ?? this.defaultProject;
+
+    if (projectIdentifier) {
+      body.project = { id: projectIdentifier };
+    }
+
+    if (!body.project) {
+      throw new YoutrackClientError(
+        "Project ID is required for article creation. Provide 'projectId' or configure YOUTRACK_DEFAULT_PROJECT.",
+      );
     }
 
     if (input.usesMarkdown !== undefined) {
@@ -1890,16 +2160,10 @@ export class YoutrackClient {
 
   async searchArticles(input: ArticleSearchInput): Promise<ArticleSearchPayload> {
     const queryParts = [`{${input.query}}`];
+    const projectIdentifier = input.projectId ?? this.defaultProject;
 
-    if (input.projectId) {
-      // YouTrack articles API expects project shortName, not ID
-      const project = await this.getProjectById(input.projectId);
-
-      if (!project?.shortName) {
-        throw new YoutrackClientError(`Project with ID '${input.projectId}' not found or has no shortName`);
-      }
-
-      queryParts.push(`project: {${project.shortName}}`);
+    if (projectIdentifier) {
+      queryParts.push(`project: {${projectIdentifier}}`);
     }
 
     if (input.parentArticleId) {
@@ -2471,5 +2735,182 @@ export class YoutrackClient {
     } catch (error) {
       throw this.normalizeError(error);
     }
+  }
+
+  private resolveSort(sortField?: "created" | "updated", sortDirection?: "asc" | "desc") {
+    const field = sortField ?? "created";
+    const direction = sortDirection ?? "desc";
+    const prefix = direction === "desc" ? "-" : "";
+
+    return { field, direction, sortParam: `${prefix}${field}` };
+  }
+
+  private mapIssueToProjectCount(issue: YoutrackIssue): IssueProjectCount {
+    const {project} = issue;
+
+    return {
+      projectId: project?.id ?? null,
+      projectShortName: project?.shortName,
+      projectName: project?.name,
+      count: 1,
+    };
+  }
+
+  private mergeProjectCounts(target: Map<string | null, IssueProjectCount>, source: IssueProjectCount) {
+    const key = source.projectId;
+    const current = target.get(key);
+
+    if (!current) {
+      target.set(key, { ...source });
+
+      return;
+    }
+
+    current.count += source.count;
+
+    if (!current.projectShortName && source.projectShortName) {
+      current.projectShortName = source.projectShortName;
+    }
+
+    if (!current.projectName && source.projectName) {
+      current.projectName = source.projectName;
+    }
+  }
+
+  async listIssues(input: IssueListInput): Promise<IssueListPayload> {
+    const {
+      briefOutput = true,
+      limit = DEFAULT_PAGE_SIZE,
+      skip = 0,
+      sortField,
+      sortDirection,
+      ...filtersInput
+    } = input;
+    const { query } = await buildIssueQuery(filtersInput, (projectId) => this.getProjectById(projectId));
+    const fields = briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch;
+    const { field: resolvedField, direction: resolvedDirection, sortParam } = this.resolveSort(sortField, sortDirection);
+    const params: Record<string, unknown> = {
+      $top: Math.min(limit, DEFAULT_PAGE_SIZE),
+      $skip: skip,
+      fields,
+      sort: sortParam,
+      ...(query ? { query } : {}),
+    };
+    const data = await this.getWithFlexibleTop<YoutrackIssue[]>("/api/issues", params);
+    const issues = Array.isArray(data) ? data.map((issue) => (briefOutput ? mapIssueBrief(issue) : mapIssue(issue))) : [];
+
+    return {
+      issues,
+      filters: {
+        ...filtersInput,
+        createdAfter: filtersInput.createdAfter ? toIsoDateString(filtersInput.createdAfter) : undefined,
+        createdBefore: filtersInput.createdBefore ? toIsoDateString(filtersInput.createdBefore) : undefined,
+        updatedAfter: filtersInput.updatedAfter ? toIsoDateString(filtersInput.updatedAfter) : undefined,
+        updatedBefore: filtersInput.updatedBefore ? toIsoDateString(filtersInput.updatedBefore) : undefined,
+      },
+      sort: {
+        field: resolvedField,
+        direction: resolvedDirection,
+      },
+      pagination: {
+        returned: issues.length,
+        limit: Math.min(limit, DEFAULT_PAGE_SIZE),
+        skip,
+      },
+    };
+  }
+
+  async countIssues(input: IssueCountInput): Promise<IssueCountPayload> {
+    const { top, ...filtersInput } = input;
+    const { query, resolvedProjects } = await buildIssueQuery(filtersInput, (projectId) =>
+      this.getProjectById(projectId),
+    );
+    const singleProject = resolvedProjects && resolvedProjects.length === 1 ? resolvedProjects[0] : undefined;
+    const aggregateCounts = new Map<string | null, IssueProjectCount>();
+    const addIssuesToCounts = (issues: YoutrackIssue[]) => {
+      for (const issue of issues) {
+        const projectCount = this.mapIssueToProjectCount(issue);
+
+        this.mergeProjectCounts(aggregateCounts, projectCount);
+      }
+    };
+    let total = 0;
+
+    if (singleProject && query) {
+      try {
+        const body = { query };
+        const response = await this.http.post<{ count?: number }>("/api/issuesGetter/count", body);
+        const count = typeof response.data.count === "number" ? response.data.count : null;
+
+        if (count !== null && count >= 0) {
+          total = Math.min(count, typeof top === "number" ? top : count);
+          aggregateCounts.set(singleProject.projectId ?? null, {
+            projectId: singleProject.projectId ?? null,
+            projectShortName: singleProject.projectShortName,
+            projectName: singleProject.projectName,
+            requestedId: singleProject.originalId,
+            count: total,
+          });
+
+          return {
+            total,
+            projects: Array.from(aggregateCounts.values()),
+            filters: this.normalizeCountFilters(filtersInput, top),
+          };
+        }
+      } catch {
+        // fall back to manual aggregation below
+      }
+    }
+
+    // Fallback: paginate issues and aggregate counts.
+    const pageSize = DEFAULT_PAGE_SIZE;
+    let skip = 0;
+
+    for (;;) {
+      const params: Record<string, unknown> = {
+        $top: pageSize,
+        $skip: skip,
+        fields: defaultFields.issueSearchBrief,
+        sort: "-updated",
+        ...(query ? { query } : {}),
+      };
+      const page = await this.getWithFlexibleTop<YoutrackIssue[]>("/api/issues", params);
+
+      if (!Array.isArray(page) || page.length === 0) {
+        break;
+      }
+
+      total += page.length;
+      addIssuesToCounts(page);
+
+      if (typeof top === "number" && total >= top) {
+        total = top;
+        break;
+      }
+
+      if (page.length < pageSize) {
+        break;
+      }
+
+      skip += page.length;
+    }
+
+    return {
+      total,
+      projects: Array.from(aggregateCounts.values()),
+      filters: this.normalizeCountFilters(filtersInput, top),
+    };
+  }
+
+  private normalizeCountFilters(filters: Omit<IssueCountInput, "top">, top?: number) {
+    return {
+      ...filters,
+      createdAfter: filters.createdAfter ? toIsoDateString(filters.createdAfter) : undefined,
+      createdBefore: filters.createdBefore ? toIsoDateString(filters.createdBefore) : undefined,
+      updatedAfter: filters.updatedAfter ? toIsoDateString(filters.updatedAfter) : undefined,
+      updatedBefore: filters.updatedBefore ? toIsoDateString(filters.updatedBefore) : undefined,
+      top,
+    };
   }
 }

@@ -14,13 +14,12 @@ const linkCreateArgs = {
     .string()
     .min(1)
     .describe("Link type name or id (e.g., 'Relates', 'Duplicate', or a type id)"),
+  direction: z
+    .enum(["inbound", "outbound"])
+    .optional()
+    .describe("Direction relative to the source issue (use 'inbound' to flip the relationship)"),
 };
 const linkCreateSchema = z.object(linkCreateArgs);
-const linkDeleteArgs = {
-  issueId: z.string().min(1).describe("Issue code that holds the link (e.g., PROJ-123)"),
-  linkId: z.string().min(1).describe("Issue link id (internal youtrack id)"),
-};
-const linkDeleteSchema = z.object(linkDeleteArgs);
 
 export function registerIssueLinkTools(server: McpServer, client: YoutrackClient) {
   server.tool(
@@ -56,7 +55,7 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
 
   server.tool(
     "issue_link_add",
-    "Create a link between two issues. Provide sourceId, targetId and linkType (name or id). Limitations: link type must exist in project context; API may reject invalid combinations.",
+    "Create a link between two issues. Provide sourceId, targetId and linkType (name or id). Limitations: link type must exist in project context; API may reject invalid combinations. After linking, fetch the issue links again to confirm the relationship appears as expected.",
     linkCreateArgs,
     async (rawInput) => {
       try {
@@ -70,19 +69,4 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
     },
   );
 
-  server.tool(
-    "issue_link_delete",
-    "Delete an existing issue link by id for a given issue. Use 'issue_links' to discover link ids first.",
-    linkDeleteArgs,
-    async (rawInput) => {
-      try {
-        const input = linkDeleteSchema.parse(rawInput);
-        const result = await client.deleteIssueLink(input);
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
-  );
 }

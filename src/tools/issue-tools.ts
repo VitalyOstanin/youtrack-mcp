@@ -24,7 +24,7 @@ const issueIdsArgs = {
 };
 const issueIdsSchema = z.object(issueIdsArgs);
 const issueCreateArgs = {
-  projectId: z.string().min(1).describe("Project ID (YouTrack internal id)"),
+  projectId: z.string().optional().describe("Project ID (defaults to YOUTRACK_DEFAULT_PROJECT when omitted)"),
   summary: z.string().min(1).describe("Brief issue description"),
   description: z
     .string()
@@ -34,6 +34,24 @@ const issueCreateArgs = {
     ),
   parentIssueId: z.string().optional().describe("Parent issue ID"),
   assigneeLogin: z.string().optional().describe("Assignee login or me"),
+  stateName: z.string().optional().describe("Initial state name (case-insensitive)"),
+  links: z
+    .array(
+      z.object({
+        linkType: z.string().min(1).describe("Link type name or id (e.g., 'Subtask')"),
+        targetId: z.string().min(1).describe("Target issue code or readable id"),
+        sourceId: z
+          .string()
+          .optional()
+          .describe("Source issue code override (defaults to the new issue)"),
+        direction: z
+          .enum(["inbound", "outbound"])
+          .optional()
+          .describe("Direction relative to the new issue (default: outbound)"),
+      }),
+    )
+    .optional()
+    .describe("Optional array of links to create after issue creation"),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const issueCreateSchema = z.object(issueCreateArgs);
@@ -149,17 +167,19 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_create",
-    "Create new issue in YouTrack. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
+    "Create new issue in YouTrack. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included. After the call, fetch the created issue again to confirm that every requested property (assignee, state, links, etc.) was applied by YouTrack.",
     issueCreateArgs,
     async (rawInput) => {
       try {
         const payload = issueCreateSchema.parse(rawInput);
         const issue = await client.createIssue({
-          project: payload.projectId,
+          projectId: payload.projectId,
           summary: payload.summary,
           description: payload.description,
           parentIssueId: payload.parentIssueId,
           assigneeLogin: payload.assigneeLogin,
+          stateName: payload.stateName,
+          links: payload.links,
           usesMarkdown: payload.usesMarkdown,
         });
         const response = toolSuccess(issue);
@@ -175,7 +195,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_update",
-    "Update existing issue. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
+    "Update existing issue. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included. Always re-fetch the issue after the update to verify that each requested change was applied.",
     issueUpdateArgs,
     async (rawInput) => {
       try {
@@ -209,7 +229,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_assign",
-    "Assign assignee to issue. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included.",
+    "Assign assignee to issue. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included. After assignment, fetch the issue again to ensure the new assignee is set.",
     issueAssignArgs,
     async (rawInput) => {
       try {
@@ -231,7 +251,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comment_create",
-    "Add comment to issue. Supports markdown with folded sections (<details>/<summary>) for hiding logs, code examples, etc. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
+    "Add comment to issue. Supports markdown with folded sections (<details>/<summary>) for hiding logs, code examples, etc. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment). Reload the comments list if you need to confirm formatting or visibility.",
     issueCommentCreateArgs,
     async (rawInput) => {
       try {
@@ -254,7 +274,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comment_update",
-    "Update existing issue comment. Supports markdown with folded sections (<details>/<summary>). Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment). Use for: Editing comment text, changing formatting mode, correcting typos in comments.",
+    "Update existing issue comment. Supports markdown with folded sections (<details>/<summary>). Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment). Use for: Editing comment text, changing formatting mode, correcting typos in comments. After updating, fetch the comment again if you need to confirm rendered content.",
     issueCommentUpdateArgs,
     async (rawInput) => {
       try {
@@ -342,7 +362,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_change_state",
-    "Change issue state/status using state machine transitions. Use for: Moving issues through workflow states (e.g., from 'Open' to 'In Progress'), updating issue status, triggering state transitions. Note: Only valid transitions are allowed based on current state and workflow rules. The tool automatically discovers available transitions and validates the requested state change. Returns information about the previous state, new state, and the transition used.",
+    "Change issue state/status using state machine transitions. Use for: Moving issues through workflow states (e.g., from 'Open' to 'In Progress'), updating issue status, triggering state transitions. Note: Only valid transitions are allowed based on current state and workflow rules. The tool automatically discovers available transitions and validates the requested state change. Returns information about the previous state, new state, and the transition used. After the transition, fetch issue details again to ensure the state is what you expect.",
     issueChangeStateArgs,
     async (rawInput) => {
       try {
