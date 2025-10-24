@@ -29,7 +29,13 @@
 ### Language Policy
 - This AGENTS.md must always be written in English. Do not localize or translate this file.
 - Examples, code snippets, and rule text in this file should remain in English for consistency across all contributors and tools.
-- **Use professional style without emojis** in all documentation, commit messages, and code comments.
+- **STRICTLY FORBIDDEN: Never use emojis** in any documentation, commit messages, code comments, or tool responses. This applies to:
+  - All Markdown files (README.md, README-ru.md, CHANGELOG.md, etc.)
+  - Git commit messages
+  - Code comments and documentation strings
+  - MCP tool descriptions and responses
+  - Release notes and GitHub releases
+  - Any other project documentation
 - Keep documentation clear, concise, and technically accurate.
 - Focus on technical content rather than decorative elements.
 - **Table of Contents (TOC) Policy**:
@@ -65,6 +71,17 @@
 - After modifying `package.json` dependencies, always run `npm install` to update `package-lock.json` accordingly.
 - Keep documentation (`README*`, `TODO*`, ru variants when available) aligned with the current YouTrack feature set after each iteration.
 - When adding or modifying environment variables, update `README.md` and `README-ru.md` so setup instructions stay accurate.
+
+## Git Commands
+- **CRITICAL: Always use `--no-pager` flag with git commands** to prevent interactive pager (less/more) from blocking terminal output.
+- This is especially important for commands like `git log`, `git show`, `git diff`, `git tag`, etc.
+- Examples:
+  - `git --no-pager log --oneline -10` instead of `git log --oneline -10`
+  - `git --no-pager show HEAD` instead of `git show HEAD`
+  - `git --no-pager tag -n1 v0.7.4` instead of `git tag -n1 v0.7.4`
+  - `git --no-pager diff` instead of `git diff`
+- Alternative: Set `GIT_PAGER=cat` environment variable for the command: `GIT_PAGER=cat git log`
+- Rationale: Interactive pagers block automation and require manual intervention to exit, breaking CI/CD workflows and automated scripts.
 
 ## Coding Style & Tooling
 - Project uses TypeScript + ESLint (flat config). Follow the automated lint checks; avoid disabling rules without discussion.
