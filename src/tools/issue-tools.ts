@@ -105,6 +105,18 @@ const issueChangeStateArgs = {
     .describe("Target state name (e.g., 'In Progress', 'Open', 'Fixed', 'Verified'). Case-insensitive."),
 };
 const issueChangeStateSchema = z.object(issueChangeStateArgs);
+const issuesCountArgs = {
+  projectIds: z.array(z.string().min(1)).optional().describe("Filter by project IDs or short names"),
+  createdAfter: z.string().optional().describe("Filter by creation date (YYYY-MM-DD or timestamp)"),
+  createdBefore: z.string().optional().describe("Filter by creation date (YYYY-MM-DD or timestamp)"),
+  updatedAfter: z.string().optional().describe("Filter by update date (YYYY-MM-DD or timestamp)"),
+  updatedBefore: z.string().optional().describe("Filter by update date (YYYY-MM-DD or timestamp)"),
+  statuses: z.array(z.string().min(1)).optional().describe("Filter by state names"),
+  types: z.array(z.string().min(1)).optional().describe("Filter by issue types"),
+  assigneeLogin: z.string().optional().describe("Filter by assignee login"),
+  top: z.number().int().positive().optional().describe("Maximum number of issues to count (optional limit)"),
+};
+const issuesCountSchema = z.object(issuesCountArgs);
 
 export function registerIssueTools(server: McpServer, client: YoutrackClient) {
   server.tool(
@@ -371,6 +383,25 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           issueId: payload.issueId,
           stateName: payload.stateName,
         });
+        const response = toolSuccess(result);
+
+        return response;
+      } catch (error) {
+        const errorResponse = toolError(error);
+
+        return errorResponse;
+      }
+    },
+  );
+
+  server.tool(
+    "issues_count",
+    "Count YouTrack issues with optional filters. Returns total count and breakdown by projects. Use for: Getting accurate issue counts without pagination limits, analyzing issue distribution across projects.",
+    issuesCountArgs,
+    async (rawInput) => {
+      try {
+        const payload = issuesCountSchema.parse(rawInput);
+        const result = await client.countIssues(payload);
         const response = toolSuccess(result);
 
         return response;

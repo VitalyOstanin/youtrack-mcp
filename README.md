@@ -21,31 +21,35 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
 
 ## Table of Contents
 
-- [Requirements](#requirements)
-- [Installation](#installation)
-  - [Using npx (Recommended)](#using-npx-recommended)
-  - [Using Claude MCP CLI](#using-claude-mcp-cli)
-  - [Manual Installation (Development)](#manual-installation-development)
-- [Development & Release](#development--release)
-  - [GitHub Actions Workflows](#github-actions-workflows)
-  - [Setting up NPM_TOKEN](#setting-up-npmtoken)
-  - [Release Process](#release-process)
-  - [Manual Build & Test](#manual-build--test)
-- [Running the server (stdio)](#running-the-server-stdio)
-- [Configuration for Code (Recommended)](#configuration-for-code-recommended)
-- [Configuration for Claude Code CLI](#configuration-for-claude-code-cli)
-- [Configuration for VS Code Cline](#configuration-for-vs-code-cline)
-- [MCP Tools](#mcp-tools)
-  - [Service](#service)
-  - [Issues](#issues)
-  - [Issue Links](#issue-links)
-  - [Issue Stars](#issue-stars)
-  - [Work Items](#work-items)
-  - [Users and Projects](#users-and-projects)
-  - [Articles](#articles)
-  - [Search](#search)
-- [Important Notes](#important-notes)
-  - [Destructive Operations](#destructive-operations)
+- [YouTrack MCP Server](#youtrack-mcp-server)
+  - [Table of Contents](#table-of-contents)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+    - [Using npx (Recommended)](#using-npx-recommended)
+    - [Using Claude MCP CLI](#using-claude-mcp-cli)
+    - [Manual Installation (Development)](#manual-installation-development)
+  - [Development \& Release](#development--release)
+    - [GitHub Actions Workflows](#github-actions-workflows)
+      - [CI Workflow (`.github/workflows/ci.yml`)](#ci-workflow-githubworkflowsciyml)
+      - [Publish Workflow (`.github/workflows/publish.yml`)](#publish-workflow-githubworkflowspublishyml)
+    - [Setting up NPM\_TOKEN](#setting-up-npm_token)
+    - [Release Process](#release-process)
+    - [Manual Build \& Test](#manual-build--test)
+  - [Running the server (stdio)](#running-the-server-stdio)
+  - [Configuration for Code (Recommended)](#configuration-for-code-recommended)
+  - [Configuration for Claude Code CLI](#configuration-for-claude-code-cli)
+  - [Configuration for VS Code Cline](#configuration-for-vs-code-cline)
+  - [MCP Tools](#mcp-tools)
+    - [Service](#service)
+    - [Issues](#issues)
+    - [Issue Links](#issue-links)
+    - [Issue Stars](#issue-stars)
+    - [Work Items](#work-items)
+    - [Users and Projects](#users-and-projects)
+    - [Articles](#articles)
+    - [Search](#search)
+  - [Important Notes](#important-notes)
+    - [Destructive Operations](#destructive-operations)
 
 ## Requirements
 
@@ -282,8 +286,11 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
 | `issue_lookup` | Brief issue information | `issueId` — issue code (e.g., PROJ-123) |
+| `issues_lookup` | Brief information about multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50; `briefOutput` — optional boolean (default `true`) |
 | `issue_details` | Issue details with brief/full modes | `issueId` — issue code; `briefOutput` — optional boolean (default `true`). Brief: predefined fields only. Full (`false`): adds `customFields` including `State` |
+| `issues_details` | Detailed information about multiple issues (batch mode, max 50). Brief (default): predefined fields only. Full (`briefOutput=false`): adds `customFields` for each issue | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`) |
 | `issue_comments` | Issue comments | `issueId` — issue code |
+| `issues_comments` | Comments for multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`) |
 | `issue_create` | Create issue | `projectId`, `summary`, optional `description`, `parentIssueId`, `assigneeLogin`, `stateName`, `usesMarkdown`, `links` (array of link objects) |
 | `issue_update` | Update existing issue | `issueId`, optionally `summary`, `description`, `parentIssueId` (empty string clears parent), `usesMarkdown` |
 | `issue_assign` | Assign issue to user | `issueId`, `assigneeLogin` (login or `me`) |
@@ -304,8 +311,8 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | --- | --- | --- |
 | `issue_links` | List links for an issue (relates to, duplicate, parent/child). Returns link id, direction, linkType, and counterpart issue brief | `issueId` — issue code |
 | `issue_link_types` | List available link types | — |
-| `issue_link_add` | Create a link between two issues | `sourceId`, `targetId`, `linkType` (name or id) |
-| `issue_link_delete` | Delete a link by id for a specific issue | `issueId`, `linkId` |
+| `issue_link_add` | Create a link between two issues | `sourceId`, `targetId`, `linkType` (name or id), optionally `direction` (`outbound` or `inbound`) |
+| `issue_link_delete` | Delete a link by id for a specific issue | `issueId` — issue code, `linkId` — link id to delete |
 
 ### Issue Stars
 
@@ -355,13 +362,14 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | `article_update` | Update article | `articleId`, optionally `summary`, `content`, `usesMarkdown`, `returnRendered` |
 | `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered` |
 | `articles_search` | Full-text search across YouTrack knowledge base articles by title and content. Returns `webUrl` for direct access. | `query`, `limit`, `skip`, optionally `projectId`, `parentArticleId` |
-| `issues_search` | Full-text search across YouTrack issues by summary, description, and comments. | `query`, `limit`, `skip` |
+| `issues_search` | Full-text search across YouTrack issues by summary, description, and comments. If `query` is not provided or empty, all issues will be returned. Supports filtering by projects, assignee, reporter, state, and type. | `query` (optional), `limit`, `skip`, `countOnly` (optional), `projects` (optional), `assignee` (optional), `reporter` (optional), `state` (optional), `type` (optional) |
 
 ### Search
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered` |
+| `articles_search` | Full-text search across YouTrack knowledge base articles by title and content. Returns `webUrl` for direct access | `query` (min 2 chars), `limit` (default 50, max 200), `skip`, optionally `projectId`, `parentArticleId` |
+| `issues_search` | Full-text search across YouTrack issues by summary, description, and comments. If `query` is not provided or empty, all issues will be returned. Supports filtering by projects, assignee, reporter, state, and type | `query` (optional), `limit` (default 50, max 200), `skip`, `countOnly` (optional), `projects` (optional), `assignee` (optional), `reporter` (optional), `state` (optional), `type` (optional) |
 | `issues_list` | List issues across projects with filtering and sorting | Filters: `projectIds`, `createdAfter/Before`, `updatedAfter/Before`, `statuses`, `assigneeLogin`, `types`; Sorting: `sortField`, `sortDirection`; Pagination: `limit`, `skip`; Output mode: `briefOutput` |
 | `issues_count` | Count issues using same filters as `issues_list`, returns per-project breakdown | Same filters as above, optional `top` to cap manual aggregation when many projects are involved |
 
