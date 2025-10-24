@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.7.4] - 2025-10-24
+
+### Added
+
+- **Enhanced issue search filtering** - `issues_search` tool now supports multiple filter parameters:
+  - `projects`: Filter by project short names (array)
+  - `assignee`: Filter by assignee login
+  - `reporter`: Filter by reporter/author login
+  - `state`: Filter by state/status
+  - `type`: Filter by issue type
+  - Filters are combined with YouTrack Query Language for precise results
+
+### Changed
+
+- Documentation: Updated README.md and README-ru.md with new search filter parameters
+- Query building: Improved logic in issue-search-tools.ts to handle multiple filters
+
 ## [0.7.3] - 2025-10-23
 
 ### Fixed
@@ -226,7 +243,10 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.3...v0.7.4
+[0.7.3]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.5.1...v0.6.0
