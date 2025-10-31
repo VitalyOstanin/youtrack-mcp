@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-10-31
+
+### Added
+
+- **User activity feed** - `users_activity` tool for comprehensive activity tracking:
+  - Author-centric activity feed backed by `/api/activities`
+  - Filter activities by author, date range, and activity categories
+  - Support for pagination with limit and skip parameters
+  - Activity categories: CustomFieldCategory (field changes), CommentsCategory (comments), AttachmentsCategory (attachments), LinksCategory (issue links), VcsChangeActivityCategory (VCS changes), WorkItemsActivityCategory (work items)
+  - Returns detailed activity items with timestamps, authors, and change details
+  - Useful for auditing teammate updates, tracking deployment timelines, and analyzing collaboration patterns
+
 ## [0.7.4] - 2025-10-24
 
 ### Added
