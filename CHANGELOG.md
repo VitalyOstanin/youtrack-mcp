@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- **File storage functionality** - Save large tool results to JSON files instead of returning directly:
+  - `saveToFile` and `filePath` parameters added to multiple tools for handling large datasets
+  - New `file-storage.ts` utility module for managing file operations
+  - Automatic file path generation with timestamp-based naming
+  - Directory creation support for custom file paths
+  - Applied to: issue comments, issue lookups, issue details, user lists, workitem reports, article searches, and activity tools
+  - Useful for processing large datasets that exceed response size limits
+
 ## [0.8.0] - 2025-10-31
 
 ### Added

@@ -42,7 +42,6 @@ export async function articlesSearchHandler(client: YoutrackClient, rawInput: un
           webUrl: `${baseUrl}/articles/${article.idReadable}`,
         }))
       : data;
-
     const processedResult = processWithFileStorage(articlesWithLinks, input.saveToFile, input.filePath);
 
     if (processedResult.savedToFile) {

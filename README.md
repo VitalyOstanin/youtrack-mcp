@@ -40,6 +40,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
   - [Configuration for Claude Code CLI](#configuration-for-claude-code-cli)
   - [Configuration for VS Code Cline](#configuration-for-vs-code-cline)
   - [MCP Tools](#mcp-tools)
+    - [File Storage Parameters](#file-storage-parameters)
     - [Service](#service)
     - [Issues](#issues)
     - [Issue Links](#issue-links)
@@ -275,6 +276,15 @@ To use this MCP server with [Cline](https://github.com/cline/cline) extension in
 ## MCP Tools
 
 Tools return either `structuredContent` (default) or a text `content` item, depending on `YOUTRACK_USE_STRUCTURED_CONTENT`.
+
+### File Storage Parameters
+
+Many tools support optional `saveToFile` and `filePath` parameters for handling large datasets:
+
+- `saveToFile` — boolean, saves results to a JSON file instead of returning directly (useful for large datasets)
+- `filePath` — string, custom file path (optional, auto-generated if not provided, directory created if needed)
+
+When `saveToFile` is `true`, tools return metadata about the saved file instead of the full data.
 
 ### Service
 

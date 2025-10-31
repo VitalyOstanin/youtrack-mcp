@@ -84,7 +84,6 @@ export function registerIssueActivityTools(server: McpServer, client: YoutrackCl
             skip: input.skip ?? 0,
           },
         };
-
         const processedResult = processWithFileStorage(payload, input.saveToFile, input.filePath);
 
         if (processedResult.savedToFile) {

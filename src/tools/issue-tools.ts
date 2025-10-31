@@ -370,7 +370,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           return toolSuccess({
             savedToFile: true,
             filePath: processedResult.filePath,
-            issueCount: result.issues?.length ?? 0,
+            issueCount: result.issues.length,
             errorsCount: result.errors?.length ?? 0,
           });
         }

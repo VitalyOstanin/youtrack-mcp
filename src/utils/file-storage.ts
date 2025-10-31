@@ -12,7 +12,6 @@ export interface FileStorageOptions {
  */
 export function saveDataToFile(options: FileStorageOptions): string {
   const { data, filePath, baseDir = "data" } = options;
-
   let finalPath: string;
 
   if (filePath) {
@@ -23,11 +22,13 @@ export function saveDataToFile(options: FileStorageOptions): string {
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(2, 8);
     const fileName = `youtrack-data-${timestamp}-${randomId}.json`;
+
     finalPath = join(baseDir, fileName);
   }
 
   // Ensure directory exists
   const dir = dirname(finalPath);
+
   mkdirSync(dir, { recursive: true });
 
   // Check if file already exists

@@ -19,7 +19,7 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
     },
     async (rawInput) => {
       try {
-        const payload = rawInput || {};
+        const payload = rawInput;
         const users = await client.listUsers();
         const processedResult = processWithFileStorage(users, payload.saveToFile, payload.filePath);
 
