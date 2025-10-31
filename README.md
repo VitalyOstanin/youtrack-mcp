@@ -17,6 +17,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
 - **Knowledge base** - create, update, search articles with hierarchical structure
 - **User and project access** - retrieve information about users and projects
 - **Batch operations** - efficient processing of up to 50 issues simultaneously
+- **File storage** - save large tool results to JSON files instead of returning directly
 - **Additional features** - Markdown support, folded sections, holiday configuration, user aliases
 
 ## Table of Contents
