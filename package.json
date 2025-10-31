@@ -1,6 +1,6 @@
 {
   "name": "@vitalyostanin/youtrack-mcp",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "postbuild": "chmod +x dist/index.js",
