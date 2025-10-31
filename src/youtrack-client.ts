@@ -1,12 +1,15 @@
 import axios from "axios";
 import FormData from "form-data";
 import fs from "fs";
+import { DateTime } from "luxon";
 import { MutexPool } from "@vitalyostanin/mutex-pool";
 
 import {
   calculateTotalMinutes,
   enumerateDateRange,
   filterWorkingDays,
+  getCurrentDateTime,
+  getCurrentTimestamp,
   getDayBounds,
   groupWorkItemsByDate,
   isWeekend,
@@ -167,8 +170,7 @@ const defaultFields = {
     "id,date,updated,duration(minutes,presentation),text,textPreview,usesMarkdown,description,issue(id,idReadable),author(id,login,name,email)",
   users: "id,login,name,fullName,email",
   projects: "id,shortName,name",
-  article:
-    "id,idReadable,summary,content,usesMarkdown,parentArticle(id,idReadable),project(id,shortName,name)",
+  article: "id,idReadable,summary,content,usesMarkdown,parentArticle(id,idReadable),project(id,shortName,name)",
   articleList: "id,idReadable,summary,parentArticle(id,idReadable),project(id,shortName,name)",
   attachment: "id,name,author(id,login,name),created,updated,size,mimeType,url,thumbnailURL,extension",
   attachments: "id,name,author(id,login,name),created,updated,size,mimeType,extension",
@@ -226,10 +228,7 @@ export class YoutrackClient {
    * GET helper that prefers `$top`/`$skip` and retries with `top`/`skip` on 400.
    * Returns only `data` for convenience.
    */
-  private async getWithFlexibleTop<T>(
-    url: string,
-    params: Record<string, unknown>,
-  ): Promise<T> {
+  private async getWithFlexibleTop<T>(url: string, params: Record<string, unknown>): Promise<T> {
     const hasTopLike =
       Object.prototype.hasOwnProperty.call(params, "$top") ||
       Object.prototype.hasOwnProperty.call(params, "top") ||
@@ -238,14 +237,20 @@ export class YoutrackClient {
     // First attempt: prefer $top/$skip
     const dollarParams: Record<string, unknown> = { ...params };
 
-    if (Object.prototype.hasOwnProperty.call(dollarParams, "top") && !Object.prototype.hasOwnProperty.call(dollarParams, "$top")) {
-      (dollarParams).$top = (dollarParams).top;
-      delete (dollarParams).top;
+    if (
+      Object.prototype.hasOwnProperty.call(dollarParams, "top") &&
+      !Object.prototype.hasOwnProperty.call(dollarParams, "$top")
+    ) {
+      dollarParams.$top = dollarParams.top;
+      delete dollarParams.top;
     }
 
-    if (Object.prototype.hasOwnProperty.call(dollarParams, "skip") && !Object.prototype.hasOwnProperty.call(dollarParams, "$skip")) {
-      (dollarParams).$skip = (dollarParams).skip;
-      delete (dollarParams).skip;
+    if (
+      Object.prototype.hasOwnProperty.call(dollarParams, "skip") &&
+      !Object.prototype.hasOwnProperty.call(dollarParams, "$skip")
+    ) {
+      dollarParams.$skip = dollarParams.skip;
+      delete dollarParams.skip;
     }
 
     try {
@@ -258,13 +263,13 @@ export class YoutrackClient {
         const plainParams: Record<string, unknown> = { ...params };
 
         if (Object.prototype.hasOwnProperty.call(plainParams, "$top")) {
-          (plainParams).top = (plainParams).$top;
-          delete (plainParams).$top;
+          plainParams.top = plainParams.$top;
+          delete plainParams.$top;
         }
 
         if (Object.prototype.hasOwnProperty.call(plainParams, "$skip")) {
-          (plainParams).skip = (plainParams).$skip;
-          delete (plainParams).$skip;
+          plainParams.skip = plainParams.$skip;
+          delete plainParams.$skip;
         }
 
         const res2 = await this.http.get<T>(url, { params: plainParams });
@@ -393,11 +398,14 @@ export class YoutrackClient {
       const normalized = this.normalizeError(error);
 
       if (normalized.status === 404 || normalized.status === 405) {
-        const fallback = await this.createIssueLinkViaCommand({
-          ...input,
-          sourceId,
-          targetId,
-        }, normalized);
+        const fallback = await this.createIssueLinkViaCommand(
+          {
+            ...input,
+            sourceId,
+            targetId,
+          },
+          normalized,
+        );
 
         return fallback;
       }
@@ -482,12 +490,20 @@ export class YoutrackClient {
     }
   }
 
-  private mapIssueLinkRow(currentIssueId: string, row: {
-    id: string;
-    direction?: string;
-    linkType: YoutrackIssueLinkType;
-    issues?: Array<{ idReadable: string; summary?: string; project?: { id: string; shortName: string; name?: string }; assignee?: YoutrackUser | null }>;
-  }): YoutrackIssueLink[] {
+  private mapIssueLinkRow(
+    currentIssueId: string,
+    row: {
+      id: string;
+      direction?: string;
+      linkType: YoutrackIssueLinkType;
+      issues?: Array<{
+        idReadable: string;
+        summary?: string;
+        project?: { id: string; shortName: string; name?: string };
+        assignee?: YoutrackUser | null;
+      }>;
+    },
+  ): YoutrackIssueLink[] {
     const issues = row.issues ?? [];
     const source = issues.find((i) => i.idReadable === currentIssueId) ?? { idReadable: currentIssueId };
     const counterparts = issues.filter((i) => i.idReadable !== currentIssueId);
@@ -845,6 +861,60 @@ export class YoutrackClient {
     }
   }
 
+  async listActivities({
+    author,
+    categories,
+    start,
+    end,
+    limit,
+    skip,
+    fields,
+    reverse,
+  }: {
+    author: string;
+    categories?: string;
+    start?: number;
+    end?: number;
+    limit?: number;
+    skip?: number;
+    fields?: string;
+    reverse?: boolean;
+  }): Promise<YoutrackActivityItem[]> {
+    const params: Record<string, unknown> = {
+      author,
+      fields:
+        fields ??
+        "id,timestamp,author(id,login,name),category(id),target(issue(idReadable,summary),text),added(name,id,login),removed(name,id,login),$type",
+    };
+
+    if (categories) {
+      params.categories = categories;
+    }
+
+    if (typeof start === "number") {
+      params.start = start;
+    }
+
+    if (typeof end === "number") {
+      params.end = end;
+    }
+
+    params.$top = Math.min(limit ?? DEFAULT_PAGE_SIZE, DEFAULT_PAGE_SIZE);
+    params.$skip = skip ?? 0;
+
+    if (reverse !== undefined) {
+      params.reverse = reverse;
+    }
+
+    try {
+      const response = await this.http.get<YoutrackActivityItem[]>("/api/activities", { params });
+
+      return response.data;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
   async createIssue(input: YoutrackIssueCreateInput): Promise<IssueLookupPayload> {
     const projectIdentifier = input.projectId ?? this.defaultProject;
 
@@ -1160,9 +1230,7 @@ export class YoutrackClient {
    * Light version of getMultipleIssuesComments() that fetches only minimal comment fields
    * (id, author.login, created, text) for filtering in user_activity mode to reduce payload size
    */
-  async getMultipleIssuesCommentsLight(
-    issueIds: string[],
-  ): Promise<Record<string, YoutrackIssueComment[]>> {
+  async getMultipleIssuesCommentsLight(issueIds: string[]): Promise<Record<string, YoutrackIssueComment[]>> {
     if (!issueIds.length) {
       return {};
     }
@@ -1238,7 +1306,7 @@ export class YoutrackClient {
     // Add date range filter if provided
     if (input.startDate || input.endDate) {
       const startDateStr = input.startDate ? toIsoDateString(input.startDate) : "1970-01-01";
-      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : toIsoDateString(new Date());
+      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : getCurrentDateTime().toISO();
 
       filters.push(`updated: ${startDateStr} .. ${endDateStr}`);
     }
@@ -1287,7 +1355,7 @@ export class YoutrackClient {
     // and to reduce candidate set before precise post-filtering.
     if (input.startDate || input.endDate) {
       const startDateStr = input.startDate ? toIsoDateString(input.startDate) : "1970-01-01";
-      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : toIsoDateString(new Date());
+      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : getCurrentDateTime().toISO();
 
       filters.push(`updated: ${startDateStr} .. ${endDateStr}`);
     }
@@ -1422,7 +1490,10 @@ export class YoutrackClient {
           const limit = input.limit ?? 100;
           const paginatedIssues = issuesWithActivity.slice(skip, skip + limit);
           const mapperFn = briefOutput ? mapIssueBrief : mapIssue;
-          const resultIssues = paginatedIssues.map(({ issue, lastActivityDate }) => ({ ...mapperFn(issue), lastActivityDate }));
+          const resultIssues = paginatedIssues.map(({ issue, lastActivityDate }) => ({
+            ...mapperFn(issue),
+            lastActivityDate,
+          }));
 
           return {
             issues: resultIssues,
@@ -1458,8 +1529,8 @@ export class YoutrackClient {
     activitiesResults: YoutrackActivityItem[][],
     input: IssueSearchInput,
   ): Array<{ issue: YoutrackIssue; lastActivityDate: string }> {
-    const startTimestamp = input.startDate ? new Date(input.startDate).getTime() : 0;
-    const endTimestamp = input.endDate ? new Date(input.endDate).getTime() : Date.now();
+    const startTimestamp = input.startDate ? parseDateInput(input.startDate) : 0;
+    const endTimestamp = input.endDate ? parseDateInput(input.endDate) : getCurrentTimestamp();
     const issuesWithActivity: Array<{ issue: YoutrackIssue; lastActivityDate: string }> = [];
 
     for (let i = 0; i < candidateIssues.length; i++) {
@@ -1521,7 +1592,7 @@ export class YoutrackClient {
 
       if (dates.length > 0) {
         const lastActivityTimestamp = Math.max(...dates);
-        const lastActivityDate = new Date(lastActivityTimestamp).toISOString();
+        const lastActivityDate = DateTime.fromMillis(lastActivityTimestamp).toISO() ?? "";
 
         issuesWithActivity.push({
           issue,
@@ -1531,7 +1602,7 @@ export class YoutrackClient {
     }
 
     // Sort by lastActivityDate descending
-    issuesWithActivity.sort((a, b) => new Date(b.lastActivityDate).getTime() - new Date(a.lastActivityDate).getTime());
+    issuesWithActivity.sort((a, b) => (a.lastActivityDate < b.lastActivityDate ? 1 : -1));
 
     return issuesWithActivity;
   }
@@ -1554,7 +1625,7 @@ export class YoutrackClient {
 
     if (input.startDate || input.endDate) {
       const startDateStr = input.startDate ? toIsoDateString(input.startDate) : "1970-01-01";
-      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : toIsoDateString(new Date());
+      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : getCurrentDateTime().toISO();
 
       fallbackFilters.push(`updated: ${startDateStr} .. ${endDateStr}`);
     }
@@ -1571,23 +1642,21 @@ export class YoutrackClient {
     return response.data;
   }
 
-  async listWorkItems(
-    {
-      author,
-      startDate,
-      endDate,
-      issueId,
-      top: limit,
-      allUsers = false,
-    }: {
-      author?: string;
-      startDate?: string | number | Date;
-      endDate?: string | number | Date;
-      issueId?: string;
-      top?: number;
-      allUsers?: boolean;
-    } = {},
-  ): Promise<YoutrackWorkItem[]> {
+  async listWorkItems({
+    author,
+    startDate,
+    endDate,
+    issueId,
+    top: limit,
+    allUsers = false,
+  }: {
+    author?: string;
+    startDate?: string | number | Date;
+    endDate?: string | number | Date;
+    issueId?: string;
+    top?: number;
+    allUsers?: boolean;
+  } = {}): Promise<YoutrackWorkItem[]> {
     const requestParams: Record<string, unknown> = {
       fields: defaultFields.workItems,
     };
@@ -1989,7 +2058,7 @@ export class YoutrackClient {
 
   async generateInvalidWorkItemReport(options: YoutrackWorkItemReportOptions = {}): Promise<WorkItemInvalidDay[]> {
     const report = await this.generateWorkItemReport(options);
-    const {invalidDays} = report;
+    const { invalidDays } = report;
 
     return invalidDays;
   }
@@ -2392,9 +2461,9 @@ export class YoutrackClient {
 
   private resolveReportBoundary(items: YoutrackWorkItem[], mode: "min" | "max"): string {
     if (!items.length) {
-      const todayIso = toIsoDateString(new Date());
+      const todayIso = getCurrentDateTime().toISO();
 
-      return todayIso;
+      return todayIso ?? "";
     }
 
     const timestamps = items.map((item) => item.date);
@@ -2746,7 +2815,7 @@ export class YoutrackClient {
   }
 
   private mapIssueToProjectCount(issue: YoutrackIssue): IssueProjectCount {
-    const {project} = issue;
+    const { project } = issue;
 
     return {
       projectId: project?.id ?? null,
@@ -2788,7 +2857,11 @@ export class YoutrackClient {
     } = input;
     const { query } = await buildIssueQuery(filtersInput, (projectId) => this.getProjectById(projectId));
     const fields = briefOutput ? defaultFields.issueSearchBrief : defaultFields.issueSearch;
-    const { field: resolvedField, direction: resolvedDirection, sortParam } = this.resolveSort(sortField, sortDirection);
+    const {
+      field: resolvedField,
+      direction: resolvedDirection,
+      sortParam,
+    } = this.resolveSort(sortField, sortDirection);
     const params: Record<string, unknown> = {
       $top: Math.min(limit, DEFAULT_PAGE_SIZE),
       $skip: skip,
@@ -2797,7 +2870,9 @@ export class YoutrackClient {
       ...(query ? { query } : {}),
     };
     const data = await this.getWithFlexibleTop<YoutrackIssue[]>("/api/issues", params);
-    const issues = Array.isArray(data) ? data.map((issue) => (briefOutput ? mapIssueBrief(issue) : mapIssue(issue))) : [];
+    const issues = Array.isArray(data)
+      ? data.map((issue) => (briefOutput ? mapIssueBrief(issue) : mapIssue(issue)))
+      : [];
 
     return {
       issues,

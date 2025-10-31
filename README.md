@@ -48,6 +48,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
     - [Users and Projects](#users-and-projects)
     - [Articles](#articles)
     - [Search](#search)
+    - [Activity Feed](#activity-feed)
   - [Important Notes](#important-notes)
     - [Destructive Operations](#destructive-operations)
 
@@ -298,7 +299,6 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | `issue_comment_update` | Update existing comment | `issueId`, `commentId`, optionally `text`, `usesMarkdown`, `muteUpdateNotifications` |
 | `issue_activities` | Get issue change history | `issueId` — issue code, optionally `author` (login), `startDate` (YYYY-MM-DD, timestamp, or Date), `endDate`, `categories` (comma-separated: `CustomFieldCategory` for field changes, `CommentsCategory` for comments, `AttachmentsCategory` for attachments, `LinksCategory` for links, `VcsChangeActivityCategory` for VCS changes, `WorkItemsActivityCategory` for work items), `limit` (max 200), `skip` for pagination. Returns activity items with timestamps (ISO datetime), authors, categories, and change details (added/removed values). Useful for tracking field modifications, reviewing comment history, and analyzing collaboration patterns |
 | `issue_change_state` | Change issue state/status through workflow transitions | `issueId` — issue code, `stateName` — target state name (e.g., 'In Progress', 'Open', 'Fixed', 'Verified'). Case-insensitive. Automatically discovers available transitions and validates requested state change. Returns information about previous state, new state, and transition used. Use for moving issues through workflow states |
-| `issue_search_by_user_activity` | Search issues with user activity | `userLogins[]` — array of user logins, optionally `startDate`, `endDate`, `dateFilterMode` (`issue_updated` fast mode or `user_activity` precise mode), `limit` (default 100, max 200). Finds issues where users updated, mentioned, reported, assigned, or commented. Fast mode filters by issue.updated field; precise mode checks actual user activity dates including comments, mentions, and field changes history (e.g., when user was assignee but later changed). In precise mode, returns `lastActivityDate` field. Sorted by activity time (newest first) |
 | `issue_attachments_list` | Get list of attachments | `issueId` — issue code |
 | `issue_attachment_get` | Get attachment info | `issueId`, `attachmentId` |
 | `issue_attachment_download` | Get download URL for attachment | `issueId`, `attachmentId` — returns signed URL |
@@ -370,6 +370,12 @@ Tools return either `structuredContent` (default) or a text `content` item, depe
 | --- | --- | --- |
 | `articles_search` | Full-text search across YouTrack knowledge base articles by title and content. Returns `webUrl` for direct access | `query` (min 2 chars), `limit` (default 50, max 200), `skip`, optionally `projectId`, `parentArticleId` |
 | `issues_search` | Full-text search across YouTrack issues by summary, description, and comments. If `query` is not provided or empty, all issues will be returned. Supports filtering by projects, assignee, reporter, state, and type | `query` (optional), `limit` (default 50, max 200), `skip`, `countOnly` (optional), `projects` (optional), `assignee` (optional), `reporter` (optional), `state` (optional), `type` (optional) |
+
+### Activity Feed
+
+| Tool | Description | Main Parameters |
+| --- | --- | --- |
+| `users_activity` | Author-centric activity feed backed by `/api/activities`. **Use for:** auditing a teammate's updates, gathering comment/state changes across many issues, and reviewing deployment timelines. Returns normalized entries with ISO timestamps, optional issue references, and `added`/`removed` payloads. Always follow up by re-fetching the affected issue or work-item to confirm the latest state. Supported categories: `CustomFieldCategory` (field changes), `CommentsCategory` (comments), `AttachmentsCategory` (file events), `LinksCategory` (issue links), `VcsChangeActivityCategory` (VCS changes), `WorkItemsActivityCategory` (work items). | `author` *(required)* — login such as `vyt`; `categories` *(required)* — comma-separated list built from the supported categories above; optional `start` / `end` (ISO string, timestamp in ms, or `Date`) to bound the range, `reverse` (boolean) to switch to chronological order, `limit` (default 100, max 200), `skip` (pagination offset), `fields` (advanced override of response fields). |
 | `issues_list` | List issues across projects with filtering and sorting | Filters: `projectIds`, `createdAfter/Before`, `updatedAfter/Before`, `statuses`, `assigneeLogin`, `types`; Sorting: `sortField`, `sortDirection`; Pagination: `limit`, `skip`; Output mode: `briefOutput` |
 | `issues_count` | Count issues using same filters as `issues_list`, returns per-project breakdown | Same filters as above, optional `top` to cap manual aggregation when many projects are involved |
 

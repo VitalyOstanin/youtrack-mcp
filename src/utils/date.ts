@@ -206,3 +206,7 @@ export function getCurrentTimestamp(): number {
 export function getCurrentDate(timezone = currentTimezone): Date {
   return DateTime.now().setZone(timezone).toJSDate();
 }
+
+export function getCurrentDateTime(timezone = currentTimezone): DateTime {
+  return DateTime.now().setZone(timezone);
+}

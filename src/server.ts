@@ -12,6 +12,7 @@ import { registerProjectTools } from "./tools/project-tools.js";
 import { registerAttachmentTools } from "./tools/attachment-tools.js";
 import { registerIssueStarTools } from "./tools/issue-star-tools.js";
 import { registerIssueLinkTools } from "./tools/issue-link-tools.js";
+import { usersActivityArgs, usersActivityHandler } from "./tools/users-activity-tools.js";
 import { YoutrackClient } from "./youtrack-client.js";
 import { loadConfig } from "./config.js";
 import { initializeTimezone } from "./utils/date.js";
@@ -65,6 +66,12 @@ export class YoutrackServer {
     registerArticleTools(this.server, this.client);
     // Removed redundant registerArticleSearchTools call (articles_search tool registered manually above)
     registerUserTools(this.server, this.client);
+    this.server.tool(
+      "users_activity",
+      "Author-centric activity feed backed by /api/activities. Use for: auditing a teammate's updates, gathering comment/state changes across many issues, and reviewing deployment timelines. Always re-fetch affected entities to confirm final state.",
+      usersActivityArgs,
+      async (args) => usersActivityHandler(this.client, args),
+    );
     registerProjectTools(this.server, this.client);
     registerAttachmentTools(this.server, this.client);
     registerIssueStarTools(this.server, this.client);
