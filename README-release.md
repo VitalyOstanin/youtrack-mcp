@@ -8,6 +8,7 @@ This document outlines the complete release procedure for the YouTrack MCP proje
   - [Table of Contents](#table-of-contents)
   - [Overview](#overview)
   - [Pre-Release Checklist](#pre-release-checklist)
+    - [0. Environment Setup](#0-environment-setup)
     - [1. Version Update](#1-version-update)
     - [2. Lock File Update](#2-lock-file-update)
     - [3. Documentation Updates](#3-documentation-updates)
@@ -46,6 +47,21 @@ git push --follow-tags        # Push to GitHub → triggers automated release
 For detailed instructions and prerequisites, continue reading below.
 
 ## Pre-Release Checklist
+
+### 0. Environment Setup
+
+**Disable pager for all commands to ensure consistent output:**
+
+```bash
+# Disable pager globally for this session
+export PAGER=cat
+export LESS=
+
+# Verify pager is disabled
+echo "test" | git --paginate log --oneline -1
+```
+
+All command examples in this document assume pager is disabled. If you see paginated output, the commands may not work as expected.
 
 ### 1. Version Update
 
