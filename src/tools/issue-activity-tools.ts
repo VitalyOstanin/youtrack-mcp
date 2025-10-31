@@ -4,6 +4,7 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { mapActivityItems } from "../utils/mappers.js";
 import { toIsoDateString } from "../utils/date.js";
+import { processWithFileStorage } from "../utils/file-storage.js";
 
 // Zod args definition
 const issueActivitiesArgs = {
@@ -31,6 +32,8 @@ const issueActivitiesArgs = {
     .optional()
     .describe("Maximum number of activities to return (default: no limit, max: 200)"),
   skip: z.number().int().min(0).optional().describe("Number of activities to skip for pagination (default: 0)"),
+  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
 };
 const issueActivitiesSchema = z.object(issueActivitiesArgs);
 
@@ -81,6 +84,16 @@ export function registerIssueActivityTools(server: McpServer, client: YoutrackCl
             skip: input.skip ?? 0,
           },
         };
+
+        const processedResult = processWithFileStorage(payload, input.saveToFile, input.filePath);
+
+        if (processedResult.savedToFile) {
+          return toolSuccess({
+            savedToFile: true,
+            filePath: processedResult.filePath,
+            activityCount: paginatedActivities.length,
+          });
+        }
 
         return toolSuccess(payload);
      } catch (error) {

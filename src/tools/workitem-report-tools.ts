@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { processWithFileStorage } from "../utils/file-storage.js";
 
 const sharedDate = z.union([z.string().regex(/\d{4}-\d{2}-\d{2}/), z.number(), z.date()]);
 const reportBaseArgs = {
@@ -15,6 +16,8 @@ const reportBaseArgs = {
   holidays: z.array(sharedDate).optional().describe("List of holiday dates"),
   preHolidays: z.array(sharedDate).optional().describe("List of pre-holiday dates"),
   allUsers: z.boolean().optional().describe("Include work items for all users"),
+  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
 };
 const reportArgsSchema = z.object(reportBaseArgs);
 const reportUsersArgsSchema = z.object({
@@ -31,9 +34,20 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportArgsSchema.parse(rawInput);
         const report = await client.generateWorkItemReport(payload);
-        const response = toolSuccess({ report });
+        const processedResult = processWithFileStorage({ report }, payload.saveToFile, payload.filePath);
 
-        return response;
+        if (processedResult.savedToFile) {
+          return toolSuccess({
+            savedToFile: true,
+            filePath: processedResult.filePath,
+            reportSummary: {
+              totalMinutes: report.summary.totalMinutes,
+              workDays: report.summary.workDays,
+            },
+          });
+        }
+
+        return toolSuccess({ report });
       } catch (error) {
         const errorResponse = toolError(error);
 
@@ -50,9 +64,17 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportArgsSchema.parse(rawInput);
         const invalidDays = await client.generateInvalidWorkItemReport(payload);
-        const response = toolSuccess({ invalidDays });
+        const processedResult = processWithFileStorage({ invalidDays }, payload.saveToFile, payload.filePath);
 
-        return response;
+        if (processedResult.savedToFile) {
+          return toolSuccess({
+            savedToFile: true,
+            filePath: processedResult.filePath,
+            invalidDaysCount: invalidDays.length,
+          });
+        }
+
+        return toolSuccess({ invalidDays });
       } catch (error) {
         const errorResponse = toolError(error);
 
@@ -72,9 +94,17 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportUsersArgsSchema.parse(rawInput);
         const report = await client.generateUsersWorkItemReports(payload.users, payload);
-        const response = toolSuccess(report);
+        const processedResult = processWithFileStorage(report, payload.saveToFile, payload.filePath);
 
-        return response;
+        if (processedResult.savedToFile) {
+          return toolSuccess({
+            savedToFile: true,
+            filePath: processedResult.filePath,
+            usersCount: report.reports.length,
+          });
+        }
+
+        return toolSuccess(report);
       } catch (error) {
         const errorResponse = toolError(error);
 

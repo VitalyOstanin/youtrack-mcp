@@ -3,6 +3,7 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { parseDateInput, toIsoDateString, unixMsToDate, getCurrentDate } from "../utils/date.js";
 import { mapActivityItems } from "../utils/mappers.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
+import { processWithFileStorage } from "../utils/file-storage.js";
 
 export const usersActivityArgs = {
   author: z
@@ -49,6 +50,8 @@ export const usersActivityArgs = {
     .describe(
       "Override fields parameter passed to /api/activities (advanced). Defaults to issue idReadable, author, added/removed, category, timestamps.",
     ),
+  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
 };
 
 export const usersActivitySchema = z.object(usersActivityArgs);
@@ -89,6 +92,17 @@ export async function usersActivityHandler(client: YoutrackClient, rawInput: unk
         skip: input.skip,
       },
     };
+    const processedResult = processWithFileStorage(payload, input.saveToFile, input.filePath);
+
+    if (processedResult.savedToFile) {
+      return toolSuccess({
+        savedToFile: true,
+        filePath: processedResult.filePath,
+        activityCount: mappedActivities.length,
+        filters: payload.filters,
+        pagination: payload.pagination,
+      });
+    }
 
     return toolSuccess(payload);
   } catch (error) {

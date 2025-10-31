@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { processWithFileStorage } from "../utils/file-storage.js";
 
 const issueIdArgs = {
   issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
@@ -9,6 +10,8 @@ const issueIdArgs = {
     .boolean()
     .optional()
     .describe("Brief mode (default: true). When false, include all available customFields including State."),
+  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
 };
 const issueIdSchema = z.object(issueIdArgs);
 const issueIdsArgs = {
@@ -21,6 +24,8 @@ const issueIdsArgs = {
     .boolean()
     .optional()
     .describe("Brief mode (default: true). When false, include all available customFields for each issue."),
+  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
 };
 const issueIdsSchema = z.object(issueIdsArgs);
 const issueCreateArgs = {
@@ -166,9 +171,17 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdSchema.parse(rawInput);
         const comments = await client.getIssueComments(payload.issueId);
-        const response = toolSuccess(comments);
+        const processedResult = processWithFileStorage(comments, payload.saveToFile, payload.filePath);
 
-        return response;
+        if (processedResult.savedToFile) {
+          return toolSuccess({
+            savedToFile: true,
+            filePath: processedResult.filePath,
+            commentCount: comments.comments.length,
+          });
+        }
+
+        return toolSuccess(comments);
       } catch (error) {
         const errorResponse = toolError(error);
 
@@ -322,9 +335,18 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdsSchema.parse(rawInput);
         const result = await client.getIssues(payload.issueIds);
-        const response = toolSuccess(result);
+        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
 
-        return response;
+        if (processedResult.savedToFile) {
+          return toolSuccess({
+            savedToFile: true,
+            filePath: processedResult.filePath,
+            issueCount: result.issues.length,
+            errorsCount: result.errors?.length ?? 0,
+          });
+        }
+
+        return toolSuccess(result);
       } catch (error) {
         const errorResponse = toolError(error);
 
@@ -342,9 +364,18 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
         const payload = issueIdsSchema.parse(rawInput);
         const brief = payload.briefOutput ?? true;
         const result = await client.getIssuesDetails(payload.issueIds, !brief);
-        const response = toolSuccess(result);
+        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
 
-        return response;
+        if (processedResult.savedToFile) {
+          return toolSuccess({
+            savedToFile: true,
+            filePath: processedResult.filePath,
+            issueCount: result.issues?.length ?? 0,
+            errorsCount: result.errors?.length ?? 0,
+          });
+        }
+
+        return toolSuccess(result);
       } catch (error) {
         const errorResponse = toolError(error);
 
@@ -361,9 +392,17 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdsSchema.parse(rawInput);
         const result = await client.getMultipleIssuesComments(payload.issueIds);
-        const response = toolSuccess(result);
+        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
 
-        return response;
+        if (processedResult.savedToFile) {
+          return toolSuccess({
+            savedToFile: true,
+            filePath: processedResult.filePath,
+            totalComments: Object.values(result.commentsByIssue).flat().length,
+          });
+        }
+
+        return toolSuccess(result);
       } catch (error) {
         const errorResponse = toolError(error);
 

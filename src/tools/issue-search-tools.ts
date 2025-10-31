@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
+import { processWithFileStorage } from "../utils/file-storage.js";
 
 export const issuesSearchArgs = {
   query: z
@@ -16,6 +17,8 @@ export const issuesSearchArgs = {
   reporter: z.string().optional().describe("Filter by reporter/author login (e.g., 'john.doe' or 'me')"),
   state: z.string().optional().describe("Filter by state/status (e.g., 'Open', 'In Progress', 'Fixed')"),
   type: z.string().optional().describe("Filter by issue type (e.g., 'Bug', 'Feature', 'Task')"),
+  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
 };
 
 export const issuesSearchSchema = z
@@ -33,6 +36,8 @@ export const issuesSearchSchema = z
     reporter: z.string().optional().describe("Filter by reporter/author login (e.g., 'john.doe' or 'me')"),
     state: z.string().optional().describe("Filter by state/status (e.g., 'Open', 'In Progress', 'Fixed')"),
     type: z.string().optional().describe("Filter by issue type (e.g., 'Bug', 'Feature', 'Task')"),
+    saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+    filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
   })
   .default({});
 
@@ -103,6 +108,17 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
       byProject: Object.entries(byProject).map(([project, count]) => ({ project, count })),
       items: allIssues,
     };
+    const processedResult = processWithFileStorage(result, input.saveToFile, input.filePath);
+
+    if (processedResult.savedToFile) {
+      return toolSuccess({
+        savedToFile: true,
+        filePath: processedResult.filePath,
+        total,
+        byProject: Object.entries(byProject).map(([project, count]) => ({ project, count })),
+        itemCount: allIssues.length,
+      });
+    }
 
     return toolSuccess(result);
   } catch (error) {
