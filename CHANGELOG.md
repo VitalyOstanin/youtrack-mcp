@@ -1,6 +1,13 @@
 # Changelog
 
-## [Unreleased]
+## [0.10.0] - 2025-11-04
+
+### Changed
+- Removed YOUTRACK_USE_STRUCTURED_CONTENT environment variable support
+- All MCP responses now consistently return data in content node instead of optional structured content
+- Updated tool response functions to always use text content format
+
+## [0.9.0] - 2025-10-21
 
 ### Added
 
@@ -265,8 +272,8 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
-[Unreleased]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.4...HEAD
-[0.7.4]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.3...v0.7.4
+[0.10.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.8.0...v0.9.0
 [0.7.3]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.0...v0.7.1
