@@ -65,7 +65,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
 - `YOUTRACK_PRE_HOLIDAYS` — optional comma-separated list of pre-holiday dates with reduced working hours
 - `YOUTRACK_USER_ALIASES` — optional comma-separated list of `alias:login` mappings (e.g., `me:vyt,petya:p.petrov`), used for automatic assignee selection
 - `YOUTRACK_DEFAULT_PROJECT` — optional project code used for manual verification tasks and default parent issues in docs/examples (use `PROJ` in documentation examples)
-- `YOUTRACK_USE_STRUCTURED_CONTENT` — optional, controls response format (default: `true`). When `true`, tools return only the MCP `structuredContent` node with full data. When `false`, tools return only the MCP `content` node (single text item with JSON string)
+
 
 ## Installation
 
@@ -233,8 +233,7 @@ To use this MCP server with [Claude Code CLI](https://github.com/anthropics/clau
       "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
-        "YOUTRACK_TOKEN": "perm:your-token-here",
-        "YOUTRACK_USE_STRUCTURED_CONTENT": "false"
+        "YOUTRACK_TOKEN": "perm:your-token-here"
       }
     }
   }
@@ -243,7 +242,7 @@ To use this MCP server with [Claude Code CLI](https://github.com/anthropics/clau
 
 **Note:** This configuration uses npx to run the published package. For local development, use `"command": "node"` with `"args": ["/absolute/path/to/youtrack-mcp/dist/index.js"]`. The `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS`, and `YOUTRACK_USER_ALIASES` environment variables are optional.
 
-**For Claude Code users:** Set `YOUTRACK_USE_STRUCTURED_CONTENT` to `"false"` to include full response data in the MCP `content` field (as a JSON string). When `true` (default), only `structuredContent` is returned.
+
 
 ## Configuration for VS Code Cline
 
@@ -262,21 +261,20 @@ To use this MCP server with [Cline](https://github.com/cline/cline) extension in
       "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
-        "YOUTRACK_TOKEN": "perm:your-token-here",
-        "YOUTRACK_USE_STRUCTURED_CONTENT": "false"
+        "YOUTRACK_TOKEN": "perm:your-token-here"
       }
     }
   }
 }
 ```
 
-**Important for Cline:** Set `YOUTRACK_USE_STRUCTURED_CONTENT` to `"false"` so full tool responses are provided in the MCP `content` field. Some clients rely on text content.
+
 
 **Note:** This configuration uses npx to run the published package. For local development, use `"command": "node"` with `"args": ["/absolute/path/to/youtrack-mcp/dist/index.js"]`. The `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS`, and `YOUTRACK_USER_ALIASES` environment variables are optional.
 
 ## MCP Tools
 
-Tools return either `structuredContent` (default) or a text `content` item, depending on `YOUTRACK_USE_STRUCTURED_CONTENT`.
+
 
 ### File Storage Parameters
 

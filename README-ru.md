@@ -61,7 +61,7 @@ MCP сервер для полноценной интеграции с YouTrack 
   - `YOUTRACK_PRE_HOLIDAYS` — опциональный список предпраздничных дат через запятую, для которых норма времени уменьшается автоматически
   - `YOUTRACK_USER_ALIASES` — опциональный список соответствий `alias:login` через запятую (например, `me:vyt,petya:p.petrov`), используется при автоматическом выборе исполнителей
   - `YOUTRACK_DEFAULT_PROJECT` — опциональный код проекта (shortName или ID), используемый по умолчанию при создании задач/статей и для преобразования коротких идентификаторов (например, `1234` → `PROJ-1234`)
-  - `YOUTRACK_USE_STRUCTURED_CONTENT` — опциональный, управляет форматом ответа (по умолчанию: `true`). При `true` инструменты возвращают только узел MCP `structuredContent` с полными данными. При `false` инструменты возвращают только узел MCP `content` (один текстовый элемент с JSON-строкой)
+
 
 ## Установка
 
@@ -229,8 +229,7 @@ YOUTRACK_TOKEN = "perm:your-token-here"
       "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
-        "YOUTRACK_TOKEN": "perm:your-token-here",
-        "YOUTRACK_USE_STRUCTURED_CONTENT": "false"
+        "YOUTRACK_TOKEN": "perm:your-token-here"
       }
     }
   }
@@ -239,7 +238,7 @@ YOUTRACK_TOKEN = "perm:your-token-here"
 
 **Примечание:** Эта конфигурация использует npx для запуска опубликованного пакета. Для локальной разработки используйте `"command": "node"` с `"args": ["/абсолютный/путь/к/youtrack-mcp/dist/index.js"]`. Переменные окружения `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HOLIDAYS` и `YOUTRACK_USER_ALIASES` являются опциональными.
 
-**Для пользователей Claude Code:** Установите `YOUTRACK_USE_STRUCTURED_CONTENT` в `"false"`, чтобы включить полные данные ответа в поле MCP `content` (в виде JSON-строки). При `true` (по умолчанию) возвращается только `structuredContent`.
+
 
 ## Конфигурация для VS Code Cline
 
@@ -258,21 +257,20 @@ YOUTRACK_TOKEN = "perm:your-token-here"
       "args": ["-y", "@vitalyostanin/youtrack-mcp@latest"],
       "env": {
         "YOUTRACK_URL": "https://youtrack.example.com",
-        "YOUTRACK_TOKEN": "perm:your-token-here",
-        "YOUTRACK_USE_STRUCTURED_CONTENT": "false"
+        "YOUTRACK_TOKEN": "perm:your-token-here"
       }
     }
   }
 }
 ```
 
-**Важно для Cline:** Установите `YOUTRACK_USE_STRUCTURED_CONTENT` в `"false"`, чтобы полные ответы инструментов возвращались в поле MCP `content`. Некоторые клиенты полагаются на текстовое содержимое.
+
 
 **Примечание:** Эта конфигурация использует npx для запуска опубликованного пакета. Для локальной разработки используйте `"command": "node"` с `"args": ["/абсолютный/путь/к/youtrack-mcp/dist/index.js"]`. Переменные окружения `YOUTRACK_TIMEZONE`, `YOUTRACK_HOLIDAYS`, `YOUTRACK_PRE_HОЛИДAYS` и `YOUTRACK_USER_ALIASES` являются опциональными.
 
 ## Инструменты MCP
 
-Инструменты возвращают либо `structuredContent` (по умолчанию), либо текстовый элемент `content` — в зависимости от `YOUTRACK_USE_STRUCTURED_CONTENT`.
+
 
 ### Параметры сохранения файлов
 

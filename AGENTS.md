@@ -239,7 +239,7 @@ Run test: `npx tsx temp/test-mutex-pool.ts`
 Expected output should show that no more than 3 tasks run concurrently.
 
 ## MCP Response Format
-- The server returns exactly one data node by default, controlled via `YOUTRACK_USE_STRUCTURED_CONTENT` (default: `"true"`).
+
 - When `true`: return only `structuredContent` with full data, and include an empty `content: []` to satisfy MCP typing.
 - When `false`: return only `content` (single `text` item with JSON string), omit `structuredContent`.
 - For errors, always set `isError: true` and apply the same single-node rule (i.e., empty `content` with `structuredContent` when `true`, or text `content` when `false`).

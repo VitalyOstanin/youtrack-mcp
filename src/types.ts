@@ -21,7 +21,6 @@ export interface YoutrackConfig {
   preHolidays?: string[];
   userAliases?: UserAliasMap;
   defaultProject?: string;
-  useStructuredContent: boolean;
 }
 
 export interface DurationValue {
