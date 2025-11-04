@@ -12,6 +12,7 @@ import { registerProjectTools } from "./tools/project-tools.js";
 import { registerAttachmentTools } from "./tools/attachment-tools.js";
 import { registerIssueStarTools } from "./tools/issue-star-tools.js";
 import { registerIssueLinkTools } from "./tools/issue-link-tools.js";
+import { registerIssueListTools } from "./tools/issue-list-tools.js";
 import { usersActivityArgs, usersActivityHandler } from "./tools/users-activity-tools.js";
 import { YoutrackClient } from "./youtrack-client.js";
 import { loadConfig } from "./config.js";
@@ -76,6 +77,7 @@ export class YoutrackServer {
     registerAttachmentTools(this.server, this.client);
     registerIssueStarTools(this.server, this.client);
     registerIssueLinkTools(this.server, this.client);
+    registerIssueListTools(this.server, this.client);
   }
 
   async connect(transport: Parameters<McpServer["connect"]>[0]): Promise<void> {

@@ -105,6 +105,8 @@ import type {
   YoutrackWorkItemReportOptions,
   YoutrackWorkItemUpdateInput,
   IssueProjectCount,
+  IssueLinkDeleteInput,
+  IssueLinkDeletePayload,
 } from "./types.js";
 import { buildIssueQuery } from "./utils/issue-query.js";
 
@@ -525,6 +527,116 @@ export class YoutrackClient {
         assignee: counterpart.assignee ?? null,
       },
     }));
+  }
+
+  async deleteIssueLink(input: IssueLinkDeleteInput): Promise<IssueLinkDeletePayload> {
+    const resolvedIssueId = this.resolveIssueId(input.issueId);
+
+    try {
+      // Try direct DELETE first (some YouTrack versions support it)
+      await this.http.delete(`/api/issues/${resolvedIssueId}/links/${input.linkId}`);
+
+      const payload = {
+        deleted: true,
+        issueId: resolvedIssueId,
+        linkId: input.linkId,
+        message: "Link deleted successfully",
+      };
+
+      return payload;
+    } catch (error) {
+      const normalized = this.normalizeError(error);
+
+      // If direct DELETE fails, fall back to command-based removal
+      if (normalized.status === 404 || normalized.status === 405) {
+        const fallback = await this.deleteIssueLinkViaCommand(
+          {
+            ...input,
+            issueId: resolvedIssueId,
+          },
+          normalized,
+        );
+
+        return fallback;
+      }
+
+      throw normalized;
+    }
+  }
+
+  private async deleteIssueLinkViaCommand(
+    input: IssueLinkDeleteInput,
+    originalError: YoutrackClientError,
+  ): Promise<IssueLinkDeletePayload> {
+    if (this.cachedCommandSupport === false) {
+      throw originalError;
+    }
+
+    // Need to get the link details to determine the correct command
+    const { links } = await this.getIssueLinks(input.issueId);
+    const linkToDelete = links.find((link) => link.id === input.linkId);
+
+    if (!linkToDelete) {
+      throw new YoutrackClientError(`Link with ID ${input.linkId} not found on issue ${input.issueId}`);
+    }
+
+    // Get link type details for command construction
+    const {linkType} = linkToDelete;
+    let commandQuery: string;
+
+    if (linkType.name?.toLowerCase() === "subtask") {
+      // For subtask links, use appropriate command
+      if (linkToDelete.direction === "INWARD") {
+        commandQuery = `remove subtask of ${input.targetId}`;
+      } else {
+        commandQuery = `remove subtask of ${input.targetId}`;
+      }
+    } else {
+      // Use the inward or outward name for other link types
+      const displayText = linkType.name ?? linkType.id;
+      const inward = linkType.targetToSource ?? linkType.inwardName ?? displayText;
+      const outward = linkType.sourceToTarget ?? linkType.outwardName ?? displayText;
+      // Determine which direction we need to remove from
+      const keyword = linkToDelete.direction === "INWARD" ? inward : outward;
+      const targetId = input.targetId ?? linkToDelete.issue.idReadable;
+
+      if (!(keyword && targetId)) {
+        throw originalError;
+      }
+
+      const needsColon = /\s/.test(keyword) && !keyword.trimEnd().endsWith(":");
+      const normalizedKeyword = needsColon ? `${keyword}: remove` : `remove ${keyword}`;
+
+      commandQuery = `${normalizedKeyword} ${targetId}`;
+    }
+
+    try {
+      const commandBody = {
+        query: commandQuery,
+        issues: [{ idReadable: input.issueId }],
+        silent: true,
+      };
+
+      await this.http.post("/api/commands", commandBody);
+
+      this.cachedCommandSupport = true;
+
+      return {
+        deleted: true,
+        issueId: input.issueId,
+        linkId: input.linkId,
+        message: `Link removed via command: ${commandQuery}`,
+      };
+    } catch (error) {
+      const normalized = this.normalizeError(error);
+
+      if (normalized.status === 404) {
+        this.cachedCommandSupport = false;
+        throw originalError;
+      }
+
+      throw normalized;
+    }
   }
 
   /**

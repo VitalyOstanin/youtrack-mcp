@@ -577,6 +577,20 @@ export interface IssueLinkCreatePayload {
   link: MappedYoutrackIssueLink;
 }
 
+export interface IssueLinkDeleteInput {
+  issueId: string; // idReadable of the issue
+  linkId: string; // ID of the link to delete
+  linkType?: string; // Optional: type of link for command-based deletion
+  targetId?: string; // Optional: target issue ID for command-based deletion
+}
+
+export interface IssueLinkDeletePayload {
+  deleted: boolean;
+  issueId: string;
+  linkId: string;
+  message?: string;
+}
+
 
 export interface YoutrackAttachment {
   id: string;

@@ -69,4 +69,30 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
     },
   );
 
+  const linkDeleteArgs = {
+    issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+    linkId: z.string().min(1).describe("Link ID to delete"),
+    targetId: z.string().optional().describe("Target issue ID (optional, for command-based deletion)"),
+  };
+  const linkDeleteSchema = z.object(linkDeleteArgs);
+
+  server.tool(
+    "issue_link_delete",
+    "Delete a link by ID for a specific issue. Use for: removing relationships between issues. Supports both direct API deletion and command-based fallback. After deletion, fetch issue links again to confirm the relationship was removed.",
+    linkDeleteArgs,
+    async (rawInput) => {
+      try {
+        const input = linkDeleteSchema.parse(rawInput);
+        const result = await client.deleteIssueLink({
+          issueId: input.issueId,
+          linkId: input.linkId,
+          targetId: input.targetId,
+        });
+
+        return toolSuccess(result);
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
 }
