@@ -75,6 +75,11 @@ const issueListArgs = {
     .describe(
       "Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist.",
     ),
+  format: z
+    .enum(["json", "jsonl"])
+    .optional()
+    .describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 const issueListSchema = z.object(issueListArgs);
 
@@ -101,10 +106,12 @@ export function registerIssueListTools(server: McpServer, client: YoutrackClient
           limit: payload.limit,
           skip: payload.skip,
         });
-        const processedResult = processWithFileStorage(
+        const processedResult = await processWithFileStorage(
           result,
           payload.saveToFile,
           payload.filePath,
+          payload.format ?? 'jsonl',
+          payload.overwrite,
         );
 
         if (processedResult.savedToFile) {

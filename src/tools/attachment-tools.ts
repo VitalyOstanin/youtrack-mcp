@@ -8,6 +8,8 @@ const issueIdArgs = {
   issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
+  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 const issueIdSchema = z.object(issueIdArgs);
 const attachmentGetArgs = {
@@ -45,7 +47,7 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       try {
         const payload = issueIdSchema.parse(rawInput);
         const result = await client.listAttachments(payload.issueId);
-        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({

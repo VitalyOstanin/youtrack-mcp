@@ -51,6 +51,7 @@ export interface YoutrackIssue {
   parent?: { idReadable: string; id?: string } | null;
   assignee?: YoutrackUser | null;
   watchers?: YoutrackIssueWatchers | null;
+  customFields?: YoutrackCustomField[];
 }
 
 export interface PartialOperationError {

@@ -68,17 +68,43 @@ export async function buildIssueQuery(
   }
 
   if (createdAfter || createdBefore) {
-    const start = createdAfter ? toIsoDateString(createdAfter) : "*";
-    const end = createdBefore ? toIsoDateString(createdBefore) : "*";
+    if (createdAfter && createdBefore) {
+      // Both after and before dates specified - use range with YouTrack date syntax
+      const startDate = toIsoDateString(createdAfter);
+      const endDate = toIsoDateString(createdBefore);
 
-    filters.push(`created: ${start}..${end}`);
+      filters.push(`created: ${startDate} .. ${endDate}`);
+    } else if (createdAfter) {
+      // Only after date specified - get issues from that date to now
+      const startDate = toIsoDateString(createdAfter);
+
+      filters.push(`created: ${startDate} .. now`);
+    } else if (createdBefore) {
+      // Only before date specified - use range from beginning of time to the specified date
+      const endDate = toIsoDateString(createdBefore);
+
+      filters.push(`created: 1970-01-01 .. ${endDate}`);
+    }
   }
 
   if (updatedAfter || updatedBefore) {
-    const start = updatedAfter ? toIsoDateString(updatedAfter) : "*";
-    const end = updatedBefore ? toIsoDateString(updatedBefore) : "*";
+    if (updatedAfter && updatedBefore) {
+      // Both after and before dates specified - use range with YouTrack date syntax
+      const startDate = toIsoDateString(updatedAfter);
+      const endDate = toIsoDateString(updatedBefore);
 
-    filters.push(`updated: ${start}..${end}`);
+      filters.push(`updated: ${startDate} .. ${endDate}`);
+    } else if (updatedAfter) {
+      // Only after date specified - get issues updated from that date to now
+      const startDate = toIsoDateString(updatedAfter);
+
+      filters.push(`updated: ${startDate} .. now`);
+    } else if (updatedBefore) {
+      // Only before date specified - use range from beginning of time to the specified date
+      const endDate = toIsoDateString(updatedBefore);
+
+      filters.push(`updated: 1970-01-01 .. ${endDate}`);
+    }
   }
 
   if (statuses && statuses.length > 0) {

@@ -120,9 +120,14 @@ const defaultFields = {
     "description",
     "wikifiedDescription",
     "usesMarkdown",
+    "created",
+    "updated",
     "project(id,shortName,name)",
     "parent(id,idReadable)",
     "assignee(id,login,name)",
+    "reporter(id,login,name)",
+    "updater(id,login,name)",
+    "customFields(id,name,value(id,login,name,presentation),$type)",
     "watchers(hasStar)",
   ].join(","),
   issueSearch: [
@@ -825,12 +830,21 @@ export class YoutrackClient {
     return issueIds.map((id) => this.resolveIssueId(id));
   }
 
-  async getIssue(issueId: string): Promise<IssueLookupPayload> {
+  async getIssue(issueId: string, includeCustomFields: boolean = false): Promise<IssueLookupPayload> {
     const resolvedId = this.resolveIssueId(issueId);
 
     try {
-      const issue = await this.getIssueRaw(resolvedId);
-      const mappedIssue = mapIssue(issue);
+      let fields = defaultFields.issue;
+
+      if (includeCustomFields) {
+        // Include customFields with possibleEvents when requested
+        fields = `${defaultFields.issue.substring(0, defaultFields.issue.lastIndexOf(')')+1)},customFields(id,name,value(id,login,name,presentation),$type,possibleEvents(id,presentation))`;
+      }
+
+      const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${resolvedId}`, {
+        params: { fields },
+      });
+      const mappedIssue = mapIssueDetails(response.data);
       const payload = { issue: mappedIssue };
 
       return payload;
@@ -1180,7 +1194,7 @@ export class YoutrackClient {
     }
   }
 
-  async getIssues(issueIds: string[]): Promise<IssuesLookupPayload> {
+  async getIssues(issueIds: string[], includeCustomFields: boolean = false): Promise<IssuesLookupPayload> {
     if (!issueIds.length) {
       return { issues: [], errors: [] };
     }
@@ -1189,8 +1203,15 @@ export class YoutrackClient {
     const query = `issue id: ${issueIds.join(" ")}`;
 
     try {
-      const foundIssues = await this.getWithFlexibleTop<YoutrackIssue[]>("/api/issues", {
-        fields: defaultFields.issue,
+      let fields = defaultFields.issue;
+
+      if (includeCustomFields) {
+        // Include customFields with possibleEvents when requested
+        fields = `${defaultFields.issue.substring(0, defaultFields.issue.lastIndexOf(')')+1)},customFields(id,name,value(id,login,name,presentation),$type,possibleEvents(id,presentation))`;
+      }
+
+      const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
+        fields,
         query,
         $top: issueIds.length,
       });
@@ -1208,7 +1229,7 @@ export class YoutrackClient {
       }
 
       const payload = {
-        issues: foundIssues.map(mapIssue),
+        issues: foundIssues.map(mapIssueDetails),
         errors: errors.length ? errors : undefined,
       };
 

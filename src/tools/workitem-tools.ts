@@ -18,6 +18,8 @@ const baseFilterArgs = {
   allUsers: z.boolean().optional().describe("Get work items for all users"),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
+  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 const workItemsListSchema = z.object(baseFilterArgs);
 const workItemsForUsersArgs = {
@@ -109,6 +111,8 @@ const workItemsRecentArgs = {
   limit: z.number().int().positive().max(200).optional().describe("Maximum number of items (default 50)"),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
+  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 const workItemsRecentSchema = z.object(workItemsRecentArgs);
 
@@ -122,7 +126,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
         const payload = workItemsListSchema.parse(rawInput);
         const items = await client.listWorkItems(payload);
         const result = { items: mapWorkItems(items) };
-        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({
@@ -150,7 +154,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
         const payload = workItemsListSchema.parse(rawInput);
         const items = await client.listAllUsersWorkItems(payload);
         const result = { items: mapWorkItems(items) };
-        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({
@@ -178,7 +182,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
         const payload = workItemsUsersSchema.parse(rawInput);
         const items = await client.getWorkItemsForUsers(payload.users, payload);
         const result = { items: mapWorkItems(items), users: payload.users };
-        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({
@@ -364,7 +368,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
         const payload = workItemsRecentSchema.parse(rawInput);
         const items = await client.listRecentWorkItems(payload);
         const result = { items: mapWorkItems(items), count: items.length };
-        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({

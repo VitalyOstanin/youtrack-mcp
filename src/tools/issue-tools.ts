@@ -12,6 +12,8 @@ const issueIdArgs = {
     .describe("Brief mode (default: true). When false, include all available customFields including State."),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
+  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 const issueIdSchema = z.object(issueIdArgs);
 const issueIdsArgs = {
@@ -26,6 +28,8 @@ const issueIdsArgs = {
     .describe("Brief mode (default: true). When false, include all available customFields for each issue."),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
+  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 const issueIdsSchema = z.object(issueIdsArgs);
 const issueCreateArgs = {
@@ -126,12 +130,13 @@ const issuesCountSchema = z.object(issuesCountArgs);
 export function registerIssueTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_lookup",
-    "Get brief information about YouTrack issue. Note: Returns predefined fields only - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name). Custom fields are not included.",
+    "Get information about YouTrack issue. Note: Returns predefined fields including timestamps (created, updated) and basic info - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). By default, custom fields are not included. Use briefOutput=false to get all customFields including State.",
     issueIdArgs,
     async (rawInput) => {
       try {
         const payload = issueIdSchema.parse(rawInput);
-        const issue = await client.getIssue(payload.issueId);
+        const includeCustomFields = !(payload.briefOutput ?? true);
+        const issue = await client.getIssue(payload.issueId, includeCustomFields);
         const response = toolSuccess(issue);
 
         return response;
@@ -171,7 +176,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdSchema.parse(rawInput);
         const comments = await client.getIssueComments(payload.issueId);
-        const processedResult = processWithFileStorage(comments, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(comments, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({
@@ -329,13 +334,14 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_lookup",
-    "Get brief information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name). Custom fields are not included.",
+    "Get information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields including timestamps (created, updated) and basic info - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). By default, custom fields are not included. Use briefOutput=false to get all customFields including State.",
     issueIdsArgs,
     async (rawInput) => {
       try {
         const payload = issueIdsSchema.parse(rawInput);
-        const result = await client.getIssues(payload.issueIds);
-        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
+        const includeCustomFields = !(payload.briefOutput ?? true);
+        const result = await client.getIssues(payload.issueIds, includeCustomFields);
+        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({
@@ -364,7 +370,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
         const payload = issueIdsSchema.parse(rawInput);
         const brief = payload.briefOutput ?? true;
         const result = await client.getIssuesDetails(payload.issueIds, !brief);
-        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({
@@ -392,7 +398,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdsSchema.parse(rawInput);
         const result = await client.getMultipleIssuesComments(payload.issueIds);
-        const processedResult = processWithFileStorage(result, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({

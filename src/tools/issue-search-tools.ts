@@ -43,6 +43,10 @@ export const issuesSearchArgs = {
     .describe(
       "Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist.",
     ),
+  format: z
+    .enum(["json", "jsonl"])
+    .optional()
+    .describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
 };
 
 export const issuesSearchSchema = z
@@ -86,6 +90,14 @@ export const issuesSearchSchema = z
       .describe(
         "Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist.",
       ),
+    format: z
+      .enum(["json", "jsonl"])
+      .optional()
+      .describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+    overwrite: z
+      .boolean()
+      .optional()
+      .describe("Allow overwriting existing files when using explicit filePath. Default is false."),
   })
   .default({});
 
@@ -198,7 +210,7 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
       byProject: Object.entries(byProject).map(([project, count]) => ({ project, count })),
       items: allIssues,
     };
-    const processedResult = processWithFileStorage(result, input.saveToFile, input.filePath);
+    const processedResult = await processWithFileStorage(result, input.saveToFile, input.filePath, input.format ?? 'jsonl', input.overwrite);
 
     if (processedResult.savedToFile) {
       return toolSuccess({

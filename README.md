@@ -278,10 +278,12 @@ To use this MCP server with [Cline](https://github.com/cline/cline) extension in
 
 ### File Storage Parameters
 
-Many tools support optional `saveToFile` and `filePath` parameters for handling large datasets:
+Many tools support optional file storage parameters for handling large datasets:
 
 - `saveToFile` — boolean, saves results to a JSON file instead of returning directly (useful for large datasets)
 - `filePath` — string, custom file path (optional, auto-generated if not provided, directory created if needed)
+- `format` — string, output format when saving to file: `jsonl` (JSON Lines) or `json` (JSON array format). Default is `jsonl`
+- `overwrite` — boolean, allow overwriting existing files when using explicit filePath. Default is `false`
 
 When `saveToFile` is `true`, tools return metadata about the saved file instead of the full data.
 
@@ -295,22 +297,22 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `issue_lookup` | Brief issue information | `issueId` — issue code (e.g., PROJ-123) |
-| `issues_lookup` | Brief information about multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50; `briefOutput` — optional boolean (default `true`) |
-| `issue_details` | Issue details with brief/full modes | `issueId` — issue code; `briefOutput` — optional boolean (default `true`). Brief: predefined fields only. Full (`false`): adds `customFields` including `State` |
-| `issues_details` | Detailed information about multiple issues (batch mode, max 50). Brief (default): predefined fields only. Full (`briefOutput=false`): adds `customFields` for each issue | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`) |
-| `issue_comments` | Issue comments | `issueId` — issue code |
-| `issues_comments` | Comments for multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`) |
+| `issue_lookup` | Get information about YouTrack issue. Note: Returns predefined fields including timestamps (created, updated) and basic info - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). By default, custom fields are not included. Use briefOutput=false to get all customFields including State. | `issueId` — issue code (e.g., PROJ-123); `briefOutput` — optional boolean (default `true`) |
+| `issues_lookup` | Get information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields including timestamps (created, updated) and basic info - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). By default, custom fields are not included. Use briefOutput=false to get all customFields including State. | `issueIds[]` — array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50; `briefOutput` — optional boolean (default `true`) |
+| `issue_details` | Issue details with brief/full modes | `issueId` — issue code; `briefOutput` — optional boolean (default `true`). Brief: predefined fields only. Full (`false`): adds `customFields` including `State`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `issues_details` | Detailed information about multiple issues (batch mode, max 50). Brief (default): predefined fields only. Full (`briefOutput=false`): adds `customFields` for each issue | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `issue_comments` | Issue comments | `issueId` — issue code; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `issues_comments` | Comments for multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `issue_create` | Create issue | `projectId`, `summary`, optional `description`, `parentIssueId`, `assigneeLogin`, `stateName`, `usesMarkdown`, `links` (array of link objects) |
 | `issue_update` | Update existing issue | `issueId`, optionally `summary`, `description`, `parentIssueId` (empty string clears parent), `usesMarkdown` |
 | `issue_assign` | Assign issue to user | `issueId`, `assigneeLogin` (login or `me`) |
 | `issue_comment_create` | Add comment to issue | `issueId`, `text` — comment text, optionally `usesMarkdown` |
 | `issue_comment_update` | Update existing comment | `issueId`, `commentId`, optionally `text`, `usesMarkdown`, `muteUpdateNotifications` |
-| `issue_activities` | Get issue change history | `issueId` — issue code, optionally `author` (login), `startDate` (YYYY-MM-DD, timestamp, or Date), `endDate`, `categories` (comma-separated: `CustomFieldCategory` for field changes, `CommentsCategory` for comments, `AttachmentsCategory` for attachments, `LinksCategory` for links, `VcsChangeActivityCategory` for VCS changes, `WorkItemsActivityCategory` for work items), `limit` (max 200), `skip` for pagination. Returns activity items with timestamps (ISO datetime), authors, categories, and change details (added/removed values). Useful for tracking field modifications, reviewing comment history, and analyzing collaboration patterns |
+| `issue_activities` | Get issue change history | `issueId` — issue code, optionally `author` (login), `startDate` (YYYY-MM-DD, timestamp, or Date), `endDate`, `categories` (comma-separated: `CustomFieldCategory` for field changes, `CommentsCategory` for comments, `AttachmentsCategory` for attachments, `LinksCategory` for links, `VcsChangeActivityCategory` for VCS changes, `WorkItemsActivityCategory` for work items), `limit` (max 200), `skip` for pagination; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options. Returns activity items with timestamps (ISO datetime), authors, categories, and change details (added/removed values). Useful for tracking field modifications, reviewing comment history, and analyzing collaboration patterns |
 | `issue_change_state` | Change issue state/status through workflow transitions | `issueId` — issue code, `stateName` — target state name (e.g., 'In Progress', 'Open', 'Fixed', 'Verified'). Case-insensitive. Automatically discovers available transitions and validates requested state change. Returns information about previous state, new state, and transition used. Use for moving issues through workflow states |
-| `issue_attachments_list` | Get list of attachments | `issueId` — issue code |
-| `issue_attachment_get` | Get attachment info | `issueId`, `attachmentId` |
-| `issue_attachment_download` | Get download URL for attachment | `issueId`, `attachmentId` — returns signed URL |
+| `issue_attachments_list` | Get list of attachments | `issueId` — issue code; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `issue_attachment_get` | Get attachment info | `issueId`, `attachmentId`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `issue_attachment_download` | Get download URL for attachment | `issueId`, `attachmentId` — returns signed URL; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `issue_attachment_upload` | Upload files to issue | `issueId`, `filePaths[]` — array of file paths (max 10), optionally `muteUpdateNotifications` |
 | `issue_attachment_delete` | Delete attachment (requires confirmation) | `issueId`, `attachmentId`, `confirmation` (must be `true`) |
 
@@ -322,6 +324,13 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 | `issue_link_types` | List available link types | — |
 | `issue_link_add` | Create a link between two issues | `sourceId`, `targetId`, `linkType` (name or id), optionally `direction` (`outbound` or `inbound`) |
 | `issue_link_delete` | Delete a link by id for a specific issue | `issueId` — issue code, `linkId` — link id to delete |
+
+### Issues Status
+
+| Tool | Description | Main Parameters |
+| --- | --- | --- |
+| `issue_status` | Get status of a YouTrack issue. Returns the State of the issue. | `issueId` — issue code (e.g., PROJ-123) |
+| `issues_status` | Get status of multiple YouTrack issues (batch mode, max 50). Returns the State of each issue. | `issueIds[]` — array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50 |
 
 ### Issue Stars
 
@@ -337,25 +346,25 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `workitems_list` | Get work items for current or specified user | Optionally `issueId`, `author`, `startDate`, `endDate`, `allUsers` |
-| `workitems_all_users` | Get work items for all users | Optionally `issueId`, `startDate`, `endDate` |
-| `workitems_for_users` | Get work items for selected users | `users[]`, optionally `issueId`, `startDate`, `endDate` |
-| `workitems_recent` | Get recent work items sorted by update time (newest first) | Optionally `users[]` (defaults to current user), `limit` (default 50, max 200) |
+| `workitems_list` | Get work items for current or specified user | Optionally `issueId`, `author`, `startDate`, `endDate`, `allUsers`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_all_users` | Get work items for all users | Optionally `issueId`, `startDate`, `endDate`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_for_users` | Get work items for selected users | `users[]`, optionally `issueId`, `startDate`, `endDate`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_recent` | Get recent work items sorted by update time (newest first) | Optionally `users[]` (defaults to current user), `limit` (default 50, max 200); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `workitem_create` | Create work item entry | `issueId`, `date`, `minutes`, optionally `summary`, `description`, `usesMarkdown` |
 | `workitem_create_idempotent` | Create work item without duplicates (by description and date) | `issueId`, `date`, `minutes`, `description`, optionally `usesMarkdown` |
 | `workitem_update` | Update work item (recreate) | `issueId`, `workItemId`, optionally `date`, `minutes`, `summary`, `description`, `usesMarkdown` |
 | `workitem_delete` | Delete work item | `issueId`, `workItemId` |
 | `workitems_create_period` | Batch create for date range | `issueId`, `startDate`, `endDate`, `minutes`, optionally `summary`, `description`, `usesMarkdown`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]` |
-| `workitems_report_summary` | Summary report for work items | Common parameters: `author`, `issueId`, `startDate`, `endDate`, `expectedDailyMinutes`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]`, `allUsers` |
-| `workitems_report_invalid` | Days with deviation from expected hours | Same parameters as summary |
-| `workitems_report_users` | Work items report for list of users | `users[]` + common report parameters |
-| `workitems_report` | Report structure (compatibility with older clients) | Optionally `author`, `issueId`, `startDate`, `endDate`, `expectedDailyMinutes`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]`, `allUsers` |
+| `workitems_report_summary` | Summary report for work items | Common parameters: `author`, `issueId`, `startDate`, `endDate`, `expectedDailyMinutes`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]`, `allUsers`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_report_invalid` | Days with deviation from expected hours | Same parameters as summary; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_report_users` | Work items report for list of users | `users[]` + common report parameters; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_report` | Report structure (compatibility with older clients) | Optionally `author`, `issueId`, `startDate`, `endDate`, `expectedDailyMinutes`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]`, `allUsers`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 
 ### Users and Projects
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `users_list` | List all YouTrack users | — |
+| `users_list` | List all YouTrack users | `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `user_get` | Get user by login | `login` — user login |
 | `user_current` | Get current authenticated user | — |
 | `projects_list` | List all YouTrack projects | — |
@@ -369,9 +378,9 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 | `article_list` | List articles with filters | Optionally `parentArticleId`, `projectId` |
 | `article_create` | Create article in knowledge base | `summary`, optionally `content`, `parentArticleId`, `projectId`, `usesMarkdown`, `returnRendered` |
 | `article_update` | Update article | `articleId`, optionally `summary`, `content`, `usesMarkdown`, `returnRendered` |
-| `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered` |
-| `articles_search` | Full-text search across YouTrack knowledge base articles by title and content. Returns `webUrl` for direct access. | `query`, `limit`, `skip`, optionally `projectId`, `parentArticleId` |
-| `issues_search` | Full-text search across YouTrack issues by summary, description, and comments. If `query` is not provided or empty, all issues will be returned. Supports filtering by projects, assignee, reporter, state, and type. | `query` (optional), `limit`, `skip`, `countOnly` (optional), `projects` (optional), `assignee` (optional), `reporter` (optional), `state` (optional), `type` (optional) |
+| `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `articles_search` | Full-text search across YouTrack knowledge base articles by title and content. Returns `webUrl` for direct access. | `query`, `limit`, `skip`, optionally `projectId`, `parentArticleId`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `issues_search` | Full-text search across YouTrack issues by summary, description, and comments. If `query` is not provided or empty, all issues will be returned. Supports filtering by projects, assignee, reporter, state, and type. | `query` (optional), `limit`, `skip`, `countOnly` (optional), `projects` (optional), `assignee` (optional), `reporter` (optional), `state` (optional), `type` (optional); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 
 ### Search
 
@@ -384,9 +393,9 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `users_activity` | Author-centric activity feed backed by `/api/activities`. **Use for:** auditing a teammate's updates, gathering comment/state changes across many issues, and reviewing deployment timelines. Returns normalized entries with ISO timestamps, optional issue references, and `added`/`removed` payloads. Always follow up by re-fetching the affected issue or work-item to confirm the latest state. Supported categories: `CustomFieldCategory` (field changes), `CommentsCategory` (comments), `AttachmentsCategory` (file events), `LinksCategory` (issue links), `VcsChangeActivityCategory` (VCS changes), `WorkItemsActivityCategory` (work items). | `author` *(required)* — login such as `vyt`; `categories` *(required)* — comma-separated list built from the supported categories above; optional `start` / `end` (ISO string, timestamp in ms, or `Date`) to bound the range, `reverse` (boolean) to switch to chronological order, `limit` (default 100, max 200), `skip` (pagination offset), `fields` (advanced override of response fields). |
-| `issues_list` | List issues across projects with filtering and sorting | Filters: `projectIds`, `createdAfter/Before`, `updatedAfter/Before`, `statuses`, `assigneeLogin`, `types`; Sorting: `sortField`, `sortDirection`; Pagination: `limit`, `skip`; Output mode: `briefOutput` |
-| `issues_count` | Count issues using same filters as `issues_list`, returns per-project breakdown | Same filters as above, optional `top` to cap manual aggregation when many projects are involved |
+| `users_activity` | Author-centric activity feed backed by `/api/activities`. **Use for:** auditing a teammate's updates, gathering comment/state changes across many issues, and reviewing deployment timelines. Returns normalized entries with ISO timestamps, optional issue references, and `added`/`removed` payloads. Always follow up by re-fetching the affected issue or work-item to confirm the latest state. Supported categories: `CustomFieldCategory` (field changes), `CommentsCategory` (comments), `AttachmentsCategory` (file events), `LinksCategory` (issue links), `VcsChangeActivityCategory` (VCS changes), `WorkItemsActivityCategory` (work items). | `author` *(required)* — login such as `vyt`; `categories` *(required)* — comma-separated list built from the supported categories above; optional `start` / `end` (ISO string, timestamp in ms, or `Date`) to bound the range, `reverse` (boolean) to switch to chronological order, `limit` (default 100, max 200), `skip` (pagination offset), `fields` (advanced override of response fields); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options. |
+| `issues_list` | List issues across projects with filtering and sorting | Filters: `projectIds`, `createdAfter/Before`, `updatedAfter/Before`, `statuses`, `assigneeLogin`, `types`; Sorting: `sortField`, `sortDirection`; Pagination: `limit`, `skip`; Output mode: `briefOutput`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `issues_count` | Count issues using same filters as `issues_list`, returns per-project breakdown | Same filters as above, optional `top` to cap manual aggregation when many projects are involved; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 
 ## Important Notes
 

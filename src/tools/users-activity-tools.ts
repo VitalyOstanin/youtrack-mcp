@@ -52,6 +52,8 @@ export const usersActivityArgs = {
     ),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
+  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 
 export const usersActivitySchema = z.object(usersActivityArgs);
@@ -92,7 +94,7 @@ export async function usersActivityHandler(client: YoutrackClient, rawInput: unk
         skip: input.skip,
       },
     };
-    const processedResult = processWithFileStorage(payload, input.saveToFile, input.filePath);
+    const processedResult = await processWithFileStorage(payload, input.saveToFile, input.filePath, input.format ?? 'jsonl', input.overwrite);
 
     if (processedResult.savedToFile) {
       return toolSuccess({

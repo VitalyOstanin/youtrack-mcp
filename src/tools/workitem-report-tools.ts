@@ -17,7 +17,9 @@ const reportBaseArgs = {
   preHolidays: z.array(sharedDate).optional().describe("List of pre-holiday dates"),
   allUsers: z.boolean().optional().describe("Include work items for all users"),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 const reportArgsSchema = z.object(reportBaseArgs);
 const reportUsersArgsSchema = z.object({
@@ -34,7 +36,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportArgsSchema.parse(rawInput);
         const report = await client.generateWorkItemReport(payload);
-        const processedResult = processWithFileStorage({ report }, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage({ report }, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({
@@ -64,7 +66,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportArgsSchema.parse(rawInput);
         const invalidDays = await client.generateInvalidWorkItemReport(payload);
-        const processedResult = processWithFileStorage({ invalidDays }, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage({ invalidDays }, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({
@@ -94,7 +96,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportUsersArgsSchema.parse(rawInput);
         const report = await client.generateUsersWorkItemReports(payload.users, payload);
-        const processedResult = processWithFileStorage(report, payload.saveToFile, payload.filePath);
+        const processedResult = await processWithFileStorage(report, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
 
         if (processedResult.savedToFile) {
           return toolSuccess({

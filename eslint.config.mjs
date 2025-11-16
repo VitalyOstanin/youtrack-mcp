@@ -91,6 +91,14 @@ export default [
         exports: 'always-multiline',
         functions: 'always-multiline',
       }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       'prefer-de-morgan-law/prefer-de-morgan-law': 'error',
     },
   },

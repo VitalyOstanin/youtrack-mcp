@@ -1,47 +1,158 @@
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { createWriteStream, mkdirSync, existsSync } from "fs";
 import { join, dirname } from "path";
+import { Transform, Readable } from "stream";
+import { pipeline } from "stream/promises";
 
-export interface FileStorageOptions {
-  data: unknown;
+export interface StreamingFileStorageOptions {
+  dataStream: AsyncIterable<unknown>; // Поток данных для обработки
   filePath?: string;
   baseDir?: string;
+  format?: 'json' | 'jsonl';  // формат по умолчанию теперь 'json'
+  overwrite?: boolean;
 }
 
 /**
- * Saves data to a JSON file and returns the file path
+ * Creates a readable stream from an async iterable
  */
-export function saveDataToFile(options: FileStorageOptions): string {
-  const { data, filePath, baseDir = "data" } = options;
+class AsyncIterableReadable extends Readable {
+  private readonly _iterator: AsyncIterator<unknown>;
+  private reading: boolean = false;
+
+  constructor(private readonly asyncIterable: AsyncIterable<unknown>) {
+    super({ objectMode: true });
+    this._iterator = asyncIterable[Symbol.asyncIterator]();
+  }
+
+  _read() {
+    if (this.reading) return;
+    this.reading = true;
+    this.readNext();
+  }
+
+  private async readNext() {
+    try {
+      const result = await this._iterator.next();
+
+      if (result.done) {
+        this.push(null);
+        this.reading = false;
+
+        return;
+      }
+
+      if (this.push(result.value)) {
+        setImmediate(() => this.readNext());
+      } else {
+        this.once('drain', () => {
+          this.reading = false;
+          this.readNext();
+        });
+      }
+    } catch (error: unknown) {
+      this.emit('error', error instanceof Error ? error : new Error(String(error)));
+      this.push(null);
+      this.reading = false;
+    }
+  }
+}
+
+/**
+ * Streams data to a JSON or JSONL file from a data stream for handling large datasets without memory issues
+ */
+export async function streamDataToFileAsync(options: StreamingFileStorageOptions): Promise<string> {
+  const { dataStream, filePath, baseDir = "data", format = 'json', overwrite } = options;
   let finalPath: string;
 
   if (filePath) {
-    // Use explicit file path
     finalPath = filePath;
   } else {
-    // Generate unique file path
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(2, 8);
-    const fileName = `youtrack-data-${timestamp}-${randomId}.json`;
+    const fileName = `youtrack-data-${timestamp}-${randomId}.${format === 'jsonl' ? 'jsonl' : 'json'}`;
 
     finalPath = join(baseDir, fileName);
   }
 
-  // Ensure directory exists
   const dir = dirname(finalPath);
 
   mkdirSync(dir, { recursive: true });
 
-  // Check if file already exists
-  if (existsSync(finalPath)) {
+  if (existsSync(finalPath) && !overwrite) {
     throw new Error(`File already exists: ${finalPath}. Choose a different file path or remove the existing file.`);
   }
 
-  // Write data to file
-  const jsonData = JSON.stringify(data, null, 2);
+  const writeStream = createWriteStream(finalPath, { encoding: "utf-8" });
 
-  writeFileSync(finalPath, jsonData, "utf-8");
+  if (format === 'jsonl') {
+    return new Promise((resolve, reject) => {
+      writeStream.on('finish', () => { resolve(finalPath); });
+      writeStream.on('error', (error: unknown) => { reject(error instanceof Error ? error : new Error(String(error))); });
 
-  return finalPath;
+      (async () => {
+        try {
+          for await (const item of dataStream) {
+            writeStream.write(`${JSON.stringify(item)  }\n`);
+          }
+          writeStream.end();
+        } catch (error: unknown) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      })();
+    });
+  } else {
+    const readable = new AsyncIterableReadable(dataStream);
+    const jsonFormattingTransform = new Transform({
+      objectMode: true,
+      transform(chunk, encoding, callback) {
+        try {
+          const json = JSON.stringify(chunk, null, 2);
+
+          callback(null, json);
+        } catch (err: unknown) {
+          callback(err instanceof Error ? err : new Error(String(err)));
+        }
+      },
+    });
+    let isFirst = true;
+    let hasItems = false;
+    const jsonArrayTransform = new Transform({
+      objectMode: true,
+      transform(chunk, encoding, callback) {
+        if (isFirst) {
+          callback(null, `[\n${  chunk}`);
+          isFirst = false;
+          hasItems = true;
+        } else {
+          callback(null, `,\n${  chunk}`);
+        }
+      },
+      flush(callback) {
+        if (hasItems) {
+          callback(null, '\n]');
+        } else {
+          callback(null, '[]');
+        }
+      },
+    });
+
+    return new Promise((resolve, reject) => {
+      writeStream.on('finish', () => { resolve(finalPath); });
+      writeStream.on('error', (error: unknown) => { reject(error instanceof Error ? error : new Error(String(error))); });
+
+      (async () => {
+        try {
+          await pipeline(
+            readable,
+            jsonFormattingTransform,
+            jsonArrayTransform,
+            writeStream,
+          );
+        } catch (error: unknown) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      })();
+    });
+  }
 }
 
 /**
@@ -58,6 +169,17 @@ export const fileStorageArgs = {
     optional: true,
     describe: "Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist.",
   },
+  format: {
+    type: "string" as const,
+    optional: true,
+    describe: "Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is json.",
+    choices: ["json", "jsonl"] as const,
+  },
+  overwrite: {
+    type: "boolean" as const,
+    optional: true,
+    describe: "Allow overwriting existing files when using explicit filePath. Default is false.",
+  },
 };
 
 /**
@@ -70,18 +192,31 @@ export interface FileStorageResult<T> {
 }
 
 /**
- * Processes tool result with optional file storage
+ * Processes tool result with optional file storage supporting streaming
  */
-export function processWithFileStorage<T>(
+export async function processWithFileStorage<T>(
   data: T,
   saveToFile?: boolean,
   filePath?: string,
-): FileStorageResult<T> {
+  format: 'json' | 'jsonl' = 'json',  // изменен на json по умолчанию
+  overwrite?: boolean,
+): Promise<FileStorageResult<T>> {
 
   if (saveToFile) {
-    const savedPath = saveDataToFile({
-      data,
+    const dataStream: AsyncIterable<unknown> = async function*() {
+      if (Array.isArray(data)) {
+        for (const item of data) {
+          yield item;
+        }
+      } else {
+        yield data;
+      }
+    }();
+    const savedPath = await streamDataToFileAsync({
+      dataStream,
       filePath,
+      format,
+      overwrite,
     });
 
     return {
