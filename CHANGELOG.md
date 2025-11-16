@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.10.1] - 2025-11-17
+
+### Added
+- **Streaming functionality** - Direct HTTP response to file without memory accumulation:
+  - New `streaming-client.ts` utility for handling large data streams
+  - `streamHttpToFile` function with JSON/JSONL format support
+  - Direct stream from HTTP response to file to prevent memory issues
+- **Issue status tools** - Get issue state/status information:
+  - `issue_status` tool: Get status of a single YouTrack issue
+  - `issues_status` tool: Get status of multiple YouTrack issues (batch mode, max 50)
+  - Returns State field values for issues
+- **Enhanced file storage** - JSON/JSONL format support with overwrite options:
+  - `format` parameter: Output format when saving to file (json or jsonl)
+  - `overwrite` parameter: Allow overwriting existing files
+  - Streaming support for large datasets to prevent memory issues
+  - Updated file storage utilities with proper streaming implementation
+- **Enhanced issue retrieval** - Include custom fields and additional metadata:
+  - Added created, updated, reporter, updater fields to default issue queries
+  - Added customFields with possibleEvents support when requested
+  - Improved issue lookup with comprehensive field coverage
+
+### Changed
+- Updated all tools documentation in README files with new parameters
+- Enhanced file storage functionality with streaming capabilities
+- Improved YouTrack client with streaming and custom fields support
+
 ## [0.10.0] - 2025-11-04
 
 ### Changed
@@ -272,6 +298,7 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
+[0.10.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.8.0...v0.9.0
 [0.7.3]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.2...v0.7.3
