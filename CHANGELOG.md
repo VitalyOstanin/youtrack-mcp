@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.2] - 2025-11-18
+
+### Added
+- **YouTrack attachment tools** - Comprehensive attachment management:
+  - `issue_attachment_upload`: Upload one or more files to a YouTrack issue, with file existence validation and optional notification muting
+  - `issue_attachment_download`: Get download information including signed URL for direct file access without additional authentication
+  - `issue_attachment_delete`: Secure deletion with mandatory confirmation parameter to prevent accidental removal
+  - `issue_attachment_get`: Detailed information about specific attachments including metadata and file properties
+  - `issue_attachments_list`: Retrieve metadata for all files attached to an issue with proper pagination support
+
+### Changed
+- Enhanced file storage functionality with streaming capabilities
+- Updated all tools documentation in README files with new attachment parameters
+- Improved YouTrack client with comprehensive attachment API support
+
 ## [0.10.1] - 2025-11-17
 
 ### Added
