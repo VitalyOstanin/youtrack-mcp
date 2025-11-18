@@ -313,6 +313,7 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
+[0.10.2]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.8.0...v0.9.0
