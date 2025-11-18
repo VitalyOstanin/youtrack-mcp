@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import { downloadFileFromUrl, extractFilenameFromUrlOrHeader } from "../utils/file-download.js";
+import { join } from "path";
 
 const issueIdArgs = {
   issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
@@ -17,6 +19,13 @@ const attachmentGetArgs = {
   attachmentId: z.string().min(1).describe("Attachment ID"),
 };
 const attachmentGetSchema = z.object(attachmentGetArgs);
+const attachmentDownloadArgs = {
+  ...issueIdArgs,
+  attachmentId: z.string().min(1).describe("Attachment ID"),
+  downloadToFile: z.boolean().optional().describe("Download the attachment file directly to local file system"),
+  downloadPath: z.string().optional().describe("Path to save the downloaded file (optional, auto-generated if not provided based on attachment name). Directory will be created if it doesn't exist."),
+};
+const attachmentDownloadSchema = z.object(attachmentDownloadArgs);
 const attachmentUploadArgs = {
   ...issueIdArgs,
   filePaths: z
@@ -87,15 +96,62 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
 
   server.tool(
     "issue_attachment_download",
-    "Get download information for an attachment. Returns attachment metadata and a signed URL for downloading the file. The signed URL can be used directly without additional authentication.",
-    attachmentGetArgs,
+    "Get download information for an attachment. Returns attachment metadata and a signed URL for downloading the file. The signed URL can be used directly without additional authentication. With downloadToFile=true, will download the file directly to local filesystem.",
+    attachmentDownloadArgs,
     async (rawInput) => {
       try {
-        const payload = attachmentGetSchema.parse(rawInput);
-        const result = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
-        const response = toolSuccess(result);
+        const payload = attachmentDownloadSchema.parse(rawInput);
 
-        return response;
+        // If downloadToFile is true, download the file directly
+        if (payload.downloadToFile) {
+          // Get attachment info to obtain the download URL and filename
+          const attachmentInfo = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
+          const { downloadUrl, attachment } = attachmentInfo;
+          // Determine the file path for download
+          let downloadFilePath: string;
+
+          if (payload.downloadPath) {
+            downloadFilePath = payload.downloadPath;
+          } else {
+            // Generate filename from attachment info
+            const filename = attachment.name || extractFilenameFromUrlOrHeader(downloadUrl);
+
+            downloadFilePath = join("downloads", payload.issueId, filename);
+          }
+
+          // Download the file
+          const downloadedPath = await downloadFileFromUrl({
+            url: downloadUrl,
+            filePath: downloadFilePath,
+            overwrite: payload.overwrite,
+          });
+          // Return success response with download info
+          const response = toolSuccess({
+            downloaded: true,
+            filePath: downloadedPath,
+            attachmentId: payload.attachmentId,
+            issueId: payload.issueId,
+            originalAttachmentInfo: attachment,
+          });
+
+          return response;
+        }
+        // If downloadToFile is false, return the original download info
+        else {
+          const result = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
+          const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+
+          if (processedResult.savedToFile) {
+            return toolSuccess({
+              savedToFile: true,
+              filePath: processedResult.filePath,
+              attachmentId: payload.attachmentId,
+              issueId: payload.issueId,
+            });
+          }
+
+          return toolSuccess(result);
+        }
       } catch (error) {
         const errorResponse = toolError(error);
 
