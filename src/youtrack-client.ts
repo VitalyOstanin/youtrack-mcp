@@ -651,17 +651,24 @@ export class YoutrackClient {
       throw new YoutrackClientError(`Link with ID ${input.linkId} not found on issue ${input.issueId}`);
     }
 
+    // Resolve target id once, with fallback to the link payload's issue.
+    // This applies to both subtask and regular branches so the command always
+    // has a concrete target.
+    const fallbackTargetId = linkToDelete.issue.idReadable;
+    const finalTargetId = input.targetId ?? fallbackTargetId;
+
+    if (!finalTargetId) {
+      throw new YoutrackClientError(
+        `Cannot determine target issue id for link deletion (linkId=${input.linkId})`,
+      );
+    }
+
     // Get link type details for command construction
-    const {linkType} = linkToDelete;
+    const { linkType } = linkToDelete;
     let commandQuery: string;
 
     if (linkType.name?.toLowerCase() === "subtask") {
-      // For subtask links, use appropriate command
-      if (linkToDelete.direction === "INWARD") {
-        commandQuery = `remove subtask of ${input.targetId}`;
-      } else {
-        commandQuery = `remove subtask of ${input.targetId}`;
-      }
+      commandQuery = `remove subtask of ${finalTargetId}`;
     } else {
       // Use the inward or outward name for other link types
       const displayText = linkType.name ?? linkType.id;
@@ -669,16 +676,15 @@ export class YoutrackClient {
       const outward = linkType.sourceToTarget ?? linkType.outwardName ?? displayText;
       // Determine which direction we need to remove from
       const keyword = linkToDelete.direction === "INWARD" ? inward : outward;
-      const targetId = input.targetId ?? linkToDelete.issue.idReadable;
 
-      if (!(keyword && targetId)) {
+      if (!keyword) {
         throw originalError;
       }
 
       const needsColon = /\s/.test(keyword) && !keyword.trimEnd().endsWith(":");
       const normalizedKeyword = needsColon ? `${keyword}: remove` : `remove ${keyword}`;
 
-      commandQuery = `${normalizedKeyword} ${targetId}`;
+      commandQuery = `${normalizedKeyword} ${finalTargetId}`;
     }
 
     try {
