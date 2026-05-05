@@ -5,6 +5,24 @@ import type {
   MappedYoutrackWorkItem,
 } from "./utils/mappers.js";
 
+/**
+ * Discriminator strings used by the YouTrack REST API in `$type` fields.
+ *
+ * Hard-coding these strings inline lets typos slip past the type-checker
+ * (e.g. "StateIssueField" vs "StateIssueCustomField"). Reference this map
+ * instead so that misspellings fail at compile time.
+ */
+export const YOUTRACK_ENTITY_TYPE = {
+  stateField: "StateIssueCustomField",
+  stateMachineField: "StateMachineIssueCustomField",
+  singleUserField: "SingleUserIssueCustomField",
+  stateBundleElement: "StateBundleElement",
+  event: "Event",
+} as const;
+
+export type YoutrackEntityType =
+  (typeof YOUTRACK_ENTITY_TYPE)[keyof typeof YOUTRACK_ENTITY_TYPE];
+
 export interface ServiceInfo {
   name: string;
   version: string;

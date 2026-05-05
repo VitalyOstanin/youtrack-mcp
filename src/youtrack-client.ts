@@ -115,6 +115,7 @@ import type {
   IssueLinkDeleteInput,
   IssueLinkDeletePayload,
 } from "./types.js";
+import { YOUTRACK_ENTITY_TYPE } from "./types.js";
 import { buildIssueQuery } from "./utils/issue-query.js";
 
 const DEFAULT_PAGE_SIZE = 200;
@@ -933,7 +934,7 @@ export class YoutrackClient {
       let skip = 0;
 
       // Paginate until a page returns less than DEFAULT_PAGE_SIZE
-      while (skip >= 0) {
+      for (;;) {
         const page = await this.http.get<YoutrackProject[]>("/api/admin/projects", {
           params: {
             fields: defaultFields.projects,
@@ -1055,7 +1056,7 @@ export class YoutrackClient {
         params: { fields },
       });
       const stateField = response.data.customFields?.find(
-        (f) => f.$type === "StateIssueCustomField" || f.$type === "StateMachineIssueCustomField" || f.name === "State",
+        (f) => f.$type === YOUTRACK_ENTITY_TYPE.stateField || f.$type === YOUTRACK_ENTITY_TYPE.stateMachineField || f.name === "State",
       );
       const value = stateField?.value as { id?: string; name?: string; presentation?: string } | undefined;
 
@@ -1101,7 +1102,7 @@ export class YoutrackClient {
 
       const states: IssueStatePayload[] = foundIssues.map((issue) => {
         const stateField = issue.customFields?.find(
-          (f) => f.$type === "StateIssueCustomField" || f.$type === "StateMachineIssueCustomField" || f.name === "State",
+          (f) => f.$type === YOUTRACK_ENTITY_TYPE.stateField || f.$type === YOUTRACK_ENTITY_TYPE.stateMachineField || f.name === "State",
         );
         const value = stateField?.value as { id?: string; name?: string; presentation?: string } | undefined;
 
@@ -1482,7 +1483,7 @@ export class YoutrackClient {
         {
           name: "Assignee",
           value: { id: assignee.id, login: assignee.login },
-          $type: "SingleUserIssueCustomField",
+          $type: YOUTRACK_ENTITY_TYPE.singleUserField,
         },
       ],
     };
@@ -2896,7 +2897,7 @@ export class YoutrackClient {
       const customFields = await this.getIssueCustomFields(resolvedId);
       const stateField = customFields.find(
         (field) =>
-          (field.$type === "StateMachineIssueCustomField" || field.$type === "StateIssueCustomField") &&
+          (field.$type === YOUTRACK_ENTITY_TYPE.stateMachineField || field.$type === YOUTRACK_ENTITY_TYPE.stateField) &&
           field.name === "State",
       );
 
@@ -2907,7 +2908,7 @@ export class YoutrackClient {
       const previousState = stateField.value?.presentation ?? stateField.value?.name ?? "Unknown";
 
       // Handle StateMachineIssueCustomField (workflow-based)
-      if (stateField.$type === "StateMachineIssueCustomField") {
+      if (stateField.$type === YOUTRACK_ENTITY_TYPE.stateMachineField) {
         const stateMachineField = stateField as YoutrackStateField;
 
         if (stateMachineField.possibleEvents.length === 0) {
@@ -2933,7 +2934,7 @@ export class YoutrackClient {
           event: {
             id: matchingEvent.id,
             presentation: matchingEvent.presentation,
-            $type: "Event",
+            $type: YOUTRACK_ENTITY_TYPE.event,
           },
         };
 
@@ -2950,17 +2951,17 @@ export class YoutrackClient {
       }
 
       // Handle StateIssueCustomField (simple bundle-based)
-      if (stateField.$type === "StateIssueCustomField") {
+      if (stateField.$type === YOUTRACK_ENTITY_TYPE.stateField) {
         // Note: We set state by name directly without pre-validation for performance.
         // Invalid state names will be rejected by YouTrack API with appropriate error.
         const body = {
           customFields: [
             {
               name: "State",
-              $type: "StateIssueCustomField",
+              $type: YOUTRACK_ENTITY_TYPE.stateField,
               value: {
                 name: input.stateName,
-                $type: "StateBundleElement",
+                $type: YOUTRACK_ENTITY_TYPE.stateBundleElement,
               },
             },
           ],
