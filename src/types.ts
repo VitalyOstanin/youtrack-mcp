@@ -60,9 +60,15 @@ export interface YoutrackIssue {
   customFields?: YoutrackCustomField[];
 }
 
+export interface PartialOperationItemError {
+  index: number;
+  message: string;
+}
+
 export interface PartialOperationError {
   operation: string;
   message: string;
+  details?: PartialOperationItemError[];
 }
 
 export interface IssueCreatePayload extends IssueLookupPayload {
@@ -519,6 +525,11 @@ export interface IssueCountPayload {
     types?: string[];
     top?: number;
   };
+  /**
+   * True when the fallback pagination hit FALLBACK_COUNT_HARD_LIMIT before
+   * exhausting the result set. Callers should treat `total` as a lower bound.
+   */
+  partial?: boolean;
 }
 
 export interface IssueError {

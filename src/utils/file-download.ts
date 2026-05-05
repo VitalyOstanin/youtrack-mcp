@@ -6,6 +6,7 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { resolveOutputPath } from "./path-safety.js";
+import { HTTP_DOWNLOAD_MAX_BYTES, HTTP_DOWNLOAD_TIMEOUT_MS } from "../constants.js";
 
 export interface FileDownloadOptions {
   url: string;
@@ -27,8 +28,8 @@ export interface FileDownloadOptions {
   allowedOrigins?: string[];
 }
 
-const DEFAULT_TIMEOUT_MS = 60_000;
-const DEFAULT_MAX_BYTES = 50 * 1024 * 1024;
+const DEFAULT_TIMEOUT_MS = HTTP_DOWNLOAD_TIMEOUT_MS;
+const DEFAULT_MAX_BYTES = HTTP_DOWNLOAD_MAX_BYTES;
 
 interface ResponseStream extends NodeJS.ReadableStream {
   statusCode?: number;

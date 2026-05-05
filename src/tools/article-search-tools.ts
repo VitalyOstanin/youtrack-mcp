@@ -6,6 +6,9 @@ import { articleIdSchema, projectIdSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 export const articlesSearchArgs = {
+  // The `{` / `}` reject regex is load-bearing: the handler wraps query in
+  // `{...}` for YQL, so any caller-supplied brace would close the wrapper and
+  // let arbitrary YQL through. Do not relax this without rewriting the wrap.
   query: z
     .string()
     .min(2)

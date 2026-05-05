@@ -9,6 +9,7 @@ import parser from "stream-json";
 import streamArray from "stream-json/streamers/stream-array.js";
 
 import { resolveOutputPath, sanitizeFilename } from "./path-safety.js";
+import { HTTP_STREAMING_TIMEOUT_MS } from "../constants.js";
 
 export interface StreamOptions {
   rootDir: string;
@@ -51,7 +52,7 @@ export async function streamArrayToFile(
 
   const u = new URL(url);
   const lib = u.protocol === "https:" ? httpsRequest : httpRequest;
-  const timeoutMs = options.timeoutMs ?? 60_000;
+  const timeoutMs = options.timeoutMs ?? HTTP_STREAMING_TIMEOUT_MS;
 
   return new Promise<string>((resolveP, rejectP) => {
     const writer = handle.createWriteStream({ encoding: "utf-8" });

@@ -6,6 +6,14 @@ import { DateTime } from "luxon";
 import { MutexPool } from "@vitalyostanin/mutex-pool";
 
 import {
+  HTTP_DEFAULT_MAX_BYTES,
+  HTTP_DEFAULT_TIMEOUT_MS,
+  HTTP_UPLOAD_MAX_BYTES,
+  HTTP_UPLOAD_TIMEOUT_MS,
+  PRE_HOLIDAY_RATIO,
+} from "./constants.js";
+
+import {
   calculateTotalMinutes,
   enumerateDateRange,
   filterWorkingDays,
@@ -252,10 +260,12 @@ export class YoutrackClient {
   private cachedCurrentUser?: YoutrackUser;
   private readonly usersByLogin = new Map<string, YoutrackUser>();
   private readonly projectsByShortName = new Map<string, YoutrackProject>();
+  private readonly projectsById = new Map<string, YoutrackProject>();
   private readonly defaultProject?: string;
   private readonly linkTypesById = new Map<string, YoutrackIssueLinkType>();
   private readonly linkTypesByName = new Map<string, YoutrackIssueLinkType>();
   private cachedCommandSupport?: boolean;
+  private cachedCountSupport?: boolean;
   // Single-flight slots: parallel callers share one in-flight HTTP request.
   // Only the auto-paginated (no limit/skip) path uses these.
   private listProjectsInFlight?: Promise<YoutrackProjectListPayload>;
@@ -266,10 +276,10 @@ export class YoutrackClient {
       baseURL: config.baseUrl,
       // Defense in depth: prevent indefinite hangs, body bombs and silent
       // redirect-based exfiltration to a different host.
-      timeout: 30_000,
+      timeout: HTTP_DEFAULT_TIMEOUT_MS,
       maxRedirects: 0,
-      maxBodyLength: 50 * 1024 * 1024,
-      maxContentLength: 50 * 1024 * 1024,
+      maxBodyLength: HTTP_DEFAULT_MAX_BYTES,
+      maxContentLength: HTTP_DEFAULT_MAX_BYTES,
       headers: {
         Authorization: `Bearer ${config.token}`,
         Accept: "application/json",
@@ -902,11 +912,7 @@ export class YoutrackClient {
           },
         });
 
-        response.data.forEach((project) => {
-          if (project.shortName) {
-            this.projectsByShortName.set(project.shortName, project);
-          }
-        });
+        response.data.forEach((project) => this.cacheProject(project));
 
         return { projects: response.data };
       } catch (error) {
@@ -949,11 +955,7 @@ export class YoutrackClient {
         skip += page.data.length;
       }
 
-      projects.forEach((project) => {
-        if (project.shortName) {
-          this.projectsByShortName.set(project.shortName, project);
-        }
-      });
+      projects.forEach((project) => this.cacheProject(project));
 
       return { projects };
     } catch (error) {
@@ -970,25 +972,34 @@ export class YoutrackClient {
     const project = projects.find((candidate) => candidate.shortName === shortName) ?? null;
 
     if (project) {
-      this.projectsByShortName.set(shortName, project);
+      this.cacheProject(project);
     }
 
     return project;
   }
 
   private async getProjectById(projectId: string): Promise<YoutrackProject | null> {
-    // Check cache first by iterating through values
-    for (const project of this.projectsByShortName.values()) {
-      if (project.id === projectId) {
-        return project;
-      }
+    const cached = this.projectsById.get(projectId);
+
+    if (cached) {
+      return cached;
     }
 
-    // If not in cache, fetch all projects and search
+    // Fall through to fetchAllProjects which populates both maps.
     const { projects } = await this.listProjects();
     const project = projects.find((candidate) => candidate.id === projectId) ?? null;
 
     return project;
+  }
+
+  private cacheProject(project: YoutrackProject): void {
+    if (project.shortName) {
+      this.projectsByShortName.set(project.shortName, project);
+    }
+
+    if (project.id) {
+      this.projectsById.set(project.id, project);
+    }
   }
 
   private async findProject(identifier: string): Promise<YoutrackProject | null> {
@@ -1429,7 +1440,8 @@ export class YoutrackClient {
         if (linkErrors.length > 0) {
           partialErrors.push({
             operation: "addIssueLink",
-            message: JSON.stringify(linkErrors),
+            message: `${linkErrors.length} link operation(s) failed; see details`,
+            details: linkErrors,
           });
         }
       }
@@ -2420,7 +2432,7 @@ export class YoutrackClient {
       const dayItems = groupedByDate.get(dateIso) ?? [];
       const actualMinutes = calculateTotalMinutes(dayItems);
       const expectedMinutes = preHolidays.has(dateIso)
-        ? Math.round(expectedDailyMinutes * 0.875)
+        ? Math.round(expectedDailyMinutes * PRE_HOLIDAY_RATIO)
         : expectedDailyMinutes;
       const difference = actualMinutes - expectedMinutes;
       const percent = expectedMinutes === 0 ? 0 : Math.round((actualMinutes / expectedMinutes) * 1000) / 10;
@@ -2759,9 +2771,9 @@ export class YoutrackClient {
           params,
           headers: formData.getHeaders(),
           // Uploads need higher limits than the default axios config above.
-          timeout: 120_000,
-          maxBodyLength: 1024 * 1024 * 1024,
-          maxContentLength: 1024 * 1024 * 1024,
+          timeout: HTTP_UPLOAD_TIMEOUT_MS,
+          maxBodyLength: HTTP_UPLOAD_MAX_BYTES,
+          maxContentLength: HTTP_UPLOAD_MAX_BYTES,
         },
       );
       const mapped = mapAttachments(response.data);
@@ -3331,13 +3343,14 @@ export class YoutrackClient {
     };
     let total = 0;
 
-    if (singleProject && query) {
+    if (singleProject && query && this.cachedCountSupport !== false) {
       try {
         const body = { query };
         const response = await this.http.post<{ count?: number }>("/api/issuesGetter/count", body);
         const count = typeof response.data.count === "number" ? response.data.count : null;
 
         if (count !== null && count >= 0) {
+          this.cachedCountSupport = true;
           total = Math.min(count, typeof top === "number" ? top : count);
           aggregateCounts.set(singleProject.projectId ?? null, {
             projectId: singleProject.projectId ?? null,
@@ -3353,14 +3366,26 @@ export class YoutrackClient {
             filters: this.normalizeCountFilters(filtersInput, top),
           };
         }
-      } catch {
+      } catch (error) {
+        const status = (error as { response?: { status?: number } }).response?.status;
+
+        // Cache the negative result only for permanent failures (404/405/501).
+        // Transient 5xx and network errors must not poison the cache.
+        if (status === 404 || status === 405 || status === 501) {
+          this.cachedCountSupport = false;
+        }
         // fall back to manual aggregation below
       }
     }
 
     // Fallback: paginate issues and aggregate counts.
     const pageSize = DEFAULT_PAGE_SIZE;
+    // Hard cap to avoid pulling tens of thousands of issues on a wide query.
+    // Callers that need an exact number on huge projects should pass `top`.
+    const FALLBACK_COUNT_HARD_LIMIT = 10_000;
+    const effectiveLimit = typeof top === "number" ? top : FALLBACK_COUNT_HARD_LIMIT;
     let skip = 0;
+    let partial = false;
 
     for (;;) {
       const params: Record<string, unknown> = {
@@ -3379,8 +3404,12 @@ export class YoutrackClient {
       total += page.length;
       addIssuesToCounts(page);
 
-      if (typeof top === "number" && total >= top) {
-        total = top;
+      if (total >= effectiveLimit) {
+        if (typeof top !== "number" && total >= FALLBACK_COUNT_HARD_LIMIT) {
+          partial = true;
+        }
+
+        total = Math.min(total, effectiveLimit);
         break;
       }
 
@@ -3395,6 +3424,7 @@ export class YoutrackClient {
       total,
       projects: Array.from(aggregateCounts.values()),
       filters: this.normalizeCountFilters(filtersInput, top),
+      ...(partial ? { partial: true } : {}),
     };
   }
 
