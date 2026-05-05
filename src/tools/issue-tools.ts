@@ -17,6 +17,23 @@ const issueIdArgs = {
   overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 const issueIdSchema = z.object(issueIdArgs);
+const issueCommentsArgs = {
+  ...issueIdArgs,
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(200)
+    .default(100)
+    .describe("Maximum number of comments per page (default 100, max 200). Applied as $top on the server."),
+  skip: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0)
+    .describe("Number of comments to skip for pagination (default 0). Applied as $skip on the server."),
+};
+const issueCommentsSchema = z.object(issueCommentsArgs);
 const issueIdsArgs = {
   issueIds: z
     .array(issueIdValidator)
@@ -173,12 +190,15 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comments",
-    "Get issue comments. Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
-    issueIdArgs,
+    "Get issue comments with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
+    issueCommentsArgs,
     async (rawInput) => {
       try {
-        const payload = issueIdSchema.parse(rawInput);
-        const comments = await client.getIssueComments(payload.issueId);
+        const payload = issueCommentsSchema.parse(rawInput);
+        const comments = await client.getIssueComments(payload.issueId, {
+          limit: payload.limit,
+          skip: payload.skip,
+        });
         const processedResult = await processWithFileStorage(
           {
             saveToFile: payload.saveToFile,

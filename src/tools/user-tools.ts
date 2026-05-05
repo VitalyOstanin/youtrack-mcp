@@ -9,26 +9,41 @@ const userLookupArgs = {
   login: userLoginSchema.describe("User login"),
 };
 const userLookupSchema = z.object(userLookupArgs);
+const usersListArgs = {
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(200)
+    .default(100)
+    .describe("Maximum number of users per page (default 100, max 200). Applied as $top on the server."),
+  skip: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0)
+    .describe("Number of users to skip for pagination (default 0). Applied as $skip on the server."),
+  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
+  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
+  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+};
+const usersListSchema = z.object(usersListArgs);
 
 export function registerUserTools(server: McpServer, client: YoutrackClient): void {
   server.tool(
     "users_list",
-    "List all YouTrack users. Note: Returns predefined fields only - id, login, name, fullName, email.",
-    {
-      saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-      filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-      format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-      overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
-    },
+    "List YouTrack users with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, login, name, fullName, email.",
+    usersListArgs,
     async (rawInput) => {
       try {
-        const payload = rawInput;
-        const users = await client.listUsers();
+        const payload = usersListSchema.parse(rawInput);
+        const users = await client.listUsers({ limit: payload.limit, skip: payload.skip });
         const processedResult = await processWithFileStorage(
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? "jsonl",
             overwrite: payload.overwrite,
           },
           users,
@@ -45,9 +60,7 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
 
         return toolSuccess(users);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

@@ -8,22 +8,38 @@ const projectLookupArgs = {
   shortName: projectIdSchema.describe("Project short name"),
 };
 const projectLookupSchema = z.object(projectLookupArgs);
+const projectsListArgs = {
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(200)
+    .optional()
+    .describe(
+      "Maximum number of projects per page (max 200). When omitted the client auto-paginates. Applied as $top on the server.",
+    ),
+  skip: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Number of projects to skip for pagination. Applied as $skip on the server."),
+};
+const projectsListSchema = z.object(projectsListArgs);
 
 export function registerProjectTools(server: McpServer, client: YoutrackClient): void {
   server.tool(
     "projects_list",
-    "List all YouTrack projects. Note: Returns predefined fields only - id, shortName, name.",
-    {},
-    async () => {
+    "List YouTrack projects. By default returns all projects (auto-paginated); pass limit/skip for explicit server-side pagination ($top/$skip). Note: Returns predefined fields only - id, shortName, name.",
+    projectsListArgs,
+    async (rawInput) => {
       try {
-        const projects = await client.listProjects();
-        const response = toolSuccess(projects);
+        const payload = projectsListSchema.parse(rawInput);
+        const projects = await client.listProjects({ limit: payload.limit, skip: payload.skip });
 
-        return response;
+        return toolSuccess(projects);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

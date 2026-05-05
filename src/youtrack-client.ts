@@ -383,12 +383,24 @@ export class YoutrackClient {
   // Issue Links API
   // =========================
 
-  async getIssueLinks(issueId: string): Promise<IssueLinksPayload> {
+  async getIssueLinks(
+    issueId: string,
+    pagination: { limit?: number; skip?: number } = {},
+  ): Promise<IssueLinksPayload> {
     const resolvedId = this.resolveIssueId(issueId);
+    const params: Record<string, unknown> = { fields: defaultFields.issueLinks };
+
+    if (pagination.limit !== undefined) {
+      params.$top = pagination.limit;
+    }
+
+    if (pagination.skip !== undefined) {
+      params.$skip = pagination.skip;
+    }
 
     try {
       const response = await this.http.get<YoutrackIssueLink[]>(`/api/issues/${encId(resolvedId)}/links`, {
-        params: { fields: defaultFields.issueLinks },
+        params,
       });
       const links = response.data
         .flatMap((row) => this.mapIssueLinkRow(resolvedId, row))
@@ -824,12 +836,13 @@ export class YoutrackClient {
     }
   }
 
-  async listUsers(): Promise<YoutrackUserListPayload> {
+  async listUsers(pagination: { limit?: number; skip?: number } = {}): Promise<YoutrackUserListPayload> {
     try {
       const response = await this.http.get<YoutrackUser[]>("/api/users", {
         params: {
           fields: defaultFields.users,
-          top: DEFAULT_PAGE_SIZE,
+          $top: pagination.limit ?? DEFAULT_PAGE_SIZE,
+          ...(pagination.skip !== undefined ? { $skip: pagination.skip } : {}),
         },
       });
 
@@ -845,8 +858,29 @@ export class YoutrackClient {
     }
   }
 
-  async listProjects(): Promise<YoutrackProjectListPayload> {
+  async listProjects(pagination: { limit?: number; skip?: number } = {}): Promise<YoutrackProjectListPayload> {
     try {
+      // Single-page request when limit is set explicitly; otherwise auto-paginate
+      // until the cache is filled. The cache is populated either way so callers
+      // that rely on findProject() still see the full set.
+      if (!(pagination.limit === undefined && pagination.skip === undefined)) {
+        const response = await this.http.get<YoutrackProject[]>("/api/admin/projects", {
+          params: {
+            fields: defaultFields.projects,
+            $top: pagination.limit ?? DEFAULT_PAGE_SIZE,
+            ...(pagination.skip !== undefined ? { $skip: pagination.skip } : {}),
+          },
+        });
+
+        response.data.forEach((project) => {
+          if (project.shortName) {
+            this.projectsByShortName.set(project.shortName, project);
+          }
+        });
+
+        return { projects: response.data };
+      }
+
       const projects: YoutrackProject[] = [];
       let skip = 0;
 
@@ -855,8 +889,8 @@ export class YoutrackClient {
         const page = await this.http.get<YoutrackProject[]>("/api/admin/projects", {
           params: {
             fields: defaultFields.projects,
-            top: DEFAULT_PAGE_SIZE,
-            skip,
+            $top: DEFAULT_PAGE_SIZE,
+            $skip: skip,
           },
         });
 
@@ -1061,12 +1095,24 @@ export class YoutrackClient {
     }
   }
 
-  async getIssueComments(issueId: string): Promise<IssueCommentsPayload> {
+  async getIssueComments(
+    issueId: string,
+    pagination: { limit?: number; skip?: number } = {},
+  ): Promise<IssueCommentsPayload> {
     const resolvedId = this.resolveIssueId(issueId);
+    const params: Record<string, unknown> = { fields: defaultFields.comments };
+
+    if (pagination.limit !== undefined) {
+      params.$top = pagination.limit;
+    }
+
+    if (pagination.skip !== undefined) {
+      params.$skip = pagination.skip;
+    }
 
     try {
       const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${encId(resolvedId)}/comments`, {
-        params: { fields: defaultFields.comments },
+        params,
       });
       const mappedComments = mapComments(response.data, this.config.baseUrl, resolvedId);
       const payload = { comments: mappedComments };
@@ -2450,6 +2496,8 @@ export class YoutrackClient {
     args: {
       parentArticleId?: string;
       projectId?: string;
+      limit?: number;
+      skip?: number;
     } = {},
   ): Promise<ArticleListPayload> {
     const queryParts: string[] = [];
@@ -2480,6 +2528,8 @@ export class YoutrackClient {
         params: {
           fields: defaultFields.articleList,
           ...(query ? { query } : {}),
+          ...(args.limit !== undefined ? { $top: args.limit } : {}),
+          ...(args.skip !== undefined ? { $skip: args.skip } : {}),
         },
       });
       const articles = response.data;

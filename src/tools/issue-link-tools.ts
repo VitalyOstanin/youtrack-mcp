@@ -4,10 +4,23 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { issueIdSchema as issueIdValidator, linkIdSchema } from "../utils/validators.js";
 
-const issueIdArgs = {
+const issueLinksArgs = {
   issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(200)
+    .default(100)
+    .describe("Maximum number of links per page (default 100, max 200). Applied as $top on the server."),
+  skip: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0)
+    .describe("Number of links to skip for pagination (default 0). Applied as $skip on the server."),
 };
-const issueIdInputSchema = z.object(issueIdArgs);
+const issueLinksSchema = z.object(issueLinksArgs);
 const linkCreateArgs = {
   sourceId: issueIdValidator.describe("Source issue code (e.g., PROJ-123)"),
   targetId: issueIdValidator.describe("Target issue code (e.g., PROJ-456)"),
@@ -25,12 +38,15 @@ const linkCreateSchema = z.object(linkCreateArgs);
 export function registerIssueLinkTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_links",
-    "List issue links for a given YouTrack issue. Use for: inspecting relationships like 'relates to', 'duplicates', 'parent/child'. Response includes link id, direction, linkType, and counterpart issue brief (idReadable, summary, project, assignee).",
-    issueIdArgs,
+    "List issue links for a given YouTrack issue with server-side pagination ($top/$skip). Use for: inspecting relationships like 'relates to', 'duplicates', 'parent/child'. Response includes link id, direction, linkType, and counterpart issue brief (idReadable, summary, project, assignee).",
+    issueLinksArgs,
     async (rawInput) => {
       try {
-        const payload = issueIdInputSchema.parse(rawInput);
-        const result = await client.getIssueLinks(payload.issueId);
+        const payload = issueLinksSchema.parse(rawInput);
+        const result = await client.getIssueLinks(payload.issueId, {
+          limit: payload.limit,
+          skip: payload.skip,
+        });
 
         return toolSuccess(result);
       } catch (error) {

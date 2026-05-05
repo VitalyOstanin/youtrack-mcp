@@ -12,6 +12,19 @@ const articleListArgs = {
   projectId: projectIdSchema
     .optional()
     .describe("Project ID (defaults to YOUTRACK_DEFAULT_PROJECT when omitted)"),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(200)
+    .default(100)
+    .describe("Maximum number of articles per page (default 100, max 200). Applied as $top on the server."),
+  skip: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0)
+    .describe("Number of articles to skip for pagination (default 0). Applied as $skip on the server."),
 };
 const articleCreateArgs = {
   summary: z.string().min(1).describe("Article title"),
@@ -70,7 +83,7 @@ export function registerArticleTools(
 
   server.tool(
     "article_list",
-    "List Knowledge Base articles. Note: Returns predefined fields only - id, idReadable, summary, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name). Content field is not included for performance reasons.",
+    "List Knowledge Base articles with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, idReadable, summary, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name). Content field is not included for performance reasons.",
     articleListArgs,
     async (rawInput: unknown) => {
       try {
@@ -78,6 +91,8 @@ export function registerArticleTools(
         const articles = await client.listArticles({
           parentArticleId: payload.parentArticleId,
           projectId: payload.projectId,
+          limit: payload.limit,
+          skip: payload.skip,
         });
         const response = toolSuccess(articles);
 
