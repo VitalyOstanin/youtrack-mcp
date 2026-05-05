@@ -221,6 +221,12 @@ export class YoutrackClient {
   constructor(private readonly config: YoutrackConfig) {
     this.http = axios.create({
       baseURL: config.baseUrl,
+      // Defense in depth: prevent indefinite hangs, body bombs and silent
+      // redirect-based exfiltration to a different host.
+      timeout: 30_000,
+      maxRedirects: 0,
+      maxBodyLength: 50 * 1024 * 1024,
+      maxContentLength: 50 * 1024 * 1024,
       headers: {
         Authorization: `Bearer ${config.token}`,
         Accept: "application/json",
@@ -2515,6 +2521,10 @@ export class YoutrackClient {
         {
           params,
           headers: formData.getHeaders(),
+          // Uploads need higher limits than the default axios config above.
+          timeout: 120_000,
+          maxBodyLength: 1024 * 1024 * 1024,
+          maxContentLength: 1024 * 1024 * 1024,
         },
       );
       const mapped = mapAttachments(response.data);

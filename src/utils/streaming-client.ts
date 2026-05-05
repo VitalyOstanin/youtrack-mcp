@@ -121,6 +121,9 @@ export async function streamHttpToFile(
     });
 
     req.on("error", cleanupAndReject);
+    req.setTimeout(60_000, () => {
+      req.destroy(new Error("Streaming request timed out after 60000 ms"));
+    });
 
     writeStream.on("finish", () => {
       if (settled) return;
