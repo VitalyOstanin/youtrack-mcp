@@ -61,42 +61,77 @@ export function registerIssueStarTools(
   server: McpServer,
   client: YoutrackClient,
 ): void {
-  // Tool: issue_star
   server.tool(
     "issue_star",
-    "Add star to YouTrack issue for current user. Use for: Marking important issues, Adding issues to watchlist, Quick access to frequently used issues. Returns: Confirmation of star status with issueId and starred flag. Note: If issue is already starred, returns success without making changes (idempotent operation). After starring, fetch the issue or starred list again to confirm the flag is set.",
+    [
+      "Star a single issue for the current user (idempotent).",
+      "Use cases:",
+      "- Add an issue to the personal watchlist.",
+      "- Pin frequently revisited issues for quick access.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: issueId, starred (true), optional message ('Issue already starred' / 'Issue starred successfully').",
+      "Limitations: scope is the current user only; verify via issues_starred_list.",
+    ].join("\n"),
     issueStarSingleArgs,
     createToolHandler(async (args) => client.starIssue(args.issueId)),
   );
 
-  // Tool: issue_unstar
   server.tool(
     "issue_unstar",
-    "Remove star from YouTrack issue for current user. Use for: Removing issues from watchlist, Cleaning up unneeded stars, Managing starred issues list. Returns: Confirmation of unstar operation with issueId and starred flag. Note: If issue is not currently starred, returns success without making changes (idempotent operation). After unstarring, refresh the issue or starred list to ensure the star was cleared.",
+    [
+      "Remove the star from a single issue for the current user (idempotent).",
+      "Use cases:",
+      "- Clean up the personal watchlist.",
+      "- Re-balance pinned issues.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: issueId, starred (false), optional message ('Issue not starred' / 'Star removed').",
+      "Limitations: scope is the current user only; verify via issues_starred_list.",
+    ].join("\n"),
     issueStarSingleArgs,
     createToolHandler(async (args) => client.unstarIssue(args.issueId)),
   );
 
-  // Tool: issues_star_batch
   server.tool(
     "issues_star_batch",
-    "Add stars to multiple YouTrack issues (batch mode, max 50 issues). Use for: Bulk marking important issues, Batch adding to watchlist, Processing multiple issues at once, Quick setup of starred issues list. Returns: Object with 'successful' array (starred issues) and 'failed' array (errors with issue IDs). Note: Operations are processed with concurrency limit (10 concurrent requests) to prevent API overload. Partial success is possible - some issues may succeed while others fail. After completion, reload the starred list to confirm which issues were starred.",
+    [
+      "Star up to 50 issues at once with bounded concurrency.",
+      "Use cases:",
+      "- Bulk-pin a sprint backlog.",
+      "- Restore a watchlist from an external list of ids.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: successful[] (issueId), failed[] {issueId, error}.",
+      "Limitations: max 50 ids per call; partial success is possible; reload via issues_starred_list to confirm.",
+    ].join("\n"),
     issueStarBatchArgs,
     createToolHandler(async (args) => client.starIssues(args.issueIds)),
   );
 
-  // Tool: issues_unstar_batch
   server.tool(
     "issues_unstar_batch",
-    "Remove stars from multiple YouTrack issues (batch mode, max 50 issues). Use for: Bulk cleanup of watchlist, Batch removal of unneeded stars, Processing multiple issues at once, Managing starred issues list. Returns: Object with 'successful' array (unstarred issues) and 'failed' array (errors with issue IDs). Note: Operations are processed with concurrency limit (10 concurrent requests) to prevent API overload. Partial success is possible - some issues may succeed while others fail. After completion, fetch the starred list again to verify removals.",
+    [
+      "Unstar up to 50 issues at once with bounded concurrency.",
+      "Use cases:",
+      "- Bulk-clean an outdated watchlist.",
+      "- Drop a finished sprint from pins.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: successful[] (issueId), failed[] {issueId, error}.",
+      "Limitations: max 50 ids per call; partial success is possible; reload via issues_starred_list to confirm.",
+    ].join("\n"),
     issueStarBatchArgs,
     createToolHandler(async (args) => client.unstarIssues(args.issueIds)),
   );
 
-  // Tool: issues_starred_list
   server.tool(
     "issues_starred_list",
-    "Get all starred issues for current user with pagination. Use for: Viewing watchlist, Getting frequently used issues, Finding all marked important issues, Checking which issues are starred. Returns: Array of starred issues (brief format without description fields), returnedCount (count of issues in current page), and pagination info. Note: Default limit is 50 issues, max 200. Results include basic issue information only (id, idReadable, summary, project, parent, assignee) without description fields to reduce payload size. The optional message field in star/unstar responses provides status information about the operation (e.g., 'Issue already starred', 'Issue starred successfully').",
+    [
+      "Paginated list of issues currently starred by the user (brief view).",
+      "Use cases:",
+      "- Render the personal watchlist UI.",
+      "- Audit which issues a user is tracking.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: issues[] (id, idReadable, summary, project, parent, assignee), returnedCount, pagination {limit, skip}.",
+      "Limitations: max 200 per page; description fields are omitted to reduce payload.",
+    ].join("\n"),
     issuesStarredListArgs,
     createToolHandler(async (args) =>
       client.getStarredIssues({

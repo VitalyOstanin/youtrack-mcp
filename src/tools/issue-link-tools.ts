@@ -38,7 +38,15 @@ const linkCreateSchema = z.object(linkCreateArgs);
 export function registerIssueLinkTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_links",
-    "List issue links for a given YouTrack issue with server-side pagination ($top/$skip). Use for: inspecting relationships like 'relates to', 'duplicates', 'parent/child'. Response includes link id, direction, linkType, and counterpart issue brief (idReadable, summary, project, assignee).",
+    [
+      "List links for an issue with server-side pagination ($top/$skip).",
+      "Use cases:",
+      "- Inspect parent/subtask hierarchy.",
+      "- Browse relations like 'Relates' or 'Duplicate'.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: links[] {id, direction, linkType, issue (idReadable, summary, project, assignee)}, pagination.",
+      "Limitations: max 200 per page; bidirectional types appear once per neighbour.",
+    ].join("\n"),
     issueLinksArgs,
     async (rawInput) => {
       try {
@@ -57,7 +65,15 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
 
   server.tool(
     "issue_link_types",
-    "List available YouTrack issue link types. Use for: discovering valid type names for creating links (e.g., 'Relates', 'Duplicate').",
+    [
+      "List available YouTrack link types (cached single-flight).",
+      "Use cases:",
+      "- Discover valid type names before calling issue_link_add.",
+      "- Distinguish directed vs symmetric link types via direction field.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: linkTypes[] {id, name, sourceToTarget, targetToSource, directed}.",
+      "Limitations: result is cached for the process lifetime; new types added in YouTrack require a server restart to refresh.",
+    ].join("\n"),
     {},
     async () => {
       try {
@@ -72,7 +88,16 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
 
   server.tool(
     "issue_link_add",
-    "Create a link between two issues. Provide sourceId, targetId and linkType (name or id). Limitations: link type must exist in project context; API may reject invalid combinations. After linking, fetch the issue links again to confirm the relationship appears as expected.",
+    [
+      "Create a link between two issues with explicit type and optional direction flip.",
+      "Use cases:",
+      "- Mark duplicates (linkType='Duplicate').",
+      "- Build subtask trees (linkType='Subtask').",
+      "- Connect related work (linkType='Relates').",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: link.id, link.direction, link.linkType, source/target issue brief.",
+      "Limitations: link type must exist; re-fetch issue_links to confirm YouTrack accepted the relationship.",
+    ].join("\n"),
     linkCreateArgs,
     async (rawInput) => {
       try {
@@ -98,7 +123,15 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
 
   server.tool(
     "issue_link_delete",
-    "Delete a link by ID for a specific issue. Use for: removing relationships between issues. Supports both direct API deletion and command-based fallback. After deletion, fetch issue links again to confirm the relationship was removed.",
+    [
+      "Delete a single link by id with REST or command-based fallback (subtasks).",
+      "Use cases:",
+      "- Detach a wrongly attached subtask.",
+      "- Remove a duplicate or relates link.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: success, removedLinkId, mode ('rest' or 'command'), targetIssueId.",
+      "Limitations: confirmation: true is required; re-fetch issue_links to verify the link actually disappeared.",
+    ].join("\n"),
     linkDeleteArgs,
     async (rawInput) => {
       try {

@@ -115,7 +115,16 @@ export async function issueActivitiesHandler(client: YoutrackClient, rawInput: u
 export function registerIssueActivityTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_activities",
-    "Get issue change history (activities) with server-side pagination. Use for: viewing complete issue history, tracking field changes, monitoring who changed what and when, auditing modifications. Returns: activity items with timestamps (ISO datetime), authors, categories, change types, added/removed values. Supports filtering by author, date range, and activity categories; pagination via limit/skip is applied on the server.",
+    [
+      "Issue change-history feed with author/date/category filters and server-side pagination.",
+      "Use cases:",
+      "- Audit who changed which custom field and when.",
+      "- Filter to comments only via categories=['CommentsCategory'].",
+      "- Persist a long history slice via saveToFile.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: activities[] {id, timestamp, author, category, target, added, removed, $type}, issueId, filters, pagination; or {savedToFile, savedTo, activityCount}.",
+      "Limitations: max 200 per page; default categories are CustomFieldCategory and CommentsCategory.",
+    ].join("\n"),
     issueActivitiesArgs,
     (rawInput) => issueActivitiesHandler(client, rawInput),
   );
