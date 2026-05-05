@@ -1,13 +1,6 @@
-import FormData from "form-data";
-import fs from "fs";
-import path from "path";
 import { DateTime } from "luxon";
 
-import {
-  HTTP_UPLOAD_MAX_BYTES,
-  HTTP_UPLOAD_TIMEOUT_MS,
-  PRE_HOLIDAY_RATIO,
-} from "../constants.js";
+import { PRE_HOLIDAY_RATIO } from "../constants.js";
 
 import {
   calculateTotalMinutes,
@@ -23,8 +16,6 @@ import {
   validateDateRange,
 } from "../utils/date.js";
 import {
-  mapAttachment,
-  mapAttachments,
   mapComment,
   mapComments,
   mapIssue,
@@ -42,13 +33,6 @@ import {
   type ArticleListPayload,
   type ArticlePayload,
   type ArticleUpdateInput,
-  type AttachmentDeleteInput,
-  type AttachmentDeletePayload,
-  type AttachmentDownloadPayload,
-  type AttachmentPayload,
-  type AttachmentsListPayload,
-  type AttachmentUploadInput,
-  type AttachmentUploadPayload,
   type IssueChangeStateInput,
   type IssueChangeStatePayload,
   type IssueCommentsPayload,
@@ -87,7 +71,6 @@ import {
   type WorkItemUsersReportPayload,
   type YoutrackActivityItem,
   type YoutrackArticle,
-  type YoutrackAttachment,
   type YoutrackCustomField,
   type YoutrackIssue,
   type YoutrackIssueAssignInput,
@@ -124,10 +107,11 @@ import {
   withIssueCustomFieldEvents,
   withIssueDetailsCustomFieldEvents,
 } from "./base.js";
+import { withAttachments } from "./attachments.js";
 
 export { YoutrackClientError } from "./base.js";
 
-export class YoutrackClient extends YoutrackClientBase {
+export class YoutrackClient extends withAttachments(YoutrackClientBase) {
   // =========================
   // Issue Links API
   // =========================
@@ -2318,163 +2302,6 @@ export class YoutrackClient extends YoutrackClientBase {
       const articlePayload = { article };
 
       return articlePayload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  async listAttachments(issueId: string): Promise<AttachmentsListPayload> {
-    try {
-      const response = await this.http.get<YoutrackAttachment[]>(`/api/issues/${encId(issueId)}/attachments`, {
-        params: { fields: defaultFields.attachments },
-      });
-      const mapped = mapAttachments(response.data);
-      const payload = {
-        attachments: mapped,
-        issueId,
-      };
-
-      return payload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  async getAttachment(issueId: string, attachmentId: string): Promise<AttachmentPayload> {
-    try {
-      const response = await this.http.get<YoutrackAttachment>(`/api/issues/${encId(issueId)}/attachments/${encId(attachmentId)}`, {
-        params: { fields: defaultFields.attachment },
-      });
-      const mapped = mapAttachment(response.data);
-      const payload = {
-        attachment: mapped,
-        issueId,
-      };
-
-      return payload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  async getAttachmentDownloadInfo(issueId: string, attachmentId: string): Promise<AttachmentDownloadPayload> {
-    try {
-      const response = await this.http.get<YoutrackAttachment>(`/api/issues/${encId(issueId)}/attachments/${encId(attachmentId)}`, {
-        params: { fields: defaultFields.attachment },
-      });
-      const attachment = response.data;
-
-      if (!attachment.url) {
-        throw new YoutrackClientError("Attachment URL is not available");
-      }
-
-      const baseOrigin = new URL(this.config.baseUrl).origin;
-      const resolvedUrl = new URL(attachment.url, this.config.baseUrl);
-
-      if (resolvedUrl.origin !== baseOrigin) {
-        throw new YoutrackClientError(
-          `Refusing to download attachment from foreign origin ${resolvedUrl.origin} (expected ${baseOrigin})`,
-        );
-      }
-
-      const downloadUrl = resolvedUrl.toString();
-      const mapped = mapAttachment(attachment);
-      const payload = {
-        attachment: mapped,
-        downloadUrl,
-        issueId,
-      };
-
-      return payload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  async uploadAttachments(input: AttachmentUploadInput): Promise<AttachmentUploadPayload> {
-    const uploadRoot = path.resolve(this.config.uploadDir ?? this.config.outputDir);
-    const safePaths: string[] = [];
-
-    for (const filePath of input.filePaths) {
-      let realPath: string;
-
-      try {
-        realPath = fs.realpathSync(filePath);
-      } catch {
-        throw new YoutrackClientError(`File not found or not readable: ${filePath}`);
-      }
-
-      if (realPath !== uploadRoot && !realPath.startsWith(uploadRoot + path.sep)) {
-        throw new YoutrackClientError(
-          `Refusing to upload from outside YOUTRACK_UPLOAD_DIR (${uploadRoot}): ${filePath}`,
-        );
-      }
-
-      safePaths.push(realPath);
-    }
-
-    const formData = new FormData();
-
-    for (const filePath of safePaths) {
-      formData.append("upload", fs.createReadStream(filePath));
-    }
-
-    const params: Record<string, unknown> = {
-      fields: defaultFields.attachment,
-    };
-
-    if (input.muteUpdateNotifications) {
-      params.muteUpdateNotifications = true;
-    }
-
-    try {
-      const response = await this.http.post<YoutrackAttachment[]>(
-        `/api/issues/${encId(input.issueId)}/attachments`,
-        formData,
-        {
-          params,
-          headers: formData.getHeaders(),
-          // Uploads need higher limits than the default axios config above.
-          timeout: HTTP_UPLOAD_TIMEOUT_MS,
-          maxBodyLength: HTTP_UPLOAD_MAX_BYTES,
-          maxContentLength: HTTP_UPLOAD_MAX_BYTES,
-        },
-      );
-      const mapped = mapAttachments(response.data);
-      const payload = {
-        uploaded: mapped,
-        issueId: input.issueId,
-      };
-
-      return payload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  async deleteAttachment(input: AttachmentDeleteInput): Promise<AttachmentDeletePayload> {
-    // Check confirmation
-    if (input.confirmation !== true) {
-      throw new YoutrackClientError(
-        "Deletion requires explicit confirmation. Set 'confirmation' parameter to true. This is a destructive operation that cannot be undone.",
-      );
-    }
-
-    // Get attachment info before deletion
-    const attachmentInfo = await this.getAttachment(input.issueId, input.attachmentId);
-
-    // Perform deletion
-    try {
-      await this.http.delete(`/api/issues/${encId(input.issueId)}/attachments/${encId(input.attachmentId)}`);
-
-      const payload = {
-        deleted: true as const,
-        issueId: input.issueId,
-        attachmentId: input.attachmentId,
-        attachmentName: attachmentInfo.attachment.name,
-      };
-
-      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }

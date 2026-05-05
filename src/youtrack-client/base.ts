@@ -121,6 +121,14 @@ export function encId(value: string): string {
   return encodeURIComponent(value);
 }
 
+/**
+ * Generic constructor type used by domain mixins. The `any[]` is the standard
+ * TypeScript mixin idiom: it allows the mixin to extend any subclass of the
+ * given base regardless of its constructor signature.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Constructor<T = object> = new (...args: any[]) => T;
+
 export class YoutrackClientError extends Error {
   readonly status?: number;
   readonly details?: unknown;
