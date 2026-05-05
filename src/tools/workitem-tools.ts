@@ -17,17 +17,128 @@ const baseFilterArgs = {
   startDate: dateInput.optional().describe("Period start date"),
   endDate: dateInput.optional().describe("Period end date"),
   allUsers: z.boolean().optional().describe("Get work items for all users"),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(200)
+    .default(100)
+    .describe("Maximum number of work items per page (default 100, max 200). Applied as $top on the server."),
+  skip: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0)
+    .describe("Number of work items to skip for pagination (default 0). Applied as $skip on the server."),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
   format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
   overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
-const workItemsListSchema = z.object(baseFilterArgs);
+
+export { baseFilterArgs as workItemsBaseFilterArgs };
+export const workItemsListSchema = z.object(baseFilterArgs);
+
 const workItemsForUsersArgs = {
   ...baseFilterArgs,
   users: z.array(userLoginSchema).min(1).describe("User logins"),
 };
+
+export { workItemsForUsersArgs };
+
 const workItemsUsersSchema = z.object(workItemsForUsersArgs);
+
+export async function workitemsListHandler(client: YoutrackClient, rawInput: unknown) {
+  try {
+    const payload = workItemsListSchema.parse(rawInput);
+    const items = await client.listWorkItems(payload);
+    const result = { items: mapWorkItems(items) };
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: payload.saveToFile,
+        filePath: payload.filePath,
+        format: payload.format ?? "jsonl",
+        overwrite: payload.overwrite,
+      },
+      result,
+      client.getOutputDir(),
+    );
+
+    if (processedResult.savedToFile) {
+      return toolSuccess({
+        savedToFile: true,
+        savedTo: processedResult.savedTo,
+        itemCount: items.length,
+      });
+    }
+
+    return toolSuccess(result);
+  } catch (error) {
+    return toolError(error);
+  }
+}
+
+export async function workitemsAllUsersHandler(client: YoutrackClient, rawInput: unknown) {
+  try {
+    const payload = workItemsListSchema.parse(rawInput);
+    const items = await client.listAllUsersWorkItems(payload);
+    const result = { items: mapWorkItems(items) };
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: payload.saveToFile,
+        filePath: payload.filePath,
+        format: payload.format ?? "jsonl",
+        overwrite: payload.overwrite,
+      },
+      result,
+      client.getOutputDir(),
+    );
+
+    if (processedResult.savedToFile) {
+      return toolSuccess({
+        savedToFile: true,
+        savedTo: processedResult.savedTo,
+        itemCount: items.length,
+      });
+    }
+
+    return toolSuccess(result);
+  } catch (error) {
+    return toolError(error);
+  }
+}
+
+export async function workitemsForUsersHandler(client: YoutrackClient, rawInput: unknown) {
+  try {
+    const payload = workItemsUsersSchema.parse(rawInput);
+    const items = await client.getWorkItemsForUsers(payload.users, payload);
+    const result = { items: mapWorkItems(items), users: payload.users };
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: payload.saveToFile,
+        filePath: payload.filePath,
+        format: payload.format ?? "jsonl",
+        overwrite: payload.overwrite,
+      },
+      result,
+      client.getOutputDir(),
+    );
+
+    if (processedResult.savedToFile) {
+      return toolSuccess({
+        savedToFile: true,
+        savedTo: processedResult.savedTo,
+        itemCount: items.length,
+        users: payload.users,
+      });
+    }
+
+    return toolSuccess(result);
+  } catch (error) {
+    return toolError(error);
+  }
+}
+
 const workItemCreateArgs = {
   issueId: issueIdSchema.describe("Issue ID"),
   date: dateInput.describe("Date"),
@@ -120,114 +231,23 @@ const workItemsRecentSchema = z.object(workItemsRecentArgs);
 export function registerWorkitemTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "workitems_list",
-    "Get list of work items. Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Get list of work items with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
     baseFilterArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemsListSchema.parse(rawInput);
-        const items = await client.listWorkItems(payload);
-        const result = { items: mapWorkItems(items) };
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
-
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            itemCount: items.length,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
-      }
-    },
+    (rawInput) => workitemsListHandler(client, rawInput),
   );
 
   server.tool(
     "workitems_all_users",
-    "Get work items for all users. Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Get work items for all users with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
     baseFilterArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemsListSchema.parse(rawInput);
-        const items = await client.listAllUsersWorkItems(payload);
-        const result = { items: mapWorkItems(items) };
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
-
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            itemCount: items.length,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
-      }
-    },
+    (rawInput) => workitemsAllUsersHandler(client, rawInput),
   );
 
   server.tool(
     "workitems_for_users",
-    "Get work items for selected users. Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    "Get work items for selected users with server-side pagination ($top/$skip applied per user). Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
     workItemsForUsersArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemsUsersSchema.parse(rawInput);
-        const items = await client.getWorkItemsForUsers(payload.users, payload);
-        const result = { items: mapWorkItems(items), users: payload.users };
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
-
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            itemCount: items.length,
-            users: payload.users,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
-      }
-    },
+    (rawInput) => workitemsForUsersHandler(client, rawInput),
   );
 
   server.tool(

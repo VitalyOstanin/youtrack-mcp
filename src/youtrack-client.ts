@@ -1973,14 +1973,16 @@ export class YoutrackClient {
     startDate,
     endDate,
     issueId,
-    top: limit,
+    limit,
+    skip,
     allUsers = false,
   }: {
     author?: string;
     startDate?: string | number | Date;
     endDate?: string | number | Date;
     issueId?: string;
-    top?: number;
+    limit?: number;
+    skip?: number;
     allUsers?: boolean;
   } = {}): Promise<YoutrackWorkItem[]> {
     const requestParams: Record<string, unknown> = {
@@ -1988,7 +1990,7 @@ export class YoutrackClient {
     };
 
     if (issueId) {
-      requestParams.issueId = issueId;
+      requestParams.issueId = this.resolveIssueId(issueId);
     }
 
     if (startDate) {
@@ -2005,45 +2007,23 @@ export class YoutrackClient {
       requestParams.author = authorLogin;
     }
 
-    const items: YoutrackWorkItem[] = [];
-    let skip = 0;
-
-    while (limit === undefined || items.length < limit) {
-      const remaining = limit === undefined ? undefined : Math.max(limit - items.length, 0);
-      const pageSize = remaining === undefined ? DEFAULT_PAGE_SIZE : Math.min(remaining, DEFAULT_PAGE_SIZE);
-
-      if (pageSize === 0) {
-        break;
-      }
-
-      try {
-        const response = await this.http.get<YoutrackWorkItem[]>("/api/workItems", {
-          params: {
-            ...requestParams,
-            top: pageSize,
-            skip,
-          },
-        });
-
-        items.push(...response.data);
-
-        if (response.data.length < pageSize) {
-          break;
-        }
-
-        skip += response.data.length;
-      } catch (error) {
-        throw this.normalizeError(error);
-      }
+    if (limit !== undefined) {
+      requestParams.$top = limit;
     }
 
-    if (limit === undefined) {
-      return items;
+    if (skip !== undefined) {
+      requestParams.$skip = skip;
     }
 
-    const limitedItems = items.slice(0, limit);
+    try {
+      const response = await this.http.get<YoutrackWorkItem[]>("/api/workItems", {
+        params: requestParams,
+      });
 
-    return limitedItems;
+      return response.data;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
   }
 
   async getWorkItemsForUsers(
@@ -2052,6 +2032,8 @@ export class YoutrackClient {
       startDate?: string | number | Date;
       endDate?: string | number | Date;
       issueId?: string;
+      limit?: number;
+      skip?: number;
     } = {},
   ): Promise<YoutrackWorkItem[]> {
     const results = await this.processBatch(
@@ -2062,6 +2044,8 @@ export class YoutrackClient {
           startDate: params.startDate,
           endDate: params.endDate,
           issueId: params.issueId,
+          limit: params.limit,
+          skip: params.skip,
         }),
       10,
     );
@@ -2076,6 +2060,8 @@ export class YoutrackClient {
       startDate?: string | number | Date;
       endDate?: string | number | Date;
       issueId?: string;
+      limit?: number;
+      skip?: number;
     } = {},
   ): Promise<YoutrackWorkItem[]> {
     const workItems = await this.listWorkItems({
@@ -2292,7 +2278,7 @@ export class YoutrackClient {
       issueId: options.issueId,
       startDate: options.startDate,
       endDate: options.endDate,
-      top: DEFAULT_PAGE_SIZE,
+      limit: DEFAULT_PAGE_SIZE,
       allUsers: options.author === undefined ? options.allUsers : false,
     });
     const fallbackStart = this.resolveReportBoundary(workItems, "min");
