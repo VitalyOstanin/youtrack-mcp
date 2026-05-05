@@ -435,9 +435,7 @@ export class YoutrackClient {
         .flatMap((row) => this.mapIssueLinkRow(resolvedId, row))
         // filter out entries that point back to the same issue or have no counterpart
         .filter((l) => l.issue.idReadable && l.issue.idReadable !== resolvedId);
-      const payload = { issueId: resolvedId, links };
-
-      return payload;
+      return { issueId: resolvedId, links };
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -542,9 +540,7 @@ export class YoutrackClient {
       });
       const variants = this.mapIssueLinkRow(sourceId, response.data);
       const mapped = variants.find((v) => v.issue.idReadable === targetId) ?? variants[0];
-      const payload = { link: mapped };
-
-      return payload;
+      return { link: mapped };
     } catch (error) {
       const normalized = this.normalizeError(error);
 
@@ -891,9 +887,7 @@ export class YoutrackClient {
         this.usersByLogin.set(user.login, user);
       });
 
-      const payload = { users: response.data };
-
-      return payload;
+      return { users: response.data };
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1041,9 +1035,7 @@ export class YoutrackClient {
         params: { fields },
       });
       const mappedIssue = mapIssueDetails(response.data);
-      const payload = { issue: mappedIssue };
-
-      return payload;
+      return { issue: mappedIssue };
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1138,9 +1130,7 @@ export class YoutrackClient {
         params: { fields },
       });
       const mappedIssue = mapIssueDetails(response.data);
-      const payload = { issue: mappedIssue };
-
-      return payload;
+      return { issue: mappedIssue };
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1166,9 +1156,7 @@ export class YoutrackClient {
         params,
       });
       const mappedComments = mapComments(response.data, this.config.baseUrl, resolvedId);
-      const payload = { comments: mappedComments };
-
-      return payload;
+      return { comments: mappedComments };
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1189,9 +1177,7 @@ export class YoutrackClient {
         params: { fields: defaultFields.comments },
       });
       const mappedComment = mapComment(response.data, this.config.baseUrl, resolvedIssueId);
-      const payload = { comment: mappedComment };
-
-      return payload;
+      return { comment: mappedComment };
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1506,9 +1492,7 @@ export class YoutrackClient {
 
       const issue = await this.getIssueRaw(resolvedId);
       const mappedIssue = mapIssue(issue);
-      const payload = { issue: mappedIssue };
-
-      return payload;
+      return { issue: mappedIssue };
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -1585,12 +1569,10 @@ export class YoutrackClient {
         }
       }
 
-      const payload = {
+      return {
         issues: foundIssues.map(mapIssueDetails),
         errors: errors.length ? errors : undefined,
       };
-
-      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -2155,13 +2137,10 @@ export class YoutrackClient {
       skip?: number;
     } = {},
   ): Promise<YoutrackWorkItem[]> {
-    const workItems = await this.listWorkItems({
+    return this.listWorkItems({
       ...params,
       allUsers: true,
     });
-    const payload = workItems;
-
-    return payload;
   }
 
   async listRecentWorkItems(
@@ -2332,12 +2311,10 @@ export class YoutrackClient {
       failed.push({ date: result.date, reason: result.reason });
     }
 
-    const payload = {
+    return {
       created: mapWorkItems(created),
       failed,
     };
-
-    return payload;
   }
 
   async createWorkItemIdempotent(input: YoutrackWorkItemIdempotentCreateInput): Promise<MappedYoutrackWorkItem | null> {
@@ -2512,9 +2489,7 @@ export class YoutrackClient {
       },
       10,
     );
-    const payload = { reports };
-
-    return payload;
+    return { reports };
   }
 
   async getArticle(articleId: string): Promise<ArticlePayload> {
@@ -2523,9 +2498,7 @@ export class YoutrackClient {
         params: { fields: defaultFields.article },
       });
       const article = response.data;
-      const payload = { article };
-
-      return payload;
+      return { article };
     } catch (error) {
       throw this.normalizeError(error);
     }

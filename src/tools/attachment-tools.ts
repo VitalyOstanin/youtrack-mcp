@@ -160,9 +160,7 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
 
         return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -183,13 +181,9 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       try {
         const payload = attachmentGetSchema.parse(rawInput);
         const result = await client.getAttachment(payload.issueId, payload.attachmentId);
-        const response = toolSuccess(result);
-
-        return response;
+        return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -237,13 +231,9 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
           filePaths: payload.filePaths,
           muteUpdateNotifications: payload.muteUpdateNotifications,
         });
-        const response = toolSuccess(result);
-
-        return response;
+        return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -268,13 +258,9 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
           attachmentId: payload.attachmentId,
           confirmation: payload.confirmation,
         });
-        const response = toolSuccess(result);
-
-        return response;
+        return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

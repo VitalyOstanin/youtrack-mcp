@@ -92,13 +92,9 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
           throw new Error(`User with login '${payload.login}' not found`);
         }
 
-        const response = toolSuccess({ user });
-
-        return response;
+        return toolSuccess({ user });
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -118,13 +114,9 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
     async () => {
       try {
         const user = await client.getCurrentUser();
-        const response = toolSuccess({ user });
-
-        return response;
+        return toolSuccess({ user });
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

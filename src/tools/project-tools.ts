@@ -73,13 +73,9 @@ export function registerProjectTools(server: McpServer, client: YoutrackClient):
           throw new Error(`Project with short name '${payload.shortName}' not found`);
         }
 
-        const response = toolSuccess({ project });
-
-        return response;
+        return toolSuccess({ project });
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

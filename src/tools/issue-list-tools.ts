@@ -124,9 +124,7 @@ export function registerIssueListTools(server: McpServer, client: YoutrackClient
 
         return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

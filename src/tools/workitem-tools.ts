@@ -298,13 +298,9 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
           description: payload.description,
           usesMarkdown: payload.usesMarkdown,
         });
-        const response = toolSuccess({ item });
-
-        return response;
+        return toolSuccess({ item });
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -331,13 +327,9 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
           description: payload.description,
           usesMarkdown: payload.usesMarkdown,
         });
-        const response = toolSuccess({ created: item !== null, item });
-
-        return response;
+        return toolSuccess({ created: item !== null, item });
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -376,13 +368,9 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
           description: payload.description,
           usesMarkdown: payload.usesMarkdown,
         });
-        const response = toolSuccess({ item: mapWorkItem(item) });
-
-        return response;
+        return toolSuccess({ item: mapWorkItem(item) });
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -403,13 +391,9 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       try {
         const payload = workItemDeleteSchema.parse(rawInput);
         const result = await client.deleteWorkItem(payload.issueId, payload.workItemId);
-        const response = toolSuccess(result);
-
-        return response;
+        return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -442,13 +426,9 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
           holidays: payload.holidays,
           preHolidays: payload.preHolidays,
         });
-        const response = toolSuccess(result);
-
-        return response;
+        return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -469,13 +449,9 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       try {
         const payload = workItemsReportSchema.parse(rawInput);
         const report = await client.generateWorkItemReport(payload);
-        const response = toolSuccess(report);
-
-        return response;
+        return toolSuccess(report);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -518,9 +494,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
         return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

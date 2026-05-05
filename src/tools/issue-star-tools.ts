@@ -43,13 +43,9 @@ function createToolHandler<TArgs, TResult>(
   return async (args: TArgs): Promise<CallToolResult> => {
     try {
       const result = await handler(args);
-      const response = toolSuccess(result);
-
-      return response;
+      return toolSuccess(result);
     } catch (error) {
-      const errorResponse = toolError(error);
-
-      return errorResponse;
+      return toolError(error);
     }
   };
 }

@@ -78,13 +78,9 @@ export function registerArticleTools(
       try {
         const payload = articleLookupSchema.parse(rawInput);
         const article = await client.getArticle(payload.articleId);
-        const response = toolSuccess(article);
-
-        return response;
+        return toolSuccess(article);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -110,13 +106,9 @@ export function registerArticleTools(
           limit: payload.limit,
           skip: payload.skip,
         });
-        const response = toolSuccess(articles);
-
-        return response;
+        return toolSuccess(articles);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -144,13 +136,9 @@ export function registerArticleTools(
           usesMarkdown: payload.usesMarkdown,
           returnRendered: payload.returnRendered,
         });
-        const response = toolSuccess(article);
-
-        return response;
+        return toolSuccess(article);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -182,13 +170,9 @@ export function registerArticleTools(
           usesMarkdown: payload.usesMarkdown,
           returnRendered: payload.returnRendered,
         });
-        const response = toolSuccess(article);
-
-        return response;
+        return toolSuccess(article);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

@@ -165,13 +165,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
         const payload = issueIdSchema.parse(rawInput);
         const includeCustomFields = !payload.briefOutput;
         const issue = await client.getIssue(payload.issueId, includeCustomFields);
-        const response = toolSuccess(issue);
-
-        return response;
+        return toolSuccess(issue);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -194,13 +190,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
         const payload = issueIdSchema.parse(rawInput);
         const brief = payload.briefOutput;
         const details = await client.getIssueDetails(payload.issueId, !brief);
-        const response = toolSuccess(details);
-
-        return response;
+        return toolSuccess(details);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -246,9 +238,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
         return toolSuccess(comments);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -279,13 +269,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           links: payload.links,
           usesMarkdown: payload.usesMarkdown,
         });
-        const response = toolSuccess(issue);
-
-        return response;
+        return toolSuccess(issue);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -322,13 +308,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           parentIssueId: payload.parentIssueId,
           usesMarkdown: payload.usesMarkdown,
         });
-        const response = toolSuccess(issue);
-
-        return response;
+        return toolSuccess(issue);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -352,13 +334,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           issueId: payload.issueId,
           assigneeLogin: payload.assigneeLogin,
         });
-        const response = toolSuccess(issue);
-
-        return response;
+        return toolSuccess(issue);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -383,13 +361,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           text: payload.text,
           usesMarkdown: payload.usesMarkdown,
         });
-        const response = toolSuccess(comment);
-
-        return response;
+        return toolSuccess(comment);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -422,13 +396,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           usesMarkdown: payload.usesMarkdown,
           muteUpdateNotifications: payload.muteUpdateNotifications,
         });
-        const response = toolSuccess(result);
-
-        return response;
+        return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -473,9 +443,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
         return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -520,9 +488,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
         return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -564,9 +530,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
         return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -590,13 +554,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           issueId: payload.issueId,
           stateName: payload.stateName,
         });
-        const response = toolSuccess(result);
-
-        return response;
+        return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -618,13 +578,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issuesCountSchema.parse(rawInput);
         const result = await client.countIssues(payload);
-        const response = toolSuccess(result);
-
-        return response;
+        return toolSuccess(result);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

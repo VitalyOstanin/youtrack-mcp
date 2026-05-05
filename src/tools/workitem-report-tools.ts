@@ -66,9 +66,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
 
         return toolSuccess({ report });
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -110,9 +108,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
 
         return toolSuccess({ invalidDays });
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
@@ -157,9 +153,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
 
         return toolSuccess(report);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );
