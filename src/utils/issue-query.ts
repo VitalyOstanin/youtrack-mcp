@@ -35,33 +35,36 @@ export async function buildIssueQuery(
   if (projectIds && projectIds.length > 0) {
     resolvedProjects = [];
 
-    const projectFilterParts = await Promise.all(
-      projectIds.map(async (projectId) => {
-        const project = await resolveProject(projectId);
+    // Sequential resolution: the first call warms the project cache (single-
+    // flight in YoutrackClient), so subsequent lookups are synchronous map
+    // hits. Parallel lookups via Promise.all only paid off when each resolve
+    // performed its own HTTP round-trip.
+    const projectFilterParts: string[] = [];
 
-        if (project?.shortName) {
-          resolvedProjects!.push({
-            originalId: projectId,
-            projectId: project.id ?? projectId,
-            projectShortName: project.shortName,
-            projectName: project.name,
-            requestedId: projectId,
-            count: 0,
-          } as IssueProjectCount & { originalId: string });
+    for (const projectId of projectIds) {
+      const project = await resolveProject(projectId);
 
-          return `project: {${project.shortName}}`;
-        }
-
-        resolvedProjects!.push({
+      if (project?.shortName) {
+        resolvedProjects.push({
+          originalId: projectId,
+          projectId: project.id ?? projectId,
+          projectShortName: project.shortName,
+          projectName: project.name,
+          requestedId: projectId,
+          count: 0,
+        } as IssueProjectCount & { originalId: string });
+        projectFilterParts.push(`project: {${project.shortName}}`);
+      } else {
+        resolvedProjects.push({
           originalId: projectId,
           projectId,
           requestedId: projectId,
           count: 0,
         } as IssueProjectCount & { originalId: string });
+        projectFilterParts.push(`project: {${projectId}}`);
+      }
+    }
 
-        return `project: {${projectId}}`;
-      }),
-    );
     const projectFilter = projectFilterParts.join(" or ");
 
     filters.push(projectFilterParts.length > 1 ? `(${projectFilter})` : projectFilter);

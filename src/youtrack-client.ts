@@ -241,6 +241,10 @@ export class YoutrackClient {
   private readonly linkTypesById = new Map<string, YoutrackIssueLinkType>();
   private readonly linkTypesByName = new Map<string, YoutrackIssueLinkType>();
   private cachedCommandSupport?: boolean;
+  // Single-flight slots: parallel callers share one in-flight HTTP request.
+  // Only the auto-paginated (no limit/skip) path uses these.
+  private listProjectsInFlight?: Promise<YoutrackProjectListPayload>;
+  private listLinkTypesInFlight?: Promise<IssueLinkTypesPayload>;
 
   constructor(private readonly config: YoutrackConfig) {
     this.http = axios.create({
@@ -436,6 +440,20 @@ export class YoutrackClient {
   }
 
   async listLinkTypes(): Promise<IssueLinkTypesPayload> {
+    // Cache-first: when we already know the link types, return them without
+    // a network call. Concurrent callers share a single in-flight HTTP request.
+    if (this.linkTypesById.size > 0) {
+      return { types: Array.from(this.linkTypesById.values()) };
+    }
+
+    this.listLinkTypesInFlight ??= this.fetchAllLinkTypes().finally(() => {
+      this.listLinkTypesInFlight = undefined;
+    });
+
+    return this.listLinkTypesInFlight;
+  }
+
+  private async fetchAllLinkTypes(): Promise<IssueLinkTypesPayload> {
     try {
       const response = await this.http.get<YoutrackIssueLinkType[]>("/api/issueLinkTypes", {
         params: { fields: defaultFields.linkTypes },
@@ -449,9 +467,7 @@ export class YoutrackClient {
         }
       });
 
-      const payload = { types: response.data };
-
-      return payload;
+      return { types: response.data };
     } catch (error) {
       throw this.normalizeError(error);
     }
@@ -859,11 +875,10 @@ export class YoutrackClient {
   }
 
   async listProjects(pagination: { limit?: number; skip?: number } = {}): Promise<YoutrackProjectListPayload> {
-    try {
-      // Single-page request when limit is set explicitly; otherwise auto-paginate
-      // until the cache is filled. The cache is populated either way so callers
-      // that rely on findProject() still see the full set.
-      if (!(pagination.limit === undefined && pagination.skip === undefined)) {
+    // Single-page request when limit/skip is set explicitly. No caching, no
+    // single-flight: the caller asked for a specific window.
+    if (!(pagination.limit === undefined && pagination.skip === undefined)) {
+      try {
         const response = await this.http.get<YoutrackProject[]>("/api/admin/projects", {
           params: {
             fields: defaultFields.projects,
@@ -879,8 +894,26 @@ export class YoutrackClient {
         });
 
         return { projects: response.data };
+      } catch (error) {
+        throw this.normalizeError(error);
       }
+    }
 
+    // Auto-paginated path: serve from cache when populated; otherwise share
+    // one in-flight fetch among parallel callers.
+    if (this.projectsByShortName.size > 0) {
+      return { projects: Array.from(this.projectsByShortName.values()) };
+    }
+
+    this.listProjectsInFlight ??= this.fetchAllProjects().finally(() => {
+      this.listProjectsInFlight = undefined;
+    });
+
+    return this.listProjectsInFlight;
+  }
+
+  private async fetchAllProjects(): Promise<YoutrackProjectListPayload> {
+    try {
       const projects: YoutrackProject[] = [];
       let skip = 0;
 
@@ -907,9 +940,7 @@ export class YoutrackClient {
         }
       });
 
-      const payload = { projects };
-
-      return payload;
+      return { projects };
     } catch (error) {
       throw this.normalizeError(error);
     }
