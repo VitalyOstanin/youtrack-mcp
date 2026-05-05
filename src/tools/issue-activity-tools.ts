@@ -1,12 +1,13 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { mapActivityItems } from "../utils/mappers.js";
 import { toIsoDateString } from "../utils/date.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 export const activityCategoryEnum = z.enum([
   "CustomFieldCategory",
@@ -57,8 +58,7 @@ export const issueActivitiesArgs = {
 export const issueActivitiesSchema = z.object(issueActivitiesArgs);
 
 export async function issueActivitiesHandler(client: YoutrackClient, rawInput: unknown) {
-  try {
-    const input = issueActivitiesSchema.parse(rawInput);
+  return createToolHandler(issueActivitiesSchema, async (input) => {
     const startTimestamp = input.startDate ? new Date(input.startDate).getTime() : undefined;
     const endTimestamp = input.endDate ? new Date(input.endDate).getTime() : undefined;
     const activities = await client.getIssueActivities(input.issueId, {
@@ -104,10 +104,8 @@ export async function issueActivitiesHandler(client: YoutrackClient, rawInput: u
       });
     }
 
-    return toolSuccess(payload);
-  } catch (error) {
-    return toolError(error);
-  }
+    return payload;
+  })(rawInput);
 }
 
 export function registerIssueActivityTools(server: McpServer, client: YoutrackClient) {

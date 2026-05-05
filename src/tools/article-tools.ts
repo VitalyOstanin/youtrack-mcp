@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { articleIdSchema, projectIdSchema } from "../utils/validators.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const articleLookupArgs = {
   articleId: articleIdSchema.describe("Article ID"),
@@ -74,15 +74,7 @@ export function registerArticleTools(
       "Limitations: returns only one article -- use article_list for hierarchy.",
     ].join("\n"),
     articleLookupArgs,
-    async (rawInput) => {
-      try {
-        const payload = articleLookupSchema.parse(rawInput);
-        const article = await client.getArticle(payload.articleId);
-        return toolSuccess(article);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(articleLookupSchema, async (payload) => client.getArticle(payload.articleId)),
   );
 
   server.tool(
@@ -97,20 +89,14 @@ export function registerArticleTools(
       "Limitations: content field is omitted; max 200 per page.",
     ].join("\n"),
     articleListArgs,
-    async (rawInput: unknown) => {
-      try {
-        const payload = articleListSchema.parse(rawInput);
-        const articles = await client.listArticles({
-          parentArticleId: payload.parentArticleId,
-          projectId: payload.projectId,
-          limit: payload.limit,
-          skip: payload.skip,
-        });
-        return toolSuccess(articles);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(articleListSchema, async (payload) =>
+      client.listArticles({
+        parentArticleId: payload.parentArticleId,
+        projectId: payload.projectId,
+        limit: payload.limit,
+        skip: payload.skip,
+      }),
+    ),
   );
 
   server.tool(
@@ -125,22 +111,16 @@ export function registerArticleTools(
       "Limitations: projectId defaults to YOUTRACK_DEFAULT_PROJECT; re-fetch via article_get to verify rendered content.",
     ].join("\n"),
     articleCreateArgs,
-    async (rawInput: unknown) => {
-      try {
-        const payload = articleCreateSchema.parse(rawInput);
-        const article = await client.createArticle({
-          summary: payload.summary,
-          content: payload.content,
-          parentArticleId: payload.parentArticleId,
-          projectId: payload.projectId,
-          usesMarkdown: payload.usesMarkdown,
-          returnRendered: payload.returnRendered,
-        });
-        return toolSuccess(article);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(articleCreateSchema, async (payload) =>
+      client.createArticle({
+        summary: payload.summary,
+        content: payload.content,
+        parentArticleId: payload.parentArticleId,
+        projectId: payload.projectId,
+        usesMarkdown: payload.usesMarkdown,
+        returnRendered: payload.returnRendered,
+      }),
+    ),
   );
 
   server.tool(
@@ -155,25 +135,18 @@ export function registerArticleTools(
       "Limitations: at least one of summary/content must be provided.",
     ].join("\n"),
     articleUpdateArgs,
-    async (rawInput: unknown) => {
-      try {
-        const payload = articleUpdateSchema.parse(rawInput);
-
-        if (payload.summary === undefined && payload.content === undefined) {
-          throw new Error("At least one field must be provided for update");
-        }
-
-        const article = await client.updateArticle({
-          articleId: payload.articleId,
-          summary: payload.summary,
-          content: payload.content,
-          usesMarkdown: payload.usesMarkdown,
-          returnRendered: payload.returnRendered,
-        });
-        return toolSuccess(article);
-      } catch (error) {
-        return toolError(error);
+    createToolHandler(articleUpdateSchema, async (payload) => {
+      if (payload.summary === undefined && payload.content === undefined) {
+        throw new Error("At least one field must be provided for update");
       }
-    },
+
+      return client.updateArticle({
+        articleId: payload.articleId,
+        summary: payload.summary,
+        content: payload.content,
+        usesMarkdown: payload.usesMarkdown,
+        returnRendered: payload.returnRendered,
+      });
+    }),
   );
 }

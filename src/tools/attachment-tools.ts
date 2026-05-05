@@ -1,12 +1,13 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { downloadFileFromUrl, extractFilenameFromUrlOrHeader } from "../utils/file-download.js";
 import { sanitizeFilename } from "../utils/path-safety.js";
 import { issueIdSchema, attachmentIdSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const issueIdArgs = {
   issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
@@ -26,17 +27,12 @@ const attachmentDownloadArgs = {
 };
 const attachmentDownloadSchema = z.object(attachmentDownloadArgs);
 
-type AttachmentDownloadPayload = z.infer<typeof attachmentDownloadSchema>;
-
 /**
  * Handler for `issue_attachment_download`. Exported for tests; production code
  * still wires it into the MCP server below.
  */
-export async function issueAttachmentDownloadHandler(
-  client: YoutrackClient,
-  payload: AttachmentDownloadPayload,
-) {
-  try {
+export async function issueAttachmentDownloadHandler(client: YoutrackClient, rawInput: unknown) {
+  return createToolHandler(attachmentDownloadSchema, async (payload) => {
     if (payload.downloadToFile) {
       const attachmentInfo = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
       const { downloadUrl, attachment } = attachmentInfo;
@@ -63,13 +59,13 @@ export async function issueAttachmentDownloadHandler(
         allowedOrigins: [new URL(client.getBaseUrl()).origin],
       });
 
-      return toolSuccess({
+      return {
         downloaded: true,
         savedTo: downloadedPath,
         attachmentId: payload.attachmentId,
         issueId: payload.issueId,
         originalAttachmentInfo: attachment,
-      });
+      };
     }
 
     const result = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
@@ -93,10 +89,8 @@ export async function issueAttachmentDownloadHandler(
       });
     }
 
-    return toolSuccess(result);
-  } catch (error) {
-    return toolError(error);
-  }
+    return result;
+  })(rawInput);
 }
 
 const attachmentUploadArgs = {
@@ -135,34 +129,29 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       "Limitations: returns metadata only -- use issue_attachment_download for content.",
     ].join("\n"),
     issueIdArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueIdInputSchema.parse(rawInput);
-        const result = await client.listAttachments(payload.issueId);
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
+    createToolHandler(issueIdInputSchema, async (payload) => {
+      const result = await client.listAttachments(payload.issueId);
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        result,
+        client.getOutputDir(),
+      );
 
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            attachmentsCount: result.attachments.length,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          attachmentsCount: result.attachments.length,
+        });
       }
-    },
+
+      return result;
+    }),
   );
 
   server.tool(
@@ -177,15 +166,9 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       "Limitations: returns metadata only.",
     ].join("\n"),
     attachmentGetArgs,
-    async (rawInput) => {
-      try {
-        const payload = attachmentGetSchema.parse(rawInput);
-        const result = await client.getAttachment(payload.issueId, payload.attachmentId);
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(attachmentGetSchema, async (payload) =>
+      client.getAttachment(payload.issueId, payload.attachmentId),
+    ),
   );
 
   server.tool(
@@ -200,15 +183,7 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       "Limitations: signed URL has limited lifetime; downloadPath is sanitized via path-safety rules.",
     ].join("\n"),
     attachmentDownloadArgs,
-    async (rawInput) => {
-      try {
-        const payload = attachmentDownloadSchema.parse(rawInput);
-
-        return await issueAttachmentDownloadHandler(client, payload);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    (rawInput) => issueAttachmentDownloadHandler(client, rawInput),
   );
 
   server.tool(
@@ -223,19 +198,13 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       "Limitations: max 10 files per call; files must exist on the local filesystem and be readable.",
     ].join("\n"),
     attachmentUploadArgs,
-    async (rawInput) => {
-      try {
-        const payload = attachmentUploadSchema.parse(rawInput);
-        const result = await client.uploadAttachments({
-          issueId: payload.issueId,
-          filePaths: payload.filePaths,
-          muteUpdateNotifications: payload.muteUpdateNotifications,
-        });
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(attachmentUploadSchema, async (payload) =>
+      client.uploadAttachments({
+        issueId: payload.issueId,
+        filePaths: payload.filePaths,
+        muteUpdateNotifications: payload.muteUpdateNotifications,
+      }),
+    ),
   );
 
   server.tool(
@@ -250,18 +219,12 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       "Limitations: confirmation: true is required; deletion cannot be undone -- re-list attachments to confirm.",
     ].join("\n"),
     attachmentDeleteArgs,
-    async (rawInput) => {
-      try {
-        const payload = attachmentDeleteSchema.parse(rawInput);
-        const result = await client.deleteAttachment({
-          issueId: payload.issueId,
-          attachmentId: payload.attachmentId,
-          confirmation: payload.confirmation,
-        });
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(attachmentDeleteSchema, async (payload) =>
+      client.deleteAttachment({
+        issueId: payload.issueId,
+        attachmentId: payload.attachmentId,
+        confirmation: payload.confirmation,
+      }),
+    ),
   );
 }

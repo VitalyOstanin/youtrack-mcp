@@ -1,10 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const issueStatusArgs = {
   issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
@@ -22,8 +23,7 @@ const issuesStatusArgs = {
 const issuesStatusSchema = z.object(issuesStatusArgs);
 
 export async function issueStatusHandler(client: YoutrackClient, rawInput: unknown) {
-  try {
-    const payload = issueStatusSchema.parse(rawInput);
+  return createToolHandler(issueStatusSchema, async (payload) => {
     const stateResult = await client.getIssueState(payload.issueId);
     const status = stateResult.state?.presentation ?? stateResult.state?.name ?? "Unknown";
     const result = {
@@ -49,15 +49,12 @@ export async function issueStatusHandler(client: YoutrackClient, rawInput: unkno
       });
     }
 
-    return toolSuccess(result);
-  } catch (error) {
-    return toolError(error);
-  }
+    return result;
+  })(rawInput);
 }
 
 export async function issuesStatusHandler(client: YoutrackClient, rawInput: unknown) {
-  try {
-    const payload = issuesStatusSchema.parse(rawInput);
+  return createToolHandler(issuesStatusSchema, async (payload) => {
     const batch = await client.getIssuesState(payload.issueIds);
     const statuses = batch.states.map((entry) => ({
       issueId: entry.issueId,
@@ -88,10 +85,8 @@ export async function issuesStatusHandler(client: YoutrackClient, rawInput: unkn
       });
     }
 
-    return toolSuccess(finalResult);
-  } catch (error) {
-    return toolError(error);
-  }
+    return finalResult;
+  })(rawInput);
 }
 
 export function registerIssueStatusTools(server: McpServer, client: YoutrackClient) {

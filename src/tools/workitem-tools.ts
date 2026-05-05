@@ -2,10 +2,11 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { mapWorkItem, mapWorkItems } from "../utils/mappers.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema, workItemIdSchema, userLoginSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const isoDate = z
   .string()
@@ -47,8 +48,7 @@ export { workItemsForUsersArgs };
 const workItemsUsersSchema = z.object(workItemsForUsersArgs);
 
 export async function workitemsListHandler(client: YoutrackClient, rawInput: unknown) {
-  try {
-    const payload = workItemsListSchema.parse(rawInput);
+  return createToolHandler(workItemsListSchema, async (payload) => {
     const items = await client.listWorkItems(payload);
     const result = { items: mapWorkItems(items) };
     const processedResult = await processWithFileStorage(
@@ -70,15 +70,12 @@ export async function workitemsListHandler(client: YoutrackClient, rawInput: unk
       });
     }
 
-    return toolSuccess(result);
-  } catch (error) {
-    return toolError(error);
-  }
+    return result;
+  })(rawInput);
 }
 
 export async function workitemsAllUsersHandler(client: YoutrackClient, rawInput: unknown) {
-  try {
-    const payload = workItemsListSchema.parse(rawInput);
+  return createToolHandler(workItemsListSchema, async (payload) => {
     const items = await client.listAllUsersWorkItems(payload);
     const result = { items: mapWorkItems(items) };
     const processedResult = await processWithFileStorage(
@@ -100,15 +97,12 @@ export async function workitemsAllUsersHandler(client: YoutrackClient, rawInput:
       });
     }
 
-    return toolSuccess(result);
-  } catch (error) {
-    return toolError(error);
-  }
+    return result;
+  })(rawInput);
 }
 
 export async function workitemsForUsersHandler(client: YoutrackClient, rawInput: unknown) {
-  try {
-    const payload = workItemsUsersSchema.parse(rawInput);
+  return createToolHandler(workItemsUsersSchema, async (payload) => {
     const items = await client.getWorkItemsForUsers(payload.users, payload);
     const result = { items: mapWorkItems(items), users: payload.users };
     const processedResult = await processWithFileStorage(
@@ -131,10 +125,8 @@ export async function workitemsForUsersHandler(client: YoutrackClient, rawInput:
       });
     }
 
-    return toolSuccess(result);
-  } catch (error) {
-    return toolError(error);
-  }
+    return result;
+  })(rawInput);
 }
 
 const workItemCreateArgs = {
@@ -287,22 +279,16 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       "Limitations: minutes must be positive; date must be YYYY-MM-DD; re-fetch via workitems_list to confirm.",
     ].join("\n"),
     workItemCreateArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemCreateSchema.parse(rawInput);
-        const item = await client.createWorkItemMapped({
-          issueId: payload.issueId,
-          date: payload.date,
-          minutes: payload.minutes,
-          summary: payload.summary,
-          description: payload.description,
-          usesMarkdown: payload.usesMarkdown,
-        });
-        return toolSuccess({ item });
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(workItemCreateSchema, async (payload) => ({
+      item: await client.createWorkItemMapped({
+        issueId: payload.issueId,
+        date: payload.date,
+        minutes: payload.minutes,
+        summary: payload.summary,
+        description: payload.description,
+        usesMarkdown: payload.usesMarkdown,
+      }),
+    })),
   );
 
   server.tool(
@@ -317,21 +303,17 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       "Limitations: similarity check uses exact description match scoped to the issue and date.",
     ].join("\n"),
     workItemIdempotentArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemIdempotentSchema.parse(rawInput);
-        const item = await client.createWorkItemIdempotent({
-          issueId: payload.issueId,
-          date: payload.date,
-          minutes: payload.minutes,
-          description: payload.description,
-          usesMarkdown: payload.usesMarkdown,
-        });
-        return toolSuccess({ created: item !== null, item });
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(workItemIdempotentSchema, async (payload) => {
+      const item = await client.createWorkItemIdempotent({
+        issueId: payload.issueId,
+        date: payload.date,
+        minutes: payload.minutes,
+        description: payload.description,
+        usesMarkdown: payload.usesMarkdown,
+      });
+
+      return { created: item !== null, item };
+    }),
   );
 
   server.tool(
@@ -346,33 +328,28 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       "Limitations: at least one of date/minutes/summary/description must be provided.",
     ].join("\n"),
     workItemUpdateArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemUpdateSchema.parse(rawInput);
-
-        if (
-          payload.date === undefined &&
-          payload.minutes === undefined &&
-          payload.summary === undefined &&
-          payload.description === undefined
-        ) {
-          throw new Error("At least one field must be provided for update");
-        }
-
-        const item = await client.updateWorkItem({
-          issueId: payload.issueId,
-          workItemId: payload.workItemId,
-          date: payload.date,
-          minutes: payload.minutes,
-          summary: payload.summary,
-          description: payload.description,
-          usesMarkdown: payload.usesMarkdown,
-        });
-        return toolSuccess({ item: mapWorkItem(item) });
-      } catch (error) {
-        return toolError(error);
+    createToolHandler(workItemUpdateSchema, async (payload) => {
+      if (
+        payload.date === undefined &&
+        payload.minutes === undefined &&
+        payload.summary === undefined &&
+        payload.description === undefined
+      ) {
+        throw new Error("At least one field must be provided for update");
       }
-    },
+
+      const item = await client.updateWorkItem({
+        issueId: payload.issueId,
+        workItemId: payload.workItemId,
+        date: payload.date,
+        minutes: payload.minutes,
+        summary: payload.summary,
+        description: payload.description,
+        usesMarkdown: payload.usesMarkdown,
+      });
+
+      return { item: mapWorkItem(item) };
+    }),
   );
 
   server.tool(
@@ -387,15 +364,9 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       "Limitations: confirmation: true is required; re-fetch via workitems_list to verify removal.",
     ].join("\n"),
     workItemDeleteArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemDeleteSchema.parse(rawInput);
-        const result = await client.deleteWorkItem(payload.issueId, payload.workItemId);
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(workItemDeleteSchema, async (payload) =>
+      client.deleteWorkItem(payload.issueId, payload.workItemId),
+    ),
   );
 
   server.tool(
@@ -410,27 +381,21 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       "Limitations: skips dates where a work item already exists; weekends/holidays are excluded only if flags are set.",
     ].join("\n"),
     workItemsPeriodArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemsPeriodSchema.parse(rawInput);
-        const result = await client.createWorkItemsForPeriod({
-          issueId: payload.issueId,
-          startDate: payload.startDate,
-          endDate: payload.endDate,
-          minutes: payload.minutes,
-          summary: payload.summary,
-          description: payload.description,
-          usesMarkdown: payload.usesMarkdown,
-          excludeWeekends: payload.excludeWeekends,
-          excludeHolidays: payload.excludeHolidays,
-          holidays: payload.holidays,
-          preHolidays: payload.preHolidays,
-        });
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(workItemsPeriodSchema, async (payload) =>
+      client.createWorkItemsForPeriod({
+        issueId: payload.issueId,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+        minutes: payload.minutes,
+        summary: payload.summary,
+        description: payload.description,
+        usesMarkdown: payload.usesMarkdown,
+        excludeWeekends: payload.excludeWeekends,
+        excludeHolidays: payload.excludeHolidays,
+        holidays: payload.holidays,
+        preHolidays: payload.preHolidays,
+      }),
+    ),
   );
 
   server.tool(
@@ -445,15 +410,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       "Limitations: depends on workitems_list pagination behind the scenes; use allUsers=true for cross-team reporting.",
     ].join("\n"),
     workItemsReportArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemsReportSchema.parse(rawInput);
-        const report = await client.generateWorkItemReport(payload);
-        return toolSuccess(report);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(workItemsReportSchema, async (payload) => client.generateWorkItemReport(payload)),
   );
 
   server.tool(
@@ -468,34 +425,29 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
       "Limitations: max 200 items; defaults to current user when users[] is omitted.",
     ].join("\n"),
     workItemsRecentArgs,
-    async (rawInput) => {
-      try {
-        const payload = workItemsRecentSchema.parse(rawInput);
-        const items = await client.listRecentWorkItems(payload);
-        const result = { items: mapWorkItems(items), count: items.length };
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
+    createToolHandler(workItemsRecentSchema, async (payload) => {
+      const items = await client.listRecentWorkItems(payload);
+      const result = { items: mapWorkItems(items), count: items.length };
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        result,
+        client.getOutputDir(),
+      );
 
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            itemCount: items.length,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          itemCount: items.length,
+        });
       }
-    },
+
+      return result;
+    }),
   );
 }

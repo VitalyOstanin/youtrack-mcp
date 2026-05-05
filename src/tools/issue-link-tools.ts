@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { issueIdSchema as issueIdValidator, linkIdSchema } from "../utils/validators.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const issueLinksArgs = {
   issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
@@ -48,19 +48,12 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
       "Limitations: max 200 per page; bidirectional types appear once per neighbour.",
     ].join("\n"),
     issueLinksArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueLinksSchema.parse(rawInput);
-        const result = await client.getIssueLinks(payload.issueId, {
-          limit: payload.limit,
-          skip: payload.skip,
-        });
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(issueLinksSchema, async (payload) =>
+      client.getIssueLinks(payload.issueId, {
+        limit: payload.limit,
+        skip: payload.skip,
+      }),
+    ),
   );
 
   server.tool(
@@ -75,15 +68,7 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
       "Limitations: result is cached for the process lifetime; new types added in YouTrack require a server restart to refresh.",
     ].join("\n"),
     {},
-    async () => {
-      try {
-        const result = await client.listLinkTypes();
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(z.object({}), async () => client.listLinkTypes()),
   );
 
   server.tool(
@@ -99,16 +84,7 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
       "Limitations: link type must exist; re-fetch issue_links to confirm YouTrack accepted the relationship.",
     ].join("\n"),
     linkCreateArgs,
-    async (rawInput) => {
-      try {
-        const input = linkCreateSchema.parse(rawInput);
-        const result = await client.addIssueLink(input);
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(linkCreateSchema, async (input) => client.addIssueLink(input)),
   );
 
   const linkDeleteArgs = {
@@ -133,19 +109,12 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
       "Limitations: confirmation: true is required; re-fetch issue_links to verify the link actually disappeared.",
     ].join("\n"),
     linkDeleteArgs,
-    async (rawInput) => {
-      try {
-        const input = linkDeleteSchema.parse(rawInput);
-        const result = await client.deleteIssueLink({
-          issueId: input.issueId,
-          linkId: input.linkId,
-          targetId: input.targetId,
-        });
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(linkDeleteSchema, async (input) =>
+      client.deleteIssueLink({
+        issueId: input.issueId,
+        linkId: input.linkId,
+        targetId: input.targetId,
+      }),
+    ),
   );
 }

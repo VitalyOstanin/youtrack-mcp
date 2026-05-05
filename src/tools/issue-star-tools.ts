@@ -1,14 +1,14 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolSuccess, toolError } from "../utils/tool-response.js";
 import { issueIdSchema } from "../utils/validators.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 // Module-scope args so other modules / tests can re-use them.
 export const issueStarSingleArgs = {
   issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
 };
+const issueStarSingleSchema = z.object(issueStarSingleArgs);
 
 export const issueStarBatchArgs = {
   issueIds: z
@@ -17,6 +17,7 @@ export const issueStarBatchArgs = {
     .max(50)
     .describe("Array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50"),
 };
+const issueStarBatchSchema = z.object(issueStarBatchArgs);
 
 export const issuesStarredListArgs = {
   limit: z
@@ -33,22 +34,7 @@ export const issuesStarredListArgs = {
     .optional()
     .describe("Number of issues to skip for pagination (default: 0)"),
 };
-
-/**
- * Creates a tool handler with standard error handling
- */
-function createToolHandler<TArgs, TResult>(
-  handler: (args: TArgs) => Promise<TResult>,
-): (args: TArgs) => Promise<CallToolResult> {
-  return async (args: TArgs): Promise<CallToolResult> => {
-    try {
-      const result = await handler(args);
-      return toolSuccess(result);
-    } catch (error) {
-      return toolError(error);
-    }
-  };
-}
+const issuesStarredListSchema = z.object(issuesStarredListArgs);
 
 /**
  * Register issue star management tools
@@ -69,7 +55,7 @@ export function registerIssueStarTools(
       "Limitations: scope is the current user only; verify via issues_starred_list.",
     ].join("\n"),
     issueStarSingleArgs,
-    createToolHandler(async (args) => client.starIssue(args.issueId)),
+    createToolHandler(issueStarSingleSchema, async (args) => client.starIssue(args.issueId)),
   );
 
   server.tool(
@@ -84,7 +70,7 @@ export function registerIssueStarTools(
       "Limitations: scope is the current user only; verify via issues_starred_list.",
     ].join("\n"),
     issueStarSingleArgs,
-    createToolHandler(async (args) => client.unstarIssue(args.issueId)),
+    createToolHandler(issueStarSingleSchema, async (args) => client.unstarIssue(args.issueId)),
   );
 
   server.tool(
@@ -99,7 +85,7 @@ export function registerIssueStarTools(
       "Limitations: max 50 ids per call; partial success is possible; reload via issues_starred_list to confirm.",
     ].join("\n"),
     issueStarBatchArgs,
-    createToolHandler(async (args) => client.starIssues(args.issueIds)),
+    createToolHandler(issueStarBatchSchema, async (args) => client.starIssues(args.issueIds)),
   );
 
   server.tool(
@@ -114,7 +100,7 @@ export function registerIssueStarTools(
       "Limitations: max 50 ids per call; partial success is possible; reload via issues_starred_list to confirm.",
     ].join("\n"),
     issueStarBatchArgs,
-    createToolHandler(async (args) => client.unstarIssues(args.issueIds)),
+    createToolHandler(issueStarBatchSchema, async (args) => client.unstarIssues(args.issueIds)),
   );
 
   server.tool(
@@ -129,7 +115,7 @@ export function registerIssueStarTools(
       "Limitations: max 200 per page; description fields are omitted to reduce payload.",
     ].join("\n"),
     issuesStarredListArgs,
-    createToolHandler(async (args) =>
+    createToolHandler(issuesStarredListSchema, async (args) =>
       client.getStarredIssues({
         limit: args.limit,
         skip: args.skip,

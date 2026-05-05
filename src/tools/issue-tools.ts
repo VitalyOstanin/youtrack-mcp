@@ -1,10 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema as issueIdValidator, commentIdSchema, userLoginSchema, yqlIdentifierSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, briefOutputArg, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const dateInputSchema = z
   .string()
@@ -157,16 +158,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: a single issue per call; payload may be large with briefOutput=false.",
     ].join("\n"),
     issueIdArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueIdSchema.parse(rawInput);
-        const includeCustomFields = !payload.briefOutput;
-        const issue = await client.getIssue(payload.issueId, includeCustomFields);
-        return toolSuccess(issue);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(issueIdSchema, async (payload) =>
+      client.getIssue(payload.issueId, !payload.briefOutput),
+    ),
   );
 
   server.tool(
@@ -182,16 +176,9 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: full mode payload can be large; prefer briefOutput=true for listings.",
     ].join("\n"),
     issueIdArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueIdSchema.parse(rawInput);
-        const brief = payload.briefOutput;
-        const details = await client.getIssueDetails(payload.issueId, !brief);
-        return toolSuccess(details);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(issueIdSchema, async (payload) =>
+      client.getIssueDetails(payload.issueId, !payload.briefOutput),
+    ),
   );
 
   server.tool(
@@ -207,37 +194,32 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: max 200 per page; deleted comments are excluded.",
     ].join("\n"),
     issueCommentsArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueCommentsSchema.parse(rawInput);
-        const comments = await client.getIssueComments(payload.issueId, {
-          limit: payload.limit,
-          skip: payload.skip,
+    createToolHandler(issueCommentsSchema, async (payload) => {
+      const comments = await client.getIssueComments(payload.issueId, {
+        limit: payload.limit,
+        skip: payload.skip,
+      });
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        comments,
+        client.getOutputDir(),
+      );
+
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          commentCount: comments.comments.length,
         });
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          comments,
-          client.getOutputDir(),
-        );
-
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            commentCount: comments.comments.length,
-          });
-        }
-
-        return toolSuccess(comments);
-      } catch (error) {
-        return toolError(error);
       }
-    },
+
+      return comments;
+    }),
   );
 
   server.tool(
@@ -253,24 +235,18 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: custom fields beyond State are not in the response; re-fetch with issue_details to verify links, state and other fields actually applied.",
     ].join("\n"),
     issueCreateArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueCreateSchema.parse(rawInput);
-        const issue = await client.createIssue({
-          projectId: payload.projectId,
-          summary: payload.summary,
-          description: payload.description,
-          parentIssueId: payload.parentIssueId,
-          assigneeLogin: payload.assigneeLogin,
-          stateName: payload.stateName,
-          links: payload.links,
-          usesMarkdown: payload.usesMarkdown,
-        });
-        return toolSuccess(issue);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(issueCreateSchema, async (payload) =>
+      client.createIssue({
+        projectId: payload.projectId,
+        summary: payload.summary,
+        description: payload.description,
+        parentIssueId: payload.parentIssueId,
+        assigneeLogin: payload.assigneeLogin,
+        stateName: payload.stateName,
+        links: payload.links,
+        usesMarkdown: payload.usesMarkdown,
+      }),
+    ),
   );
 
   server.tool(
@@ -286,30 +262,23 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: at least one of summary/description/parentIssueId must be provided; re-fetch via issue_details to verify changes.",
     ].join("\n"),
     issueUpdateArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueUpdateSchema.parse(rawInput);
-
-        if (
-          payload.summary === undefined &&
-          payload.description === undefined &&
-          payload.parentIssueId === undefined
-        ) {
-          throw new Error("At least one field must be provided for update");
-        }
-
-        const issue = await client.updateIssue({
-          issueId: payload.issueId,
-          summary: payload.summary,
-          description: payload.description,
-          parentIssueId: payload.parentIssueId,
-          usesMarkdown: payload.usesMarkdown,
-        });
-        return toolSuccess(issue);
-      } catch (error) {
-        return toolError(error);
+    createToolHandler(issueUpdateSchema, async (payload) => {
+      if (
+        payload.summary === undefined &&
+        payload.description === undefined &&
+        payload.parentIssueId === undefined
+      ) {
+        throw new Error("At least one field must be provided for update");
       }
-    },
+
+      return client.updateIssue({
+        issueId: payload.issueId,
+        summary: payload.summary,
+        description: payload.description,
+        parentIssueId: payload.parentIssueId,
+        usesMarkdown: payload.usesMarkdown,
+      });
+    }),
   );
 
   server.tool(
@@ -324,18 +293,12 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: response does not include other custom fields; re-fetch via issue_details to confirm.",
     ].join("\n"),
     issueAssignArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueAssignSchema.parse(rawInput);
-        const issue = await client.assignIssue({
-          issueId: payload.issueId,
-          assigneeLogin: payload.assigneeLogin,
-        });
-        return toolSuccess(issue);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(issueAssignSchema, async (payload) =>
+      client.assignIssue({
+        issueId: payload.issueId,
+        assigneeLogin: payload.assigneeLogin,
+      }),
+    ),
   );
 
   server.tool(
@@ -350,19 +313,13 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: comment text length is limited by the YouTrack server; reload via issue_comments to verify rendering.",
     ].join("\n"),
     issueCommentCreateArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueCommentCreateSchema.parse(rawInput);
-        const comment = await client.createIssueComment({
-          issueId: payload.issueId,
-          text: payload.text,
-          usesMarkdown: payload.usesMarkdown,
-        });
-        return toolSuccess(comment);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(issueCommentCreateSchema, async (payload) =>
+      client.createIssueComment({
+        issueId: payload.issueId,
+        text: payload.text,
+        usesMarkdown: payload.usesMarkdown,
+      }),
+    ),
   );
 
   server.tool(
@@ -378,26 +335,19 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: at least one of text or usesMarkdown must be provided.",
     ].join("\n"),
     issueCommentUpdateArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueCommentUpdateSchema.parse(rawInput);
-
-        if (payload.text === undefined && payload.usesMarkdown === undefined) {
-          throw new Error("At least one field (text or usesMarkdown) must be provided for update");
-        }
-
-        const result = await client.updateIssueComment({
-          issueId: payload.issueId,
-          commentId: payload.commentId,
-          text: payload.text,
-          usesMarkdown: payload.usesMarkdown,
-          muteUpdateNotifications: payload.muteUpdateNotifications,
-        });
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
+    createToolHandler(issueCommentUpdateSchema, async (payload) => {
+      if (payload.text === undefined && payload.usesMarkdown === undefined) {
+        throw new Error("At least one field (text or usesMarkdown) must be provided for update");
       }
-    },
+
+      return client.updateIssueComment({
+        issueId: payload.issueId,
+        commentId: payload.commentId,
+        text: payload.text,
+        usesMarkdown: payload.usesMarkdown,
+        muteUpdateNotifications: payload.muteUpdateNotifications,
+      });
+    }),
   );
 
   server.tool(
@@ -413,36 +363,30 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: max 50 ids per call; numeric-only ids are resolved via YOUTRACK_DEFAULT_PROJECT.",
     ].join("\n"),
     issueIdsArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueIdsSchema.parse(rawInput);
-        const includeCustomFields = !payload.briefOutput;
-        const result = await client.getIssues(payload.issueIds, includeCustomFields);
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
+    createToolHandler(issueIdsSchema, async (payload) => {
+      const result = await client.getIssues(payload.issueIds, !payload.briefOutput);
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        result,
+        client.getOutputDir(),
+      );
 
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            issueCount: result.issues.length,
-            errorsCount: result.errors?.length ?? 0,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          issueCount: result.issues.length,
+          errorsCount: result.errors?.length ?? 0,
+        });
       }
-    },
+
+      return result;
+    }),
   );
 
   server.tool(
@@ -458,36 +402,30 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: max 50 ids; full mode payloads can be large.",
     ].join("\n"),
     issueIdsArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueIdsSchema.parse(rawInput);
-        const brief = payload.briefOutput;
-        const result = await client.getIssuesDetails(payload.issueIds, !brief);
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
+    createToolHandler(issueIdsSchema, async (payload) => {
+      const result = await client.getIssuesDetails(payload.issueIds, !payload.briefOutput);
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        result,
+        client.getOutputDir(),
+      );
 
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            issueCount: result.issues.length,
-            errorsCount: result.errors?.length ?? 0,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          issueCount: result.issues.length,
+          errorsCount: result.errors?.length ?? 0,
+        });
       }
-    },
+
+      return result;
+    }),
   );
 
   server.tool(
@@ -502,34 +440,29 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: max 50 ids; per-issue pagination is not exposed here -- use issue_comments for paging.",
     ].join("\n"),
     issueIdsArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueIdsSchema.parse(rawInput);
-        const result = await client.getMultipleIssuesComments(payload.issueIds);
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
+    createToolHandler(issueIdsSchema, async (payload) => {
+      const result = await client.getMultipleIssuesComments(payload.issueIds);
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        result,
+        client.getOutputDir(),
+      );
 
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            totalComments: Object.values(result.commentsByIssue).flat().length,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          totalComments: Object.values(result.commentsByIssue).flat().length,
+        });
       }
-    },
+
+      return result;
+    }),
   );
 
   server.tool(
@@ -544,18 +477,12 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: only transitions allowed by the current state and workflow are accepted; invalid targets fail with a descriptive error.",
     ].join("\n"),
     issueChangeStateArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueChangeStateSchema.parse(rawInput);
-        const result = await client.changeIssueState({
-          issueId: payload.issueId,
-          stateName: payload.stateName,
-        });
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(issueChangeStateSchema, async (payload) =>
+      client.changeIssueState({
+        issueId: payload.issueId,
+        stateName: payload.stateName,
+      }),
+    ),
   );
 
   server.tool(
@@ -571,14 +498,6 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       "Limitations: top trims the per-project query; counts beyond top are clipped.",
     ].join("\n"),
     issuesCountArgs,
-    async (rawInput) => {
-      try {
-        const payload = issuesCountSchema.parse(rawInput);
-        const result = await client.countIssues(payload);
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(issuesCountSchema, async (payload) => client.countIssues(payload)),
   );
 }

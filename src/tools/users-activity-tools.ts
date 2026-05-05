@@ -2,10 +2,11 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { parseDateInput, toIsoDateString, unixMsToDate, getCurrentDate } from "../utils/date.js";
 import { mapActivityItems } from "../utils/mappers.js";
-import { toolSuccess, toolError } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { userLoginSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 export const usersActivityArgs = {
   author: userLoginSchema.describe("Filter by author login (required, e.g., 'vyt'). Matches activities created by this user."),
@@ -55,8 +56,7 @@ export const usersActivityArgs = {
 export const usersActivitySchema = z.object(usersActivityArgs);
 
 export async function usersActivityHandler(client: YoutrackClient, rawInput: unknown) {
-  try {
-    const input = usersActivitySchema.parse(rawInput);
+  return createToolHandler(usersActivitySchema, async (input) => {
     const endMs = parseDateInput(input.end ?? getCurrentDate());
     const DEFAULT_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
     const startMs = parseDateInput(input.start ?? unixMsToDate(endMs - DEFAULT_LOOKBACK_MS));
@@ -112,8 +112,6 @@ export async function usersActivityHandler(client: YoutrackClient, rawInput: unk
       });
     }
 
-    return toolSuccess(payload);
-  } catch (error) {
-    return toolError(error);
-  }
+    return payload;
+  })(rawInput);
 }

@@ -1,10 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolSuccess, toolError } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { userLoginSchema, yqlIdentifierSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, briefOutputArg, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const dateInputSchema = z
   .string()
@@ -78,50 +79,45 @@ export function registerIssueListTools(server: McpServer, client: YoutrackClient
       "Limitations: max 200 per page; per-project query is serialized through a single-flight projects cache.",
     ].join("\n"),
     issueListArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueListSchema.parse(rawInput);
-        const result = await client.listIssues({
-          projectIds: payload.projectIds,
-          createdAfter: payload.createdAfter,
-          createdBefore: payload.createdBefore,
-          updatedAfter: payload.updatedAfter,
-          updatedBefore: payload.updatedBefore,
-          statuses: payload.statuses,
-          assigneeLogin: payload.assigneeLogin,
-          types: payload.types,
-          sortField: payload.sortField,
-          sortDirection: payload.sortDirection,
-          briefOutput: payload.briefOutput,
-          limit: payload.limit,
-          skip: payload.skip,
+    createToolHandler(issueListSchema, async (payload) => {
+      const result = await client.listIssues({
+        projectIds: payload.projectIds,
+        createdAfter: payload.createdAfter,
+        createdBefore: payload.createdBefore,
+        updatedAfter: payload.updatedAfter,
+        updatedBefore: payload.updatedBefore,
+        statuses: payload.statuses,
+        assigneeLogin: payload.assigneeLogin,
+        types: payload.types,
+        sortField: payload.sortField,
+        sortDirection: payload.sortDirection,
+        briefOutput: payload.briefOutput,
+        limit: payload.limit,
+        skip: payload.skip,
+      });
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        result,
+        client.getOutputDir(),
+      );
+
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          totalIssues: result.issues.length,
+          pagination: result.pagination,
+          filters: result.filters,
+          sort: result.sort,
         });
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
-
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            totalIssues: result.issues.length,
-            pagination: result.pagination,
-            filters: result.filters,
-            sort: result.sort,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        return toolError(error);
       }
-    },
+
+      return result;
+    }),
   );
 }

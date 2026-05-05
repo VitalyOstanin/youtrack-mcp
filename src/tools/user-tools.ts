@@ -1,10 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { userLoginSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const userLookupArgs = {
   login: userLoginSchema.describe("User login"),
@@ -41,34 +42,29 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
       "Limitations: max 200 per page; banned/inactive users may still appear.",
     ].join("\n"),
     usersListArgs,
-    async (rawInput) => {
-      try {
-        const payload = usersListSchema.parse(rawInput);
-        const users = await client.listUsers({ limit: payload.limit, skip: payload.skip });
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          users,
-          client.getOutputDir(),
-        );
+    createToolHandler(usersListSchema, async (payload) => {
+      const users = await client.listUsers({ limit: payload.limit, skip: payload.skip });
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        users,
+        client.getOutputDir(),
+      );
 
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            usersCount: users.users.length,
-          });
-        }
-
-        return toolSuccess(users);
-      } catch (error) {
-        return toolError(error);
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          usersCount: users.users.length,
+        });
       }
-    },
+
+      return users;
+    }),
   );
 
   server.tool(
@@ -83,20 +79,15 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
       "Limitations: returns an error when login is not found.",
     ].join("\n"),
     userLookupArgs,
-    async (rawInput) => {
-      try {
-        const payload = userLookupSchema.parse(rawInput);
-        const user = await client.getUserByLogin(payload.login);
+    createToolHandler(userLookupSchema, async (payload) => {
+      const user = await client.getUserByLogin(payload.login);
 
-        if (!user) {
-          throw new Error(`User with login '${payload.login}' not found`);
-        }
-
-        return toolSuccess({ user });
-      } catch (error) {
-        return toolError(error);
+      if (!user) {
+        throw new Error(`User with login '${payload.login}' not found`);
       }
-    },
+
+      return { user };
+    }),
   );
 
   server.tool(
@@ -111,13 +102,6 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
       "Limitations: token must be valid; otherwise the call surfaces an HTTP error.",
     ].join("\n"),
     {},
-    async () => {
-      try {
-        const user = await client.getCurrentUser();
-        return toolSuccess({ user });
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(z.object({}), async () => ({ user: await client.getCurrentUser() })),
   );
 }

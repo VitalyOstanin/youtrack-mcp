@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { projectIdSchema } from "../utils/validators.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const projectLookupArgs = {
   shortName: projectIdSchema.describe("Project short name"),
@@ -40,16 +40,9 @@ export function registerProjectTools(server: McpServer, client: YoutrackClient):
       "Limitations: max 200 per page when limit/skip are provided; without them the client fetches all pages and caches via single-flight.",
     ].join("\n"),
     projectsListArgs,
-    async (rawInput) => {
-      try {
-        const payload = projectsListSchema.parse(rawInput);
-        const projects = await client.listProjects({ limit: payload.limit, skip: payload.skip });
-
-        return toolSuccess(projects);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+    createToolHandler(projectsListSchema, async (payload) =>
+      client.listProjects({ limit: payload.limit, skip: payload.skip }),
+    ),
   );
 
   server.tool(
@@ -64,19 +57,14 @@ export function registerProjectTools(server: McpServer, client: YoutrackClient):
       "Limitations: returns an error when the short name is not found.",
     ].join("\n"),
     projectLookupArgs,
-    async (rawInput) => {
-      try {
-        const payload = projectLookupSchema.parse(rawInput);
-        const project = await client.getProjectByShortName(payload.shortName);
+    createToolHandler(projectLookupSchema, async (payload) => {
+      const project = await client.getProjectByShortName(payload.shortName);
 
-        if (!project) {
-          throw new Error(`Project with short name '${payload.shortName}' not found`);
-        }
-
-        return toolSuccess({ project });
-      } catch (error) {
-        return toolError(error);
+      if (!project) {
+        throw new Error(`Project with short name '${payload.shortName}' not found`);
       }
-    },
+
+      return { project };
+    }),
   );
 }

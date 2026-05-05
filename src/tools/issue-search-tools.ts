@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolSuccess, toolError } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import {
   projectIdSchema,
@@ -9,6 +9,7 @@ import {
   yqlQuerySchema,
 } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 export const issuesSearchArgs = {
   query: yqlQuerySchema
@@ -61,42 +62,33 @@ export const issuesSearchArgs = {
 export const issuesSearchSchema = z.object(issuesSearchArgs).default({});
 
 export async function issuesSearchHandler(client: YoutrackClient, rawInput: unknown) {
-  const input = issuesSearchSchema.parse(rawInput);
-
-  try {
-    // Build query parameters
+  return createToolHandler(issuesSearchSchema, async (input) => {
     let { query = "" } = input;
     const { limit = 50, skip = 0 } = input;
-    // Collect all filters
     const filters: string[] = [];
 
-    // Add project filter (short names)
     if (input.projects && input.projects.length > 0) {
       const projectFilter = input.projects.map((p) => `project: ${p}`).join(" or ");
 
       filters.push(`(${projectFilter})`);
     }
 
-    // Add project ID filter
     if (input.projectIds && input.projectIds.length > 0) {
       const projectIdFilter = input.projectIds.map((id) => `project: {${id}}`).join(" or ");
 
       filters.push(`(${projectIdFilter})`);
     }
 
-    // Add assignee filter (prefer assigneeLogin over assignee for consistency)
     const assignee = input.assigneeLogin ?? input.assignee;
 
     if (assignee) {
       filters.push(`assignee: ${assignee}`);
     }
 
-    // Add reporter filter
     if (input.reporter) {
       filters.push(`reporter: ${input.reporter}`);
     }
 
-    // Add state filter (support both single and multiple states)
     if (input.statuses && input.statuses.length > 0) {
       const stateFilter = input.statuses.map((s) => `State: {${s}}`).join(" or ");
 
@@ -105,7 +97,6 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
       filters.push(`State: {${input.state}}`);
     }
 
-    // Add type filter (support both single and multiple types)
     if (input.types && input.types.length > 0) {
       const typeFilter = input.types.map((t) => `Type: {${t}}`).join(" or ");
 
@@ -130,21 +121,18 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
       filters.push(`updated: 1970-01-01 .. ${input.updatedBefore}`);
     }
 
-    // Combine query with filters
     if (filters.length > 0) {
       const combinedFilters = filters.join(" and ");
 
       query = query ? `(${query}) and ${combinedFilters}` : combinedFilters;
     }
 
-    // Fetch issues
     const allIssues = await client.searchIssues({
       query,
       $top: limit,
       $skip: skip,
       fields: "id,idReadable,summary,project(shortName,name),assignee(name,login),created,updated",
     });
-    // Count logic
     const total = allIssues.length;
     const byProject: Partial<Record<string, number>> = {};
 
@@ -180,8 +168,6 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
       });
     }
 
-    return toolSuccess(result);
-  } catch (error) {
-    return toolError(error);
-  }
+    return result;
+  })(rawInput);
 }

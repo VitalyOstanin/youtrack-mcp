@@ -1,9 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 const sharedDate = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.number(), z.date()]);
 const reportBaseArgs = {
@@ -39,37 +40,32 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       "Limitations: respects expectedDailyMinutes only when provided; allUsers=true requires elevated permissions.",
     ].join("\n"),
     reportBaseArgs,
-    async (rawInput) => {
-      try {
-        const payload = reportArgsSchema.parse(rawInput);
-        const report = await client.generateWorkItemReport(payload);
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
+    createToolHandler(reportArgsSchema, async (payload) => {
+      const report = await client.generateWorkItemReport(payload);
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        { report },
+        client.getOutputDir(),
+      );
+
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          reportSummary: {
+            totalMinutes: report.summary.totalMinutes,
+            workDays: report.summary.workDays,
           },
-          { report },
-          client.getOutputDir(),
-        );
-
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            reportSummary: {
-              totalMinutes: report.summary.totalMinutes,
-              workDays: report.summary.workDays,
-            },
-          });
-        }
-
-        return toolSuccess({ report });
-      } catch (error) {
-        return toolError(error);
+        });
       }
-    },
+
+      return { report };
+    }),
   );
 
   server.tool(
@@ -84,34 +80,29 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       "Limitations: requires expectedDailyMinutes to compute deviations.",
     ].join("\n"),
     reportBaseArgs,
-    async (rawInput) => {
-      try {
-        const payload = reportArgsSchema.parse(rawInput);
-        const invalidDays = await client.generateInvalidWorkItemReport(payload);
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          { invalidDays },
-          client.getOutputDir(),
-        );
+    createToolHandler(reportArgsSchema, async (payload) => {
+      const invalidDays = await client.generateInvalidWorkItemReport(payload);
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        { invalidDays },
+        client.getOutputDir(),
+      );
 
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            invalidDaysCount: invalidDays.length,
-          });
-        }
-
-        return toolSuccess({ invalidDays });
-      } catch (error) {
-        return toolError(error);
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          invalidDaysCount: invalidDays.length,
+        });
       }
-    },
+
+      return { invalidDays };
+    }),
   );
 
   server.tool(
@@ -126,33 +117,28 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       "Limitations: each user is queried separately -- larger lists are slower.",
     ].join("\n"),
     reportUsersArgs,
-    async (rawInput) => {
-      try {
-        const payload = reportUsersArgsSchema.parse(rawInput);
-        const report = await client.generateUsersWorkItemReports(payload.users, payload);
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
-            overwrite: payload.overwrite,
-          },
-          report,
-          client.getOutputDir(),
-        );
+    createToolHandler(reportUsersArgsSchema, async (payload) => {
+      const report = await client.generateUsersWorkItemReports(payload.users, payload);
+      const processedResult = await processWithFileStorage(
+        {
+          saveToFile: payload.saveToFile,
+          filePath: payload.filePath,
+          format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
+          overwrite: payload.overwrite,
+        },
+        report,
+        client.getOutputDir(),
+      );
 
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            usersCount: report.reports.length,
-          });
-        }
-
-        return toolSuccess(report);
-      } catch (error) {
-        return toolError(error);
+      if (processedResult.savedToFile) {
+        return toolSuccess({
+          savedToFile: true,
+          savedTo: processedResult.savedTo,
+          usersCount: report.reports.length,
+        });
       }
-    },
+
+      return report;
+    }),
   );
 }

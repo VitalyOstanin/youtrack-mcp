@@ -1,9 +1,10 @@
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
-import { toolSuccess, toolError } from "../utils/tool-response.js";
+import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { articleIdSchema, projectIdSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 export const articlesSearchArgs = {
   // The `{` / `}` reject regex is load-bearing: the handler wraps query in
@@ -24,9 +25,7 @@ export const articlesSearchArgs = {
 export const articlesSearchSchema = z.object(articlesSearchArgs);
 
 export async function articlesSearchHandler(client: YoutrackClient, rawInput: unknown) {
-  const input = articlesSearchSchema.parse(rawInput);
-
-  try {
+  return createToolHandler(articlesSearchSchema, async (input) => {
     const queryParts = [`{${input.query}}`];
 
     if (input.projectId) {
@@ -67,8 +66,6 @@ export async function articlesSearchHandler(client: YoutrackClient, rawInput: un
       });
     }
 
-    return toolSuccess(articlesWithLinks);
-  } catch (error) {
-    return toolError(error);
-  }
+    return articlesWithLinks;
+  })(rawInput);
 }

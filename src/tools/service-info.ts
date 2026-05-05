@@ -1,9 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { loadConfig, enrichConfigWithRedaction } from "../config.js";
 import type { ServiceStatusPayload } from "../types.js";
 import { VERSION } from "../version.js";
-import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { createToolHandler } from "../utils/tool-handler.js";
 
 export function registerServiceInfoTool(server: McpServer, client: YoutrackClient) {
   server.tool(
@@ -18,22 +19,18 @@ export function registerServiceInfoTool(server: McpServer, client: YoutrackClien
       "Limitations: configuration values reflect the current process; secrets are redacted.",
     ].join("\n"),
     {},
-    async () => {
-      try {
-        const freshConfig = loadConfig();
-        const currentUser = await client.getCurrentUser();
-        const payload: ServiceStatusPayload = {
-          service: {
-            name: "youtrack-mcp",
-            version: VERSION,
-          },
-          configuration: enrichConfigWithRedaction(freshConfig),
-        };
+    createToolHandler(z.object({}), async () => {
+      const freshConfig = loadConfig();
+      const currentUser = await client.getCurrentUser();
+      const payload: ServiceStatusPayload = {
+        service: {
+          name: "youtrack-mcp",
+          version: VERSION,
+        },
+        configuration: enrichConfigWithRedaction(freshConfig),
+      };
 
-        return toolSuccess({ ...payload, currentUser } as Record<string, unknown>);
-      } catch (error) {
-        return toolError(error);
-      }
-    },
+      return { ...payload, currentUser } as Record<string, unknown>;
+    }),
   );
 }
