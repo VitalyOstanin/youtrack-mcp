@@ -64,7 +64,15 @@ export function registerArticleTools(
 ): void {
   server.tool(
     "article_get",
-    "Get YouTrack article by ID. Note: Returns predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name).",
+    [
+      "Fetch a single Knowledge Base article with full content and parent reference.",
+      "Use cases:",
+      "- Read an article inline before commenting or editing.",
+      "- Resolve a parent chain by following parentArticle.idReadable.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
+      "Limitations: returns only one article -- use article_list for hierarchy.",
+    ].join("\n"),
     articleLookupArgs,
     async (rawInput) => {
       try {
@@ -83,7 +91,15 @@ export function registerArticleTools(
 
   server.tool(
     "article_list",
-    "List Knowledge Base articles with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, idReadable, summary, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name). Content field is not included for performance reasons.",
+    [
+      "List Knowledge Base articles (project- or parent-scoped) with server-side pagination.",
+      "Use cases:",
+      "- Browse top-level articles in a project.",
+      "- Walk children of a parentArticleId for tree views.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: articles[] (id, idReadable, summary, usesMarkdown, parentArticle, project) and pagination.",
+      "Limitations: content field is omitted; max 200 per page.",
+    ].join("\n"),
     articleListArgs,
     async (rawInput: unknown) => {
       try {
@@ -107,7 +123,15 @@ export function registerArticleTools(
 
   server.tool(
     "article_create",
-    "Create article in YouTrack knowledge base. Supports markdown with folded sections (<details>/<summary>) in content. Note: Response includes predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name). After creation, fetch the article again to confirm rendered content and hierarchy are correct.",
+    [
+      "Create a Knowledge Base article in a project, optionally under a parent and with markdown rendering.",
+      "Use cases:",
+      "- Add a new runbook to the team's KB.",
+      "- Build hierarchy by passing parentArticleId.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
+      "Limitations: projectId defaults to YOUTRACK_DEFAULT_PROJECT; re-fetch via article_get to verify rendered content.",
+    ].join("\n"),
     articleCreateArgs,
     async (rawInput: unknown) => {
       try {
@@ -133,7 +157,15 @@ export function registerArticleTools(
 
   server.tool(
     "article_update",
-    "Update existing article. Supports markdown with folded sections (<details>/<summary>) in content. Note: Response includes predefined fields only - id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle (id, idReadable), project (id, shortName, name). After updating, re-fetch the article (optionally with rendered content) to verify formatting and links.",
+    [
+      "Edit summary or content of a Knowledge Base article (with optional rendered preview).",
+      "Use cases:",
+      "- Fix a typo or rewrite a runbook.",
+      "- Toggle usesMarkdown after migrating from plain text.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
+      "Limitations: at least one of summary/content must be provided.",
+    ].join("\n"),
     articleUpdateArgs,
     async (rawInput: unknown) => {
       try {

@@ -66,7 +66,15 @@ export class YoutrackServer {
 
     this.server.tool(
       "articles_search",
-      "Search YouTrack knowledge base articles by title and content.",
+      [
+        "Search Knowledge Base articles by title and content with project/parent filters.",
+        "Use cases:",
+        "- Find an article by topic words.",
+        "- Scope a search to a specific project KB.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: total, items[] (id, idReadable, summary, project, parentArticle, usesMarkdown).",
+        "Limitations: query must not contain { or } (those are reserved by YQL); content field is omitted from results.",
+      ].join("\n"),
       articlesSearchArgs,
       async (args) => articlesSearchHandler(this.client, args),
     );
