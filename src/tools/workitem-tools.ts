@@ -8,7 +8,7 @@ import { issueIdSchema, workItemIdSchema, userLoginSchema } from "../utils/valid
 
 const isoDate = z
   .string()
-  .regex(/\d{4}-\d{2}-\d{2}/)
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
   .describe("Date in YYYY-MM-DD format");
 const dateInput = z.union([isoDate, z.number(), z.date()]);
 const baseFilterArgs = {

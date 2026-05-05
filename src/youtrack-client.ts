@@ -111,6 +111,7 @@ import { buildIssueQuery } from "./utils/issue-query.js";
 
 const DEFAULT_PAGE_SIZE = 200;
 const DEFAULT_EXPECTED_MINUTES = 8 * 60;
+const MAX_STAR_BATCH_SIZE = 50;
 const defaultFields = {
   issue: [
     "id",
@@ -2025,7 +2026,8 @@ export class YoutrackClient {
       }
 
       if (dates.length > 0) {
-        const lastActivityTimestamp = Math.max(...dates);
+        // Avoid Math.max(...arr) since spread arg count is bounded by JS engines.
+        const lastActivityTimestamp = dates.reduce((acc, d) => (d > acc ? d : acc), -Infinity);
         const lastActivityDate = DateTime.fromMillis(lastActivityTimestamp).toISO() ?? "";
 
         issuesWithActivity.push({
@@ -3095,8 +3097,8 @@ export class YoutrackClient {
    * Add stars to multiple issues with concurrency limiting (max 50 issues)
    */
   async starIssues(issueIds: string[]): Promise<IssueStarBatchPayload> {
-    if (issueIds.length > 50) {
-      throw new YoutrackClientError("Maximum 50 issues allowed per batch operation");
+    if (issueIds.length > MAX_STAR_BATCH_SIZE) {
+      throw new YoutrackClientError(`Maximum ${MAX_STAR_BATCH_SIZE} issues allowed per batch operation`);
     }
 
     const results = await this.processBatch(
@@ -3139,8 +3141,8 @@ export class YoutrackClient {
    * Remove stars from multiple issues with concurrency limiting (max 50 issues)
    */
   async unstarIssues(issueIds: string[]): Promise<IssueStarBatchPayload> {
-    if (issueIds.length > 50) {
-      throw new YoutrackClientError("Maximum 50 issues allowed per batch operation");
+    if (issueIds.length > MAX_STAR_BATCH_SIZE) {
+      throw new YoutrackClientError(`Maximum ${MAX_STAR_BATCH_SIZE} issues allowed per batch operation`);
     }
 
     const results = await this.processBatch(

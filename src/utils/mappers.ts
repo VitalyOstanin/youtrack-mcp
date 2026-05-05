@@ -107,24 +107,15 @@ export function mapIssueBrief(issue: YoutrackIssue): MappedYoutrackIssue {
   // Try to extract assignee from customFields if not present
   let assignee = issue.assignee ?? null;
 
-  interface CustomField { name: string; value?: { id?: string; login?: string; name?: string } }
+  if (!assignee && issue.customFields) {
+    const assigneeField = issue.customFields.find((f) => f.name === "Assignee" && f.value);
+    const value = assigneeField?.value;
 
-  if (!assignee && Array.isArray((issue as { customFields?: CustomField[] }).customFields)) {
-    const assigneeField = (issue as { customFields?: CustomField[] }).customFields?.find(
-      (f) => f.name === "Assignee" && f.value,
-    );
-
-    if (assigneeField?.value) {
-      const { id = "", login = "", name = "" } = assigneeField.value as {
-        id?: string;
-        login?: string;
-        name?: string;
-      };
-
+    if (value) {
       assignee = {
-        id,
-        login,
-        name,
+        id: value.id ?? "",
+        login: value.login ?? "",
+        name: value.name ?? "",
       };
     }
   }

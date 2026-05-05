@@ -4,7 +4,7 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 
-const sharedDate = z.union([z.string().regex(/\d{4}-\d{2}-\d{2}/), z.number(), z.date()]);
+const sharedDate = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.number(), z.date()]);
 const reportBaseArgs = {
   author: z.string().optional().describe("Work item author login"),
   issueId: z.string().optional().describe("Issue code"),

@@ -689,6 +689,7 @@ export interface YoutrackStateEvent {
 export interface YoutrackCustomFieldValue {
   id?: string;
   name?: string;
+  login?: string;
   presentation?: string;
   $type?: string;
 }

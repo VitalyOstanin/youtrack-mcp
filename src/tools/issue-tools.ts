@@ -9,7 +9,7 @@ const issueIdArgs = {
   issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
   briefOutput: z
     .boolean()
-    .optional()
+    .default(true)
     .describe("Brief mode (default: true). When false, include all available customFields including State."),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
@@ -42,7 +42,7 @@ const issueIdsArgs = {
     .describe("Array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50"),
   briefOutput: z
     .boolean()
-    .optional()
+    .default(true)
     .describe("Brief mode (default: true). When false, include all available customFields for each issue."),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
@@ -155,7 +155,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     async (rawInput) => {
       try {
         const payload = issueIdSchema.parse(rawInput);
-        const includeCustomFields = !(payload.briefOutput ?? true);
+        const includeCustomFields = !payload.briefOutput;
         const issue = await client.getIssue(payload.issueId, includeCustomFields);
         const response = toolSuccess(issue);
 
@@ -175,7 +175,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     async (rawInput) => {
       try {
         const payload = issueIdSchema.parse(rawInput);
-        const brief = payload.briefOutput ?? true;
+        const brief = payload.briefOutput;
         const details = await client.getIssueDetails(payload.issueId, !brief);
         const response = toolSuccess(details);
 
@@ -371,7 +371,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     async (rawInput) => {
       try {
         const payload = issueIdsSchema.parse(rawInput);
-        const includeCustomFields = !(payload.briefOutput ?? true);
+        const includeCustomFields = !payload.briefOutput;
         const result = await client.getIssues(payload.issueIds, includeCustomFields);
         const processedResult = await processWithFileStorage(
           {
@@ -409,7 +409,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     async (rawInput) => {
       try {
         const payload = issueIdsSchema.parse(rawInput);
-        const brief = payload.briefOutput ?? true;
+        const brief = payload.briefOutput;
         const result = await client.getIssuesDetails(payload.issueIds, !brief);
         const processedResult = await processWithFileStorage(
           {
