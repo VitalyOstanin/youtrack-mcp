@@ -36,12 +36,21 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportArgsSchema.parse(rawInput);
         const report = await client.generateWorkItemReport(payload);
-        const processedResult = await processWithFileStorage({ report }, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          { report },
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             reportSummary: {
               totalMinutes: report.summary.totalMinutes,
               workDays: report.summary.workDays,
@@ -66,12 +75,21 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportArgsSchema.parse(rawInput);
         const invalidDays = await client.generateInvalidWorkItemReport(payload);
-        const processedResult = await processWithFileStorage({ invalidDays }, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          { invalidDays },
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             invalidDaysCount: invalidDays.length,
           });
         }
@@ -96,12 +114,21 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       try {
         const payload = reportUsersArgsSchema.parse(rawInput);
         const report = await client.generateUsersWorkItemReports(payload.users, payload);
-        const processedResult = await processWithFileStorage(report, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          report,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             usersCount: report.reports.length,
           });
         }

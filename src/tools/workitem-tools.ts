@@ -126,12 +126,21 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
         const payload = workItemsListSchema.parse(rawInput);
         const items = await client.listWorkItems(payload);
         const result = { items: mapWorkItems(items) };
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             itemCount: items.length,
           });
         }
@@ -154,12 +163,21 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
         const payload = workItemsListSchema.parse(rawInput);
         const items = await client.listAllUsersWorkItems(payload);
         const result = { items: mapWorkItems(items) };
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             itemCount: items.length,
           });
         }
@@ -182,12 +200,21 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
         const payload = workItemsUsersSchema.parse(rawInput);
         const items = await client.getWorkItemsForUsers(payload.users, payload);
         const result = { items: mapWorkItems(items), users: payload.users };
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             itemCount: items.length,
             users: payload.users,
           });
@@ -368,12 +395,21 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
         const payload = workItemsRecentSchema.parse(rawInput);
         const items = await client.listRecentWorkItems(payload);
         const result = { items: mapWorkItems(items), count: items.length };
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             itemCount: items.length,
           });
         }

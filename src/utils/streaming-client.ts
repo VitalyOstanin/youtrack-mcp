@@ -1,8 +1,10 @@
-import https from 'https';
-import http from 'http';
-import { join, dirname } from 'path';
-import { createWriteStream, mkdirSync, existsSync } from 'fs';
-import { Transform } from 'stream';
+import https from "node:https";
+import http from "node:http";
+import { createWriteStream, existsSync, promises as fsPromises } from "node:fs";
+import { dirname } from "node:path";
+import { Transform } from "node:stream";
+
+import { resolveOutputPath } from "./path-safety.js";
 
 export interface StreamingRequestOptions {
   baseUrl: string;
@@ -12,34 +14,35 @@ export interface StreamingRequestOptions {
 }
 
 /**
- * Creates a direct stream from HTTP response to file without memory accumulation
+ * Streams an HTTP response from YouTrack directly into a file inside rootDir.
+ * The target path is resolved through resolveOutputPath; absolute paths and
+ * `..` segments are rejected. On any error the partial file is removed.
+ *
+ * NOTE: JSONL handling here parses chunks individually which is incorrect for
+ * arrays split across TCP boundaries. A streaming JSON parser will be wired in
+ * a follow-up task; for now we keep the existing behaviour but make path
+ * handling safe.
  */
 export async function streamHttpToFile(
   options: StreamingRequestOptions,
-  filePath: string,
-  format: 'jsonl' | 'json' = 'json',
-  overwrite: boolean = false,
+  filePath: string | undefined,
+  rootDir: string,
+  format: "jsonl" | "json" = "json",
+  overwrite = false,
 ): Promise<string> {
-  // Generate file path if not provided
-  if (!filePath) {
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 8);
-    const fileName = `youtrack-data-${timestamp}-${randomId}.${format === 'jsonl' ? 'jsonl' : 'json'}`;
+  const relPath =
+    filePath ??
+    `youtrack-data-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${format === "jsonl" ? "jsonl" : "json"}`;
+  const finalPath = resolveOutputPath(relPath, { rootDir });
 
-    filePath = join('data', fileName);
+  await fsPromises.mkdir(dirname(finalPath), { recursive: true });
+
+  if (existsSync(finalPath) && !overwrite) {
+    throw new Error(
+      `File already exists: ${finalPath}. Choose a different file path or remove the existing file.`,
+    );
   }
 
-  // Ensure directory exists
-  const dir = dirname(filePath);
-
-  mkdirSync(dir, { recursive: true });
-
-  // Check if file already exists
-  if (existsSync(filePath) && !overwrite) {
-    throw new Error(`File already exists: ${filePath}. Choose a different file path or remove the existing file.`);
-  }
-
-  // Build URL with parameters
   const params = new URLSearchParams();
 
   if (options.params) {
@@ -48,58 +51,59 @@ export async function streamHttpToFile(
     }
   }
 
-  const url = `${options.baseUrl}${options.endpoint}${params.toString() ? `?${  params.toString()}` : ''}`;
-  // Prepare request options
+  const url = `${options.baseUrl}${options.endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
   const urlObj = new URL(url);
-  const isHttps = urlObj.protocol === 'https:';
+  const isHttps = urlObj.protocol === "https:";
   const client = isHttps ? https : http;
   const requestOptions: https.RequestOptions = {
     hostname: urlObj.hostname,
     port: urlObj.port,
     path: urlObj.pathname + urlObj.search,
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Authorization': `Bearer ${options.token}`,
-      'Accept': 'application/json',
+      Authorization: `Bearer ${options.token}`,
+      Accept: "application/json",
     },
   };
 
   return new Promise((resolve, reject) => {
-    // Create write stream
-    const writeStream = createWriteStream(filePath, { encoding: 'utf-8' });
+    const writeStream = createWriteStream(finalPath, { encoding: "utf-8" });
+    let settled = false;
+    const cleanupAndReject = (err: unknown): void => {
+      if (settled) return;
+      settled = true;
+      writeStream.destroy();
+      void fsPromises.unlink(finalPath).catch(() => undefined);
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
     const req = client.request(requestOptions, (res) => {
       if (res.statusCode !== 200) {
-        reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
+        cleanupAndReject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
 
         return;
       }
 
-      if (format === 'jsonl') {
-        // For JSONL, transform each JSON object to a separate line
+      if (format === "jsonl") {
         const jsonlTransform = new Transform({
-          transform(chunk: Buffer, _encoding: string, callback: (error?: Error | null, data?: unknown) => void) {
+          transform(chunk: Buffer, _encoding, callback) {
             try {
-              // Parse the response as JSON array and write each item as a separate line
               const dataStr = chunk.toString();
               let parsed: unknown;
 
               try {
                 parsed = JSON.parse(dataStr);
-              } catch (_e: unknown) {
-                // If it's not valid JSON, pass it through (may be partial)
+              } catch (_e) {
                 callback(null, chunk);
 
                 return;
               }
 
               if (Array.isArray(parsed)) {
-                // This is a JSON array, convert to JSONL (one item per line)
-                const lines = `${parsed.map(item => JSON.stringify(item)).join('\n')  }\n`;
+                const lines = `${parsed.map((item) => JSON.stringify(item)).join("\n")}\n`;
 
                 callback(null, lines);
               } else {
-                // Single object, write as one line
-                callback(null, `${JSON.stringify(parsed)  }\n`);
+                callback(null, `${JSON.stringify(parsed)}\n`);
               }
             } catch (err: unknown) {
               callback(err instanceof Error ? err : new Error(String(err)));
@@ -107,24 +111,24 @@ export async function streamHttpToFile(
           },
         });
 
+        res.on("error", cleanupAndReject);
+        jsonlTransform.on("error", cleanupAndReject);
         res.pipe(jsonlTransform).pipe(writeStream);
       } else {
-        // For JSON format, pipe the response directly
+        res.on("error", cleanupAndReject);
         res.pipe(writeStream);
       }
     });
 
-    req.on('error', (err) => {
-      reject(err);
+    req.on("error", cleanupAndReject);
+
+    writeStream.on("finish", () => {
+      if (settled) return;
+      settled = true;
+      resolve(finalPath);
     });
 
-    writeStream.on('finish', () => {
-      resolve(filePath);
-    });
-
-    writeStream.on('error', (err) => {
-      reject(err);
-    });
+    writeStream.on("error", cleanupAndReject);
 
     req.end();
   });

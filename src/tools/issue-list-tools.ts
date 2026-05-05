@@ -107,17 +107,20 @@ export function registerIssueListTools(server: McpServer, client: YoutrackClient
           skip: payload.skip,
         });
         const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
           result,
-          payload.saveToFile,
-          payload.filePath,
-          payload.format ?? 'jsonl',
-          payload.overwrite,
+          client.getOutputDir(),
         );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             totalIssues: result.issues.length,
             pagination: result.pagination,
             filters: result.filters,

@@ -44,12 +44,21 @@ export async function articlesSearchHandler(client: YoutrackClient, rawInput: un
           webUrl: `${baseUrl}/articles/${article.idReadable}`,
         }))
       : data;
-    const processedResult = await processWithFileStorage(articlesWithLinks, input.saveToFile, input.filePath, input.format ?? 'jsonl', input.overwrite);
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: input.saveToFile,
+        filePath: input.filePath,
+        format: input.format ?? 'jsonl',
+        overwrite: input.overwrite,
+      },
+      articlesWithLinks,
+      client.getOutputDir(),
+    );
 
     if (processedResult.savedToFile) {
       return toolSuccess({
         savedToFile: true,
-        filePath: processedResult.filePath,
+        savedTo: processedResult.savedTo,
         articleCount: Array.isArray(articlesWithLinks) ? articlesWithLinks.length : 0,
       });
     }

@@ -210,12 +210,21 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
       byProject: Object.entries(byProject).map(([project, count]) => ({ project, count })),
       items: allIssues,
     };
-    const processedResult = await processWithFileStorage(result, input.saveToFile, input.filePath, input.format ?? 'jsonl', input.overwrite);
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: input.saveToFile,
+        filePath: input.filePath,
+        format: input.format ?? 'jsonl',
+        overwrite: input.overwrite,
+      },
+      result,
+      client.getOutputDir(),
+    );
 
     if (processedResult.savedToFile) {
       return toolSuccess({
         savedToFile: true,
-        filePath: processedResult.filePath,
+        savedTo: processedResult.savedTo,
         total,
         byProject: Object.entries(byProject).map(([project, count]) => ({ project, count })),
         itemCount: allIssues.length,

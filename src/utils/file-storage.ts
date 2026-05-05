@@ -1,35 +1,58 @@
-import { createWriteStream, mkdirSync, existsSync } from "fs";
-import { join, dirname } from "path";
-import { Transform, Readable } from "stream";
-import { pipeline } from "stream/promises";
+import { createWriteStream, existsSync, promises as fsPromises } from "node:fs";
+import { dirname } from "node:path";
+import { Transform, Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
-export interface StreamingFileStorageOptions {
-  dataStream: AsyncIterable<unknown>; // Поток данных для обработки
+import { resolveOutputPath } from "./path-safety.js";
+
+export type FileStorageFormat = "json" | "jsonl";
+
+export interface FileStorageArgs {
+  saveToFile?: boolean;
   filePath?: string;
-  baseDir?: string;
-  format?: 'json' | 'jsonl';  // формат по умолчанию теперь 'json'
+  format?: FileStorageFormat;
   overwrite?: boolean;
 }
 
+export interface StreamingFileStorageOptions {
+  dataStream: AsyncIterable<unknown>;
+  filePath?: string;
+  rootDir: string;
+  format?: FileStorageFormat;
+  overwrite?: boolean;
+  /**
+   * When true (default), JSON output is wrapped in `[ ... ]`. Set to false to
+   * write a single object/value as raw JSON without array wrapping.
+   */
+  jsonAsArray?: boolean;
+}
+
+export interface FileStorageResult<T> {
+  data: T;
+  savedToFile?: boolean;
+  savedTo?: string;
+}
+
 /**
- * Creates a readable stream from an async iterable
+ * Wraps an AsyncIterable into a Node Readable in object mode so it can be
+ * fed into a stream pipeline.
  */
 class AsyncIterableReadable extends Readable {
   private readonly _iterator: AsyncIterator<unknown>;
-  private reading: boolean = false;
+  private reading = false;
 
-  constructor(private readonly asyncIterable: AsyncIterable<unknown>) {
+  constructor(asyncIterable: AsyncIterable<unknown>) {
     super({ objectMode: true });
     this._iterator = asyncIterable[Symbol.asyncIterator]();
   }
 
-  _read() {
+  override _read(): void {
     if (this.reading) return;
     this.reading = true;
-    this.readNext();
+    void this.readNext();
   }
 
-  private async readNext() {
+  private async readNext(): Promise<void> {
     try {
       const result = await this._iterator.next();
 
@@ -41,138 +64,144 @@ class AsyncIterableReadable extends Readable {
       }
 
       if (this.push(result.value)) {
-        setImmediate(() => this.readNext());
+        setImmediate(() => {
+          void this.readNext();
+        });
       } else {
-        this.once('drain', () => {
+        this.once("drain", () => {
           this.reading = false;
-          this.readNext();
+          void this.readNext();
         });
       }
     } catch (error: unknown) {
-      this.emit('error', error instanceof Error ? error : new Error(String(error)));
-      this.push(null);
-      this.reading = false;
+      this.destroy(error instanceof Error ? error : new Error(String(error)));
     }
   }
 }
 
 /**
- * Streams data to a JSON or JSONL file from a data stream for handling large datasets without memory issues
+ * Generates a default filename relative to rootDir when caller did not provide one.
+ */
+function defaultFileName(format: FileStorageFormat): string {
+  const timestamp = Date.now();
+  const randomId = Math.random().toString(36).slice(2, 8);
+  const ext = format === "jsonl" ? "jsonl" : "json";
+
+  return `youtrack-data-${timestamp}-${randomId}.${ext}`;
+}
+
+/**
+ * Streams data to a JSON or JSONL file. The target path is always resolved
+ * inside rootDir; absolute paths and traversal segments are rejected.
+ * On error the partial file is removed.
  */
 export async function streamDataToFileAsync(options: StreamingFileStorageOptions): Promise<string> {
-  const { dataStream, filePath, baseDir = "data", format = 'json', overwrite } = options;
-  let finalPath: string;
+  const {
+    dataStream,
+    filePath,
+    rootDir,
+    format = "json",
+    overwrite = false,
+    jsonAsArray = true,
+  } = options;
+  const relPath = filePath ?? defaultFileName(format);
+  const finalPath = resolveOutputPath(relPath, { rootDir });
 
-  if (filePath) {
-    finalPath = filePath;
-  } else {
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 8);
-    const fileName = `youtrack-data-${timestamp}-${randomId}.${format === 'jsonl' ? 'jsonl' : 'json'}`;
-
-    finalPath = join(baseDir, fileName);
-  }
-
-  const dir = dirname(finalPath);
-
-  mkdirSync(dir, { recursive: true });
+  await fsPromises.mkdir(dirname(finalPath), { recursive: true });
 
   if (existsSync(finalPath) && !overwrite) {
-    throw new Error(`File already exists: ${finalPath}. Choose a different file path or remove the existing file.`);
+    throw new Error(
+      `File already exists: ${finalPath}. Choose a different file path or remove the existing file.`,
+    );
   }
 
   const writeStream = createWriteStream(finalPath, { encoding: "utf-8" });
 
-  if (format === 'jsonl') {
-    return new Promise((resolve, reject) => {
-      writeStream.on('finish', () => { resolve(finalPath); });
-      writeStream.on('error', (error: unknown) => { reject(error instanceof Error ? error : new Error(String(error))); });
-
-      (async () => {
-        try {
-          for await (const item of dataStream) {
-            writeStream.write(`${JSON.stringify(item)  }\n`);
+  try {
+    if (format === "jsonl") {
+      const jsonlTransform = new Transform({
+        writableObjectMode: true,
+        readableObjectMode: false,
+        transform(chunk: unknown, _encoding, callback) {
+          try {
+            callback(null, `${JSON.stringify(chunk)}\n`);
+          } catch (err: unknown) {
+            callback(err instanceof Error ? err : new Error(String(err)));
           }
-          writeStream.end();
-        } catch (error: unknown) {
-          reject(error instanceof Error ? error : new Error(String(error)));
-        }
-      })();
-    });
-  } else {
-    const readable = new AsyncIterableReadable(dataStream);
-    const jsonFormattingTransform = new Transform({
-      objectMode: true,
-      transform(chunk, encoding, callback) {
-        try {
-          const json = JSON.stringify(chunk, null, 2);
+        },
+      });
 
-          callback(null, json);
-        } catch (err: unknown) {
-          callback(err instanceof Error ? err : new Error(String(err)));
-        }
-      },
-    });
-    let isFirst = true;
-    let hasItems = false;
-    const jsonArrayTransform = new Transform({
-      objectMode: true,
-      transform(chunk, encoding, callback) {
-        if (isFirst) {
-          callback(null, `[\n${  chunk}`);
-          isFirst = false;
-          hasItems = true;
-        } else {
-          callback(null, `,\n${  chunk}`);
-        }
-      },
-      flush(callback) {
-        if (hasItems) {
-          callback(null, '\n]');
-        } else {
-          callback(null, '[]');
-        }
-      },
-    });
+      await pipeline(new AsyncIterableReadable(dataStream), jsonlTransform, writeStream);
+    } else if (jsonAsArray) {
+      let isFirst = true;
+      let hasItems = false;
+      const jsonArrayTransform = new Transform({
+        writableObjectMode: true,
+        readableObjectMode: false,
+        transform(chunk: unknown, _encoding, callback) {
+          try {
+            const json = JSON.stringify(chunk, null, 2);
 
-    return new Promise((resolve, reject) => {
-      writeStream.on('finish', () => { resolve(finalPath); });
-      writeStream.on('error', (error: unknown) => { reject(error instanceof Error ? error : new Error(String(error))); });
+            if (isFirst) {
+              isFirst = false;
+              hasItems = true;
+              callback(null, `[\n${json}`);
+            } else {
+              callback(null, `,\n${json}`);
+            }
+          } catch (err: unknown) {
+            callback(err instanceof Error ? err : new Error(String(err)));
+          }
+        },
+        flush(callback) {
+          callback(null, hasItems ? "\n]" : "[]");
+        },
+      });
 
-      (async () => {
-        try {
-          await pipeline(
-            readable,
-            jsonFormattingTransform,
-            jsonArrayTransform,
-            writeStream,
-          );
-        } catch (error: unknown) {
-          reject(error instanceof Error ? error : new Error(String(error)));
-        }
-      })();
-    });
+      await pipeline(new AsyncIterableReadable(dataStream), jsonArrayTransform, writeStream);
+    } else {
+      const singleTransform = new Transform({
+        writableObjectMode: true,
+        readableObjectMode: false,
+        transform(chunk: unknown, _encoding, callback) {
+          try {
+            callback(null, JSON.stringify(chunk, null, 2));
+          } catch (err: unknown) {
+            callback(err instanceof Error ? err : new Error(String(err)));
+          }
+        },
+      });
+
+      await pipeline(new AsyncIterableReadable(dataStream), singleTransform, writeStream);
+    }
+  } catch (error) {
+    await fsPromises.unlink(finalPath).catch(() => undefined);
+    throw error;
   }
+
+  return finalPath;
 }
 
 /**
- * Common file storage arguments for tools
+ * MCP tool argument schema for file storage options. Re-used from many tools.
  */
 export const fileStorageArgs = {
   saveToFile: {
     type: "boolean" as const,
     optional: true,
-    describe: "Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts.",
+    describe:
+      "Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts.",
   },
   filePath: {
     type: "string" as const,
     optional: true,
-    describe: "Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist.",
+    describe:
+      "Path relative to YOUTRACK_OUTPUT_DIR (no absolute paths, no .. segments). Auto-generated if omitted.",
   },
   format: {
     type: "string" as const,
     optional: true,
-    describe: "Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is json.",
+    describe: "Output format when saving to file: jsonl (JSON Lines) or json (JSON array). Default is json.",
     choices: ["json", "jsonl"] as const,
   },
   overwrite: {
@@ -183,48 +212,43 @@ export const fileStorageArgs = {
 };
 
 /**
- * Result of file storage operation
- */
-export interface FileStorageResult<T> {
-  data: T;
-  savedToFile?: boolean;
-  filePath?: string;
-}
-
-/**
- * Processes tool result with optional file storage supporting streaming
+ * Persists tool result to a file when args.saveToFile is true. The path is
+ * resolved relative to rootDir; absolute paths and traversal segments are
+ * rejected by resolveOutputPath.
  */
 export async function processWithFileStorage<T>(
+  args: FileStorageArgs,
   data: T,
-  saveToFile?: boolean,
-  filePath?: string,
-  format: 'json' | 'jsonl' = 'json',  // изменен на json по умолчанию
-  overwrite?: boolean,
+  rootDir: string,
 ): Promise<FileStorageResult<T>> {
-
-  if (saveToFile) {
-    const dataStream: AsyncIterable<unknown> = async function*() {
-      if (Array.isArray(data)) {
-        for (const item of data) {
-          yield item;
-        }
-      } else {
-        yield data;
-      }
-    }();
-    const savedPath = await streamDataToFileAsync({
-      dataStream,
-      filePath,
-      format,
-      overwrite,
-    });
-
-    return {
-      data,
-      savedToFile: true,
-      filePath: savedPath,
-    };
+  if (!args.saveToFile) {
+    return { data };
   }
 
-  return { data };
+  const isArray = Array.isArray(data);
+  const dataStream: AsyncIterable<unknown> = (async function* () {
+    if (isArray) {
+      for (const item of data) {
+        yield item;
+      }
+    } else {
+      yield data;
+    }
+  })();
+  const format = args.format ?? "json";
+  const savedPath = await streamDataToFileAsync({
+    dataStream,
+    filePath: args.filePath,
+    rootDir,
+    format,
+    overwrite: args.overwrite,
+    // For JSON: wrap with [...] only when caller passed an array.
+    jsonAsArray: format === "json" ? isArray : true,
+  });
+
+  return {
+    data,
+    savedToFile: true,
+    savedTo: savedPath,
+  };
 }

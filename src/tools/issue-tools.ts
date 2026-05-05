@@ -176,12 +176,21 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdSchema.parse(rawInput);
         const comments = await client.getIssueComments(payload.issueId);
-        const processedResult = await processWithFileStorage(comments, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          comments,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             commentCount: comments.comments.length,
           });
         }
@@ -341,12 +350,21 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
         const payload = issueIdsSchema.parse(rawInput);
         const includeCustomFields = !(payload.briefOutput ?? true);
         const result = await client.getIssues(payload.issueIds, includeCustomFields);
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             issueCount: result.issues.length,
             errorsCount: result.errors?.length ?? 0,
           });
@@ -370,12 +388,21 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
         const payload = issueIdsSchema.parse(rawInput);
         const brief = payload.briefOutput ?? true;
         const result = await client.getIssuesDetails(payload.issueIds, !brief);
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             issueCount: result.issues.length,
             errorsCount: result.errors?.length ?? 0,
           });
@@ -398,12 +425,21 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       try {
         const payload = issueIdsSchema.parse(rawInput);
         const result = await client.getMultipleIssuesComments(payload.issueIds);
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             totalComments: Object.values(result.commentsByIssue).flat().length,
           });
         }

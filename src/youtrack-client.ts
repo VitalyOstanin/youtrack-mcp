@@ -232,6 +232,14 @@ export class YoutrackClient {
   }
 
   /**
+   * Returns the absolute output directory configured via YOUTRACK_OUTPUT_DIR.
+   * All file-writing tools resolve relative paths against this root.
+   */
+  getOutputDir(): string {
+    return this.config.outputDir;
+  }
+
+  /**
    * GET helper that prefers `$top`/`$skip` and retries with `top`/`skip` on 400.
    * Returns only `data` for convenience.
    */

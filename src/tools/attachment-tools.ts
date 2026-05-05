@@ -4,7 +4,7 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { downloadFileFromUrl, extractFilenameFromUrlOrHeader } from "../utils/file-download.js";
-import { join } from "path";
+import { sanitizeFilename } from "../utils/path-safety.js";
 
 const issueIdArgs = {
   issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
@@ -26,6 +26,79 @@ const attachmentDownloadArgs = {
   downloadPath: z.string().optional().describe("Path to save the downloaded file (optional, auto-generated if not provided based on attachment name). Directory will be created if it doesn't exist."),
 };
 const attachmentDownloadSchema = z.object(attachmentDownloadArgs);
+
+type AttachmentDownloadPayload = z.infer<typeof attachmentDownloadSchema>;
+
+/**
+ * Handler for `issue_attachment_download`. Exported for tests; production code
+ * still wires it into the MCP server below.
+ */
+export async function issueAttachmentDownloadHandler(
+  client: YoutrackClient,
+  payload: AttachmentDownloadPayload,
+) {
+  try {
+    if (payload.downloadToFile) {
+      const attachmentInfo = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
+      const { downloadUrl, attachment } = attachmentInfo;
+      const rootDir = client.getOutputDir();
+      let targetRel: string;
+
+      if (payload.downloadPath) {
+        targetRel = payload.downloadPath;
+      } else {
+        const rawName = attachment.name.length > 0
+          ? attachment.name
+          : extractFilenameFromUrlOrHeader(downloadUrl);
+        const safeIssue = sanitizeFilename(payload.issueId);
+        const safeName = sanitizeFilename(rawName);
+
+        targetRel = `issues/${safeIssue}/${safeName}`;
+      }
+
+      const downloadedPath = await downloadFileFromUrl({
+        url: downloadUrl,
+        targetRel,
+        rootDir,
+        overwrite: payload.overwrite,
+      });
+
+      return toolSuccess({
+        downloaded: true,
+        savedTo: downloadedPath,
+        attachmentId: payload.attachmentId,
+        issueId: payload.issueId,
+        originalAttachmentInfo: attachment,
+      });
+    }
+
+    const result = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: payload.saveToFile,
+        filePath: payload.filePath,
+        format: payload.format ?? 'jsonl',
+        overwrite: payload.overwrite,
+      },
+      result,
+      client.getOutputDir(),
+    );
+
+    if (processedResult.savedToFile) {
+      return toolSuccess({
+        savedToFile: true,
+        savedTo: processedResult.savedTo,
+        attachmentId: payload.attachmentId,
+        issueId: payload.issueId,
+      });
+    }
+
+    return toolSuccess(result);
+  } catch (error) {
+    return toolError(error);
+  }
+}
+
 const attachmentUploadArgs = {
   ...issueIdArgs,
   filePaths: z
@@ -56,12 +129,21 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       try {
         const payload = issueIdSchema.parse(rawInput);
         const result = await client.listAttachments(payload.issueId);
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             attachmentsCount: result.attachments.length,
           });
         }
@@ -102,60 +184,9 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
       try {
         const payload = attachmentDownloadSchema.parse(rawInput);
 
-        // If downloadToFile is true, download the file directly
-        if (payload.downloadToFile) {
-          // Get attachment info to obtain the download URL and filename
-          const attachmentInfo = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
-          const { downloadUrl, attachment } = attachmentInfo;
-          // Determine the file path for download
-          let downloadFilePath: string;
-
-          if (payload.downloadPath) {
-            downloadFilePath = payload.downloadPath;
-          } else {
-            // Generate filename from attachment info
-            const filename = attachment.name || extractFilenameFromUrlOrHeader(downloadUrl);
-
-            downloadFilePath = join("downloads", payload.issueId, filename);
-          }
-
-          // Download the file
-          const downloadedPath = await downloadFileFromUrl({
-            url: downloadUrl,
-            filePath: downloadFilePath,
-            overwrite: payload.overwrite,
-          });
-          // Return success response with download info
-          const response = toolSuccess({
-            downloaded: true,
-            filePath: downloadedPath,
-            attachmentId: payload.attachmentId,
-            issueId: payload.issueId,
-            originalAttachmentInfo: attachment,
-          });
-
-          return response;
-        }
-        // If downloadToFile is false, return the original download info
-        else {
-          const result = await client.getAttachmentDownloadInfo(payload.issueId, payload.attachmentId);
-          const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
-
-          if (processedResult.savedToFile) {
-            return toolSuccess({
-              savedToFile: true,
-              filePath: processedResult.filePath,
-              attachmentId: payload.attachmentId,
-              issueId: payload.issueId,
-            });
-          }
-
-          return toolSuccess(result);
-        }
+        return await issueAttachmentDownloadHandler(client, payload);
       } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
+        return toolError(error);
       }
     },
   );

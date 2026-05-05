@@ -44,12 +44,21 @@ export function registerIssueStatusTools(server: McpServer, client: YoutrackClie
           status,
           stateField: stateField ?? null,
         };
-        const processedResult = await processWithFileStorage(result, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          result,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
           });
         }
 
@@ -86,12 +95,21 @@ export function registerIssueStatusTools(server: McpServer, client: YoutrackClie
           statuses: statusResults,
           errors: errors.length > 0 ? errors : undefined,
         };
-        const processedResult = await processWithFileStorage(finalResult, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          finalResult,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             statusCount: statusResults.length,
             errorsCount: errors.length,
           });

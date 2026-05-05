@@ -23,12 +23,21 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
       try {
         const payload = rawInput;
         const users = await client.listUsers();
-        const processedResult = await processWithFileStorage(users, payload.saveToFile, payload.filePath, payload.format ?? 'jsonl', payload.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: payload.saveToFile,
+            filePath: payload.filePath,
+            format: payload.format ?? 'jsonl',
+            overwrite: payload.overwrite,
+          },
+          users,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             usersCount: users.users.length,
           });
         }

@@ -94,12 +94,21 @@ export async function usersActivityHandler(client: YoutrackClient, rawInput: unk
         skip: input.skip,
       },
     };
-    const processedResult = await processWithFileStorage(payload, input.saveToFile, input.filePath, input.format ?? 'jsonl', input.overwrite);
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: input.saveToFile,
+        filePath: input.filePath,
+        format: input.format ?? 'jsonl',
+        overwrite: input.overwrite,
+      },
+      payload,
+      client.getOutputDir(),
+    );
 
     if (processedResult.savedToFile) {
       return toolSuccess({
         savedToFile: true,
-        filePath: processedResult.filePath,
+        savedTo: processedResult.savedTo,
         activityCount: mappedActivities.length,
         filters: payload.filters,
         pagination: payload.pagination,

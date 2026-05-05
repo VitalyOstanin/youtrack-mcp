@@ -86,12 +86,21 @@ export function registerIssueActivityTools(server: McpServer, client: YoutrackCl
             skip: input.skip ?? 0,
           },
         };
-        const processedResult = await processWithFileStorage(payload, input.saveToFile, input.filePath, input.format ?? 'jsonl', input.overwrite);
+        const processedResult = await processWithFileStorage(
+          {
+            saveToFile: input.saveToFile,
+            filePath: input.filePath,
+            format: input.format ?? 'jsonl',
+            overwrite: input.overwrite,
+          },
+          payload,
+          client.getOutputDir(),
+        );
 
         if (processedResult.savedToFile) {
           return toolSuccess({
             savedToFile: true,
-            filePath: processedResult.filePath,
+            savedTo: processedResult.savedTo,
             activityCount: paginatedActivities.length,
           });
         }

@@ -1,73 +1,159 @@
-import { createWriteStream, existsSync } from "fs";
-import { pipeline } from "stream/promises";
-import axios from "axios";
+import { createWriteStream, existsSync, promises as fsPromises } from "node:fs";
+import http from "node:http";
+import https from "node:https";
+import { dirname } from "node:path";
+import { pipeline } from "node:stream/promises";
+
+import { resolveOutputPath } from "./path-safety.js";
 
 export interface FileDownloadOptions {
   url: string;
-  filePath: string;
+  /** Path relative to rootDir; absolute or traversal paths are rejected. */
+  targetRel: string;
+  rootDir: string;
   headers?: Record<string, string>;
-  overwrite?: boolean;  // Добавляем опцию перезаписи
+  overwrite?: boolean;
+  /** Request timeout in milliseconds (defaults to 60s). */
+  timeoutMs?: number;
+  /** Maximum response body size in bytes (defaults to 50 MiB). */
+  maxBytes?: number;
+}
+
+const DEFAULT_TIMEOUT_MS = 60_000;
+const DEFAULT_MAX_BYTES = 50 * 1024 * 1024;
+
+interface ResponseStream extends NodeJS.ReadableStream {
+  statusCode?: number;
+  statusMessage?: string;
+  destroy: (err?: Error) => void;
 }
 
 /**
- * Downloads a file from the given URL and saves it to the specified path
+ * Performs an HTTP(S) GET request and returns the response stream once headers
+ * are received. Throws on non-2xx status. Uses native node:http/https so the
+ * downloader stays nock-compatible and free of follow-redirects coupling.
+ */
+function requestStream(
+  url: string,
+  headers: Record<string, string> | undefined,
+  timeoutMs: number,
+): Promise<ResponseStream> {
+  return new Promise((resolve, reject) => {
+    let parsed: URL;
+
+    try {
+      parsed = new URL(url);
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+
+      return;
+    }
+
+    const transport = parsed.protocol === "https:" ? https : http;
+    const req = transport.request(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port,
+        path: parsed.pathname + parsed.search,
+        method: "GET",
+        headers,
+      },
+      (res) => {
+        const status = res.statusCode ?? 0;
+
+        if (status < 200 || status >= 300) {
+          res.resume();
+          reject(new Error(`HTTP ${status}: ${res.statusMessage ?? "request failed"}`));
+
+          return;
+        }
+
+        resolve(res);
+      },
+    );
+
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`Request timed out after ${timeoutMs} ms`));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+/**
+ * Downloads a file from the given URL into rootDir/targetRel. The path is
+ * resolved through resolveOutputPath; absolute paths and `..` segments are
+ * rejected. On error any partial file is removed.
  */
 export async function downloadFileFromUrl(options: FileDownloadOptions): Promise<string> {
-  const { url, filePath, headers, overwrite = false } = options;
+  const {
+    url,
+    targetRel,
+    rootDir,
+    headers,
+    overwrite = false,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    maxBytes = DEFAULT_MAX_BYTES,
+  } = options;
+  const finalPath = resolveOutputPath(targetRel, { rootDir });
 
-  // Проверяем, существует ли файл, и если да, и не разрешена перезапись - выдаем ошибку
-  if (existsSync(filePath) && !overwrite) {
-    throw new Error(`File already exists: ${filePath}. Use overwrite option to replace it.`);
+  await fsPromises.mkdir(dirname(finalPath), { recursive: true });
+
+  if (existsSync(finalPath) && !overwrite) {
+    throw new Error(`File already exists: ${finalPath}. Use overwrite option to replace it.`);
   }
 
-  // Create a request with axios
-  const response = await axios({
-    method: 'GET',
-    url,
-    responseType: 'stream',
-    headers,
+  const responseStream = await requestStream(url, headers, timeoutMs);
+  let receivedBytes = 0;
+  const limitedSource = responseStream as NodeJS.ReadableStream;
+
+  responseStream.on("data", (chunk: Buffer | string) => {
+    receivedBytes += typeof chunk === "string" ? Buffer.byteLength(chunk) : chunk.length;
+    if (receivedBytes > maxBytes) {
+      responseStream.destroy(new Error(`Response exceeded maxBytes=${maxBytes}`));
+    }
   });
-  // Create a write stream to save the file
-  const writer = createWriteStream(filePath);
 
-  // Pipe the response data to the file
-  await pipeline(response.data, writer);
+  const writer = createWriteStream(finalPath);
 
-  return filePath;
+  try {
+    await pipeline(limitedSource, writer);
+  } catch (error) {
+    await fsPromises.unlink(finalPath).catch(() => undefined);
+    throw error;
+  }
+
+  return finalPath;
 }
 
 /**
- * Extracts filename from URL or Content-Disposition header
+ * Extracts a filename from the URL or Content-Disposition header. The result is
+ * a raw string and MUST be passed through sanitizeFilename before use as a path.
  */
 export function extractFilenameFromUrlOrHeader(url: string, contentDisposition?: string): string {
   if (contentDisposition) {
-    // Try to extract filename from Content-Disposition header
     const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
 
     if (filenameMatch?.[1]) {
-      let filename = filenameMatch[1].replace(/['"]/g, '');
+      const filename = filenameMatch[1].replace(/['"]/g, "").trim();
 
-      // Remove any leading/trailing whitespace and quotes
-      filename = filename.trim();
       if (filename) {
         return filename;
       }
     }
   }
 
-  // Extract filename from URL as fallback
   try {
     const parsedUrl = new URL(url);
-    const {pathname} = parsedUrl;
-    const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+    const { pathname } = parsedUrl;
+    const filename = pathname.substring(pathname.lastIndexOf("/") + 1);
 
     if (filename) {
       return filename;
     }
   } catch (_error) {
-    // If URL parsing fails, continue to default
+    // Fall through to default below.
   }
 
-  // Default filename if we can't extract from URL or header
   return "downloaded_file";
 }
