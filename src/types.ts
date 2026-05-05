@@ -21,6 +21,7 @@ export interface YoutrackConfig {
   preHolidays?: string[];
   userAliases?: UserAliasMap;
   defaultProject?: string;
+  outputDir: string;
 }
 
 export interface DurationValue {
@@ -183,6 +184,8 @@ export interface ServiceStatusPayload {
   configuration: {
     hasToken: boolean;
     baseUrl: string | null;
+    timezone?: string;
+    outputDir?: string;
     holidays?: string[];
     preHolidays?: string[];
   };

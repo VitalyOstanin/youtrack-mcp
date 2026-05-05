@@ -1,5 +1,7 @@
+import { mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { z } from "zod";
-import type { UserAliasMap, YoutrackConfig } from "./types.js";
+import type { ServiceStatusPayload, UserAliasMap, YoutrackConfig } from "./types.js";
 
 const configSchema = z.object({
   YOUTRACK_URL: z.string().url(),
@@ -9,6 +11,7 @@ const configSchema = z.object({
   YOUTRACK_PRE_HOLIDAYS: z.string().optional(),
   YOUTRACK_USER_ALIASES: z.string().optional(),
   YOUTRACK_DEFAULT_PROJECT: z.string().optional(),
+  YOUTRACK_OUTPUT_DIR: z.string().optional(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig {
@@ -26,6 +29,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
     throw new Error(`YouTrack configuration error: ${errorMessage}`);
   }
 
+  const outputDir = resolve(parsed.data.YOUTRACK_OUTPUT_DIR ?? process.cwd());
+
+  // Ensure outputDir exists so file-writing tools do not fail later.
+  mkdirSync(outputDir, { recursive: true });
+
   return {
     baseUrl: parsed.data.YOUTRACK_URL,
     token: parsed.data.YOUTRACK_TOKEN,
@@ -40,14 +48,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
       ? parseAliasMap(parsed.data.YOUTRACK_USER_ALIASES)
       : undefined,
     defaultProject: parsed.data.YOUTRACK_DEFAULT_PROJECT,
+    outputDir,
   };
 }
 
-export function enrichConfigWithRedaction(config: YoutrackConfig) {
+export function enrichConfigWithRedaction(
+  config: YoutrackConfig,
+): ServiceStatusPayload["configuration"] {
   return {
     baseUrl: config.baseUrl,
     hasToken: config.token.length > 0,
     timezone: config.timezone,
+    outputDir: config.outputDir,
     holidays: config.holidays,
     preHolidays: config.preHolidays,
   };
