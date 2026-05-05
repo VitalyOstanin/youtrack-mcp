@@ -20,9 +20,11 @@ import type {
 export const DEFAULT_PAGE_SIZE = 200;
 export const DEFAULT_EXPECTED_MINUTES = 8 * 60;
 export const MAX_STAR_BATCH_SIZE = 50;
+
 const CUSTOM_FIELDS_BASE = "customFields(id,name,value(id,login,name,presentation),$type)";
 const CUSTOM_FIELDS_WITH_EVENTS = "customFields(id,name,value(id,login,name,presentation),$type,possibleEvents(id,presentation))";
 const CUSTOM_FIELDS_DETAILS_WITH_EVENTS = "customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))";
+
 export const CUSTOM_FIELDS_STATE_FETCH = "id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)";
 
 export function withIssueCustomFieldEvents(baseFields: string): string {

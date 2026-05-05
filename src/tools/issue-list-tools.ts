@@ -10,7 +10,6 @@ import { createToolHandler } from "../utils/tool-handler.js";
 const dateInputSchema = z
   .string()
   .regex(/^[0-9-]+$/, "Date must be YYYY-MM-DD or numeric timestamp");
-
 const issueListArgs = {
   projectIds: z
     .array(yqlIdentifierSchema)

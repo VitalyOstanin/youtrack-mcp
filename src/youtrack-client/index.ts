@@ -36,81 +36,81 @@ import {
   type MappedYoutrackWorkItem,
 } from "../utils/mappers.js";
 
-import type {
-  ArticleCreateInput,
-  ArticleListPayload,
-  ArticlePayload,
-  ArticleUpdateInput,
-  AttachmentDeleteInput,
-  AttachmentDeletePayload,
-  AttachmentDownloadPayload,
-  AttachmentPayload,
-  AttachmentsListPayload,
-  AttachmentUploadInput,
-  AttachmentUploadPayload,
-  IssueChangeStateInput,
-  IssueChangeStatePayload,
-  IssueCommentsPayload,
-  IssueCommentCreateInput,
-  IssueCommentUpdateInput,
-  IssueCommentUpdatePayload,
-  IssueDetailsPayload,
-  IssueError,
-  IssueLookupPayload,
-  IssueStatePayload,
-  IssueCountInput,
-  IssueCountPayload,
-  IssueListInput,
-  IssueListPayload,
-  IssueSearchInput,
-  IssueSearchPayload,
-  IssuesCommentsPayload,
-  IssuesDetailsPayload,
-  IssuesLookupPayload,
-  IssueStarBatchPayload,
-  IssueStarPayload,
-  IssuesStarredPayload,
-  IssueLinksPayload,
-  IssueLinkTypesPayload,
-  IssueLinkCreateInput,
-  IssueLinkCreatePayload,
-  IssueCreatePayload,
-  PartialOperationError,
-  YoutrackIssueLink,
-  YoutrackIssueLinkType,
-  WorkItemBulkResultPayload,
-  WorkItemDeletePayload,
-  WorkItemInvalidDay,
-  WorkItemReportDay,
-  WorkItemReportPayload,
-  WorkItemUsersReportPayload,
-  YoutrackActivityItem,
-  YoutrackArticle,
-  YoutrackAttachment,
-  YoutrackCustomField,
-  YoutrackIssue,
-  YoutrackIssueAssignInput,
-  YoutrackIssueComment,
-  YoutrackIssueCreateInput,
-  YoutrackIssueDetails,
-  YoutrackIssueUpdateInput,
-  YoutrackIssueWatcher,
-  YoutrackProject,
-  YoutrackProjectListPayload,
-  YoutrackStateField,
-  YoutrackUser,
-  YoutrackUserListPayload,
-  YoutrackWorkItem,
-  YoutrackWorkItemCreateInput,
-  YoutrackWorkItemIdempotentCreateInput,
-  YoutrackWorkItemPeriodCreateInput,
-  YoutrackWorkItemReportOptions,
-  YoutrackWorkItemUpdateInput,
-  IssueProjectCount,
-  IssueLinkDeleteInput,
-  IssueLinkDeletePayload,
+import {
+  YOUTRACK_ENTITY_TYPE,
+  type ArticleCreateInput,
+  type ArticleListPayload,
+  type ArticlePayload,
+  type ArticleUpdateInput,
+  type AttachmentDeleteInput,
+  type AttachmentDeletePayload,
+  type AttachmentDownloadPayload,
+  type AttachmentPayload,
+  type AttachmentsListPayload,
+  type AttachmentUploadInput,
+  type AttachmentUploadPayload,
+  type IssueChangeStateInput,
+  type IssueChangeStatePayload,
+  type IssueCommentsPayload,
+  type IssueCommentCreateInput,
+  type IssueCommentUpdateInput,
+  type IssueCommentUpdatePayload,
+  type IssueDetailsPayload,
+  type IssueError,
+  type IssueLookupPayload,
+  type IssueStatePayload,
+  type IssueCountInput,
+  type IssueCountPayload,
+  type IssueListInput,
+  type IssueListPayload,
+  type IssueSearchInput,
+  type IssueSearchPayload,
+  type IssuesCommentsPayload,
+  type IssuesDetailsPayload,
+  type IssuesLookupPayload,
+  type IssueStarBatchPayload,
+  type IssueStarPayload,
+  type IssuesStarredPayload,
+  type IssueLinksPayload,
+  type IssueLinkTypesPayload,
+  type IssueLinkCreateInput,
+  type IssueLinkCreatePayload,
+  type IssueCreatePayload,
+  type PartialOperationError,
+  type YoutrackIssueLink,
+  type YoutrackIssueLinkType,
+  type WorkItemBulkResultPayload,
+  type WorkItemDeletePayload,
+  type WorkItemInvalidDay,
+  type WorkItemReportDay,
+  type WorkItemReportPayload,
+  type WorkItemUsersReportPayload,
+  type YoutrackActivityItem,
+  type YoutrackArticle,
+  type YoutrackAttachment,
+  type YoutrackCustomField,
+  type YoutrackIssue,
+  type YoutrackIssueAssignInput,
+  type YoutrackIssueComment,
+  type YoutrackIssueCreateInput,
+  type YoutrackIssueDetails,
+  type YoutrackIssueUpdateInput,
+  type YoutrackIssueWatcher,
+  type YoutrackProject,
+  type YoutrackProjectListPayload,
+  type YoutrackStateField,
+  type YoutrackUser,
+  type YoutrackUserListPayload,
+  type YoutrackWorkItem,
+  type YoutrackWorkItemCreateInput,
+  type YoutrackWorkItemIdempotentCreateInput,
+  type YoutrackWorkItemPeriodCreateInput,
+  type YoutrackWorkItemReportOptions,
+  type YoutrackWorkItemUpdateInput,
+  type IssueProjectCount,
+  type IssueLinkDeleteInput,
+  type IssueLinkDeletePayload,
 } from "../types.js";
-import { YOUTRACK_ENTITY_TYPE } from "../types.js";
 import { buildIssueQuery } from "../utils/issue-query.js";
 import {
   CUSTOM_FIELDS_STATE_FETCH,
@@ -155,6 +155,7 @@ export class YoutrackClient extends YoutrackClientBase {
         .flatMap((row) => this.mapIssueLinkRow(resolvedId, row))
         // filter out entries that point back to the same issue or have no counterpart
         .filter((l) => l.issue.idReadable && l.issue.idReadable !== resolvedId);
+
       return { issueId: resolvedId, links };
     } catch (error) {
       throw this.normalizeError(error);
@@ -260,6 +261,7 @@ export class YoutrackClient extends YoutrackClientBase {
       });
       const variants = this.mapIssueLinkRow(sourceId, response.data);
       const mapped = variants.find((v) => v.issue.idReadable === targetId) ?? variants[0];
+
       return { link: mapped };
     } catch (error) {
       const normalized = this.normalizeError(error);
@@ -588,7 +590,7 @@ export class YoutrackClient extends YoutrackClientBase {
           },
         });
 
-        response.data.forEach((project) => this.cacheProject(project));
+        response.data.forEach((project) => { this.cacheProject(project); });
 
         return { projects: response.data };
       } catch (error) {
@@ -631,7 +633,7 @@ export class YoutrackClient extends YoutrackClientBase {
         skip += page.data.length;
       }
 
-      projects.forEach((project) => this.cacheProject(project));
+      projects.forEach((project) => { this.cacheProject(project); });
 
       return { projects };
     } catch (error) {
@@ -717,6 +719,7 @@ export class YoutrackClient extends YoutrackClientBase {
         params: { fields },
       });
       const mappedIssue = mapIssueDetails(response.data);
+
       return { issue: mappedIssue };
     } catch (error) {
       throw this.normalizeError(error);
@@ -812,6 +815,7 @@ export class YoutrackClient extends YoutrackClientBase {
         params: { fields },
       });
       const mappedIssue = mapIssueDetails(response.data);
+
       return { issue: mappedIssue };
     } catch (error) {
       throw this.normalizeError(error);
@@ -838,6 +842,7 @@ export class YoutrackClient extends YoutrackClientBase {
         params,
       });
       const mappedComments = mapComments(response.data, this.config.baseUrl, resolvedId);
+
       return { comments: mappedComments };
     } catch (error) {
       throw this.normalizeError(error);
@@ -859,6 +864,7 @@ export class YoutrackClient extends YoutrackClientBase {
         params: { fields: defaultFields.comments },
       });
       const mappedComment = mapComment(response.data, this.config.baseUrl, resolvedIssueId);
+
       return { comment: mappedComment };
     } catch (error) {
       throw this.normalizeError(error);
@@ -1174,6 +1180,7 @@ export class YoutrackClient extends YoutrackClientBase {
 
       const issue = await this.getIssueRaw(resolvedId);
       const mappedIssue = mapIssue(issue);
+
       return { issue: mappedIssue };
     } catch (error) {
       throw this.normalizeError(error);
@@ -1671,6 +1678,7 @@ export class YoutrackClient extends YoutrackClientBase {
             lastActivityTimestamp = timestamp;
           }
         }
+
         const lastActivityDate = DateTime.fromMillis(lastActivityTimestamp).toISO() ?? "";
 
         issuesWithActivity.push({
@@ -2060,6 +2068,7 @@ export class YoutrackClient extends YoutrackClientBase {
         invalidDays: [],
       };
     }
+
     const expectedDailyMinutes = options.expectedDailyMinutes ?? DEFAULT_EXPECTED_MINUTES;
     const excludeWeekends = options.excludeWeekends ?? true;
     const excludeHolidays = options.excludeHolidays ?? true;
@@ -2169,6 +2178,7 @@ export class YoutrackClient extends YoutrackClientBase {
       },
       10,
     );
+
     return { reports };
   }
 
@@ -2178,6 +2188,7 @@ export class YoutrackClient extends YoutrackClientBase {
         params: { fields: defaultFields.article },
       });
       const article = response.data;
+
       return { article };
     } catch (error) {
       throw this.normalizeError(error);

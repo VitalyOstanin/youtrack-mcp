@@ -14,7 +14,6 @@ const configSchema = z.object({
   YOUTRACK_OUTPUT_DIR: z.string().optional(),
   YOUTRACK_UPLOAD_DIR: z.string().optional(),
 });
-
 const SETUP_DOC_URL = "https://github.com/VitalyOstanin/youtrack-mcp#requirements";
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig {
@@ -24,7 +23,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
     const { fieldErrors } = parsed.error.flatten();
     const fieldDetails = Object.entries(fieldErrors)
       .filter(([, issues]) => Array.isArray(issues) && issues.length > 0)
-      .map(([field, issues]) => `${field}: ${(issues as string[]).join("; ")}`);
+      .map(([field, issues]) => `${field}: ${(issues).join("; ")}`);
     const errorBody = fieldDetails.length ? fieldDetails.join("\n  ") : "invalid configuration";
 
     throw new Error(

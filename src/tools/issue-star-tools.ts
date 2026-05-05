@@ -8,6 +8,7 @@ import { createToolHandler } from "../utils/tool-handler.js";
 export const issueStarSingleArgs = {
   issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
 };
+
 const issueStarSingleSchema = z.object(issueStarSingleArgs);
 
 export const issueStarBatchArgs = {
@@ -17,6 +18,7 @@ export const issueStarBatchArgs = {
     .max(50)
     .describe("Array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50"),
 };
+
 const issueStarBatchSchema = z.object(issueStarBatchArgs);
 
 export const issuesStarredListArgs = {
@@ -34,6 +36,7 @@ export const issuesStarredListArgs = {
     .optional()
     .describe("Number of issues to skip for pagination (default: 0)"),
 };
+
 const issuesStarredListSchema = z.object(issuesStarredListArgs);
 
 /**

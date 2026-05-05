@@ -13,7 +13,10 @@ export default [
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        project: './tsconfig.eslint.json',
+        projectService: {
+          allowDefaultProject: ['vitest.config.ts'],
+          defaultProject: 'tsconfig.eslint.json',
+        },
         tsconfigRootDir: import.meta.dirname,
         sourceType: 'module',
       },
