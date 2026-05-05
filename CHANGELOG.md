@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.11.0] - 2026-05-05
+
+### Breaking
+
+- **`processBatch` contract** — multiple rejections now propagate as `AggregateError` (single rejection still rethrown as-is). Callers that need partial-success semantics must collect results inside the job and not throw.
+- **Path safety for file outputs** — `saveToFile` and `downloadToFile` paths are resolved against the new `YOUTRACK_OUTPUT_DIR` environment variable; absolute paths and `..` traversal segments are now rejected with `UnsafePathError`.
+- **`workitem_delete` and `issue_link_delete`** require an explicit `confirmation: true` literal (mirrors the existing `issue_attachment_delete` guard).
+- **Pagination** — read tools now expose explicit `limit`/`skip` parameters that are forwarded as `$top`/`$skip` on the server. Aggregated count fields renamed from `total` to `returned` to clarify per-page semantics. Default page size is 100 (max 200).
+- **Tool responses** — `structuredContent` branch is no longer emitted; all responses are JSON-encoded text content via `toolSuccess`/`toolError`.
+
+### Added
+
+- **`YOUTRACK_OUTPUT_DIR`** environment variable for file outputs (defaults to current working directory).
+- **`issue_status` / `issues_status`** lightweight state lookup tools backed by a new `getIssueState` client method.
+- Public client API: `searchIssues`, `searchArticles`, `getBaseUrl`, `getOutputDir` so other modules can compose YouTrack queries without touching internals.
+- HTTP timeouts and redirect/body limits in the YouTrack client.
+- Single-flight caching for `listProjects` and `listLinkTypes` to deduplicate concurrent calls.
+- `issue_activities` accepts `categories[]` and applies `$top`/`$skip` on the server.
+- All read tools now describe themselves with the AGENTS.md Purpose / Use cases / Parameter examples / Response fields / Limitations template.
+
+### Fixed
+
+- **URL safety** — every path segment derived from issue codes, comment ids, attachment ids, login or project shortName goes through `encodeURIComponent`; id-like inputs are validated by regex schemas in `src/utils/validators.ts`.
+- **`resolveIssueId`** is now applied consistently to mutations and bulk getters (`createIssueComment`, `updateIssue`, `changeIssueState`, `starIssue`/`unstarIssue`, `getIssues`, etc.).
+- **Streaming JSONL** download via `stream-json` with proper partial-file cleanup on error/timeout/abort.
+- **`deleteIssueLink`** falls back to `linkToDelete.issue.idReadable` when `targetId` is not provided (subtask removal).
+- **`normalizeError`** whitelists error details (`error`, `error_description`, `message`, `code`) instead of forwarding raw payloads to clients.
+- **Tool descriptions** brought to a consistent compact template across all 50+ tools.
+- Anchored work-item date regex to `^\d{4}-\d{2}-\d{2}$`; replaced `Math.max(...dates)` with a reduce to avoid spread-arg limits.
+
+### Migration Notes
+
+- Set `YOUTRACK_OUTPUT_DIR` if your tooling previously relied on absolute or traversal paths in `filePath`/`downloadPath`.
+- Update wrappers around `processBatch` to handle `AggregateError`.
+- Add `confirmation: true` to clients that call `workitem_delete` or `issue_link_delete`.
+- Read tools that aggregated multiple pages must walk pagination via `limit`/`skip` and consume the `returned` field.
+
 ## [0.10.2] - 2025-11-18
 
 ### Added

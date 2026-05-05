@@ -42,6 +42,8 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
   - [Configuration for VS Code Cline](#configuration-for-vs-code-cline)
   - [MCP Tools](#mcp-tools)
     - [File Storage Parameters](#file-storage-parameters)
+    - [Pagination](#pagination)
+    - [Destructive Operation Confirmation](#destructive-operation-confirmation)
     - [Service](#service)
     - [Issues](#issues)
     - [Issue Links](#issue-links)
@@ -67,6 +69,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
 - `YOUTRACK_PRE_HOLIDAYS` — optional comma-separated list of pre-holiday dates with reduced working hours
 - `YOUTRACK_USER_ALIASES` — optional comma-separated list of `alias:login` mappings (e.g., `me:vyt,petya:p.petrov`), used for automatic assignee selection
 - `YOUTRACK_DEFAULT_PROJECT` — optional project code used for manual verification tasks and default parent issues in docs/examples (use `PROJ` in documentation examples)
+- `YOUTRACK_OUTPUT_DIR` — optional root directory for files produced by `saveToFile` and `downloadToFile`. Defaults to the current working directory. Absolute paths and parent-traversal segments (`..`) are rejected for safety
 
 
 ## Installation
@@ -283,11 +286,23 @@ To use this MCP server with [Cline](https://github.com/cline/cline) extension in
 Many tools support optional file storage parameters for handling large datasets:
 
 - `saveToFile` — boolean, saves results to a JSON file instead of returning directly (useful for large datasets)
-- `filePath` — string, custom file path (optional, auto-generated if not provided, directory created if needed)
+- `filePath` — string, custom file path relative to `YOUTRACK_OUTPUT_DIR` (optional, auto-generated if not provided, directory created if needed)
 - `format` — string, output format when saving to file: `jsonl` (JSON Lines) or `json` (JSON array format). Default is `jsonl`
 - `overwrite` — boolean, allow overwriting existing files when using explicit filePath. Default is `false`
 
-When `saveToFile` is `true`, tools return metadata about the saved file instead of the full data.
+When `saveToFile` is `true`, tools return metadata about the saved file instead of the full data. All paths are resolved against `YOUTRACK_OUTPUT_DIR`; absolute paths and `..` traversal segments are rejected.
+
+### Pagination
+
+Most read tools accept `limit` (default 100, max 200) and `skip` (default 0); both are forwarded to YouTrack as `$top`/`$skip`. Tools that return aggregated counts use `returned` (count of items in the current page) rather than `total`. Use successive `skip` values to walk through large result sets.
+
+### Destructive Operation Confirmation
+
+Tools that delete data require an explicit `confirmation: true` literal in their input:
+
+- `issue_attachment_delete`
+- `issue_link_delete`
+- `workitem_delete`
 
 ### Service
 
@@ -303,7 +318,7 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 | `issues_lookup` | Get information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields including timestamps (created, updated) and basic info - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). By default, custom fields are not included. Use briefOutput=false to get all customFields including State. | `issueIds[]` — array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50; `briefOutput` — optional boolean (default `true`) |
 | `issue_details` | Issue details with brief/full modes | `issueId` — issue code; `briefOutput` — optional boolean (default `true`). Brief: predefined fields only. Full (`false`): adds `customFields` including `State`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `issues_details` | Detailed information about multiple issues (batch mode, max 50). Brief (default): predefined fields only. Full (`briefOutput=false`): adds `customFields` for each issue | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
-| `issue_comments` | Issue comments | `issueId` — issue code; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `issue_comments` | Issue comments with server-side pagination | `issueId` — issue code; `limit` (default 100, max 200), `skip` for pagination; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `issues_comments` | Comments for multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `issue_create` | Create issue | `projectId`, `summary`, optional `description`, `parentIssueId`, `assigneeLogin`, `stateName`, `usesMarkdown`, `links` (array of link objects) |
 | `issue_update` | Update existing issue | `issueId`, optionally `summary`, `description`, `parentIssueId` (empty string clears parent), `usesMarkdown` |
@@ -316,16 +331,16 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 | `issue_attachment_get` | Get attachment info | `issueId`, `attachmentId`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `issue_attachment_download` | Get download URL for attachment or download file directly to local filesystem | `issueId`, `attachmentId` — returns signed download URL when downloadToFile=false; `downloadToFile` — boolean, download file directly to local system (default: false); `downloadPath` — custom path to save file (auto-generated if not provided); `overwrite` — allow overwriting existing files (default: false, throws error if file exists); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options for metadata |
 | `issue_attachment_upload` | Upload files to issue | `issueId`, `filePaths[]` — array of file paths (max 10), optionally `muteUpdateNotifications` |
-| `issue_attachment_delete` | Delete attachment (requires confirmation) | `issueId`, `attachmentId`, `confirmation` (must be `true`) |
+| `issue_attachment_delete` | Delete attachment (requires `confirmation: true`) | `issueId`, `attachmentId`, `confirmation` (must be the boolean literal `true`) |
 
 ### Issue Links
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `issue_links` | List links for an issue (relates to, duplicate, parent/child). Returns link id, direction, linkType, and counterpart issue brief | `issueId` — issue code |
-| `issue_link_types` | List available link types | — |
+| `issue_links` | List links for an issue with server-side pagination. Returns link id, direction, linkType, and counterpart issue brief | `issueId` — issue code; `limit` (default 100, max 200), `skip` for pagination |
+| `issue_link_types` | List available link types (cached single-flight) | — |
 | `issue_link_add` | Create a link between two issues | `sourceId`, `targetId`, `linkType` (name or id), optionally `direction` (`outbound` or `inbound`) |
-| `issue_link_delete` | Delete a link by id for a specific issue | `issueId` — issue code, `linkId` — link id to delete |
+| `issue_link_delete` | Delete a link by id for a specific issue (requires `confirmation: true`) | `issueId`, `linkId`, optionally `targetId`, `confirmation` (must be the boolean literal `true`) |
 
 ### Issues Status
 
@@ -348,14 +363,14 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `workitems_list` | Get work items for current or specified user | Optionally `issueId`, `author`, `startDate`, `endDate`, `allUsers`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
-| `workitems_all_users` | Get work items for all users | Optionally `issueId`, `startDate`, `endDate`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
-| `workitems_for_users` | Get work items for selected users | `users[]`, optionally `issueId`, `startDate`, `endDate`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_list` | Get work items for current or specified user with server-side pagination | Optionally `issueId`, `author`, `startDate`, `endDate`, `allUsers`; `limit` (default 100, max 200), `skip` for pagination; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_all_users` | Get work items for all users with server-side pagination | Optionally `issueId`, `startDate`, `endDate`; `limit` (default 100, max 200), `skip` for pagination; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `workitems_for_users` | Get work items for selected users with per-user pagination | `users[]`, optionally `issueId`, `startDate`, `endDate`; `limit` (default 100, max 200), `skip` applied per user; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `workitems_recent` | Get recent work items sorted by update time (newest first) | Optionally `users[]` (defaults to current user), `limit` (default 50, max 200); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `workitem_create` | Create work item entry | `issueId`, `date`, `minutes`, optionally `summary`, `description`, `usesMarkdown` |
 | `workitem_create_idempotent` | Create work item without duplicates (by description and date) | `issueId`, `date`, `minutes`, `description`, optionally `usesMarkdown` |
 | `workitem_update` | Update work item (recreate) | `issueId`, `workItemId`, optionally `date`, `minutes`, `summary`, `description`, `usesMarkdown` |
-| `workitem_delete` | Delete work item | `issueId`, `workItemId` |
+| `workitem_delete` | Delete work item (requires `confirmation: true`) | `issueId`, `workItemId`, `confirmation` (must be the boolean literal `true`) |
 | `workitems_create_period` | Batch create for date range | `issueId`, `startDate`, `endDate`, `minutes`, optionally `summary`, `description`, `usesMarkdown`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]` |
 | `workitems_report_summary` | Summary report for work items | Common parameters: `author`, `issueId`, `startDate`, `endDate`, `expectedDailyMinutes`, `excludeWeekends`, `excludeHolidays`, `holidays[]`, `preHolidays[]`, `allUsers`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `workitems_report_invalid` | Days with deviation from expected hours | Same parameters as summary; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
@@ -366,10 +381,10 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
-| `users_list` | List all YouTrack users | `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
+| `users_list` | List all YouTrack users with server-side pagination | `limit` (default 100, max 200), `skip` for pagination; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `user_get` | Get user by login | `login` — user login |
 | `user_current` | Get current authenticated user | — |
-| `projects_list` | List all YouTrack projects | — |
+| `projects_list` | List all YouTrack projects (auto-paginated by default; pass `limit`/`skip` for explicit paging) | Optional `limit` (max 200), `skip` |
 | `project_get` | Get project by short name | `shortName` — project short name |
 
 ### Articles
@@ -377,7 +392,7 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 | Tool | Description | Main Parameters |
 | --- | --- | --- |
 | `article_get` | Get article by ID | `articleId` |
-| `article_list` | List articles with filters | Optionally `parentArticleId`, `projectId` |
+| `article_list` | List articles with filters and server-side pagination | Optionally `parentArticleId`, `projectId`; `limit` (default 100, max 200), `skip` for pagination |
 | `article_create` | Create article in knowledge base | `summary`, optionally `content`, `parentArticleId`, `projectId`, `usesMarkdown`, `returnRendered` |
 | `article_update` | Update article | `articleId`, optionally `summary`, `content`, `usesMarkdown`, `returnRendered` |
 | `article_search` | Search articles in knowledge base | `query`, optionally `projectId`, `parentArticleId`, `limit`, `returnRendered`; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
@@ -403,9 +418,11 @@ When `saveToFile` is `true`, tools return metadata about the saved file instead 
 
 ### Destructive Operations
 
-Some operations cannot be undone and require explicit confirmation:
+Some operations cannot be undone and require an explicit `confirmation: true` literal in their input:
 
-- **`issue_attachment_delete`** - Requires `confirmation: true` parameter. Deleted attachments cannot be recovered.
+- **`issue_attachment_delete`** — deleted attachments cannot be recovered.
+- **`issue_link_delete`** — re-fetch `issue_links` afterwards to verify the relationship was removed.
+- **`workitem_delete`** — work item entries are permanently lost; re-fetch `workitems_list` to confirm.
 **issue_create parameters:**
 
 - `parentIssueId` — resolves against `YOUTRACK_DEFAULT_PROJECT` when no project prefix is provided (e.g., `123` → `BC-123` if default project is `BC`).

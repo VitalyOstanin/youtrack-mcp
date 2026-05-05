@@ -240,10 +240,10 @@ Expected output should show that no more than 3 tasks run concurrently.
 
 ## MCP Response Format
 
-- When `true`: return only `structuredContent` with full data, and include an empty `content: []` to satisfy MCP typing.
-- When `false`: return only `content` (single `text` item with JSON string), omit `structuredContent`.
-- For errors, always set `isError: true` and apply the same single-node rule (i.e., empty `content` with `structuredContent` when `true`, or text `content` when `false`).
-- Use `toolSuccess`/`toolError` in `src/utils/tool-response.ts` to keep behavior consistent.
+- All tool responses go through `toolSuccess`/`toolError` in `src/utils/tool-response.ts`.
+- Successful responses return a single `content` item with a `text` payload that JSON-encodes `{ success: true, payload }`.
+- Error responses set `isError: true` and use the same single-`content` JSON-text shape with `{ success: false, error: { ... } }`.
+- The `structuredContent` branch is currently unused; do not add new code paths that emit it without first updating this contract.
 
 ## MCP Tooling Expectations
 - Implement pagination for every MCP tool that may return large result sets; every tool must expose explicit pagination parameters and defaults in the schema.
@@ -318,6 +318,24 @@ this.youtrackMcpServer.registerTool(
   - **Limitations**: Any constraints or edge cases users should be aware of (e.g., "max 50 issues per request").
 - Keep descriptions concise but informative; prioritize clarity over brevity when it helps prevent common mistakes.
 - Update tool descriptions whenever adding new parameters or changing behavior.
+
+## URL Safety and ID Validation
+- All path segments derived from user-controlled values (issue codes, comment ids, attachment ids, login, project shortName, etc.) must be passed through `encodeURIComponent` before being concatenated into a request URL.
+- Use the centralized `encId`/`encLogin` helpers (or the project's equivalents in `src/youtrack-client.ts`) instead of building URLs by string interpolation.
+- All id-like input parameters in tool schemas must use the regex validators from `src/utils/validators.ts` (`issueIdSchema`, `commentIdSchema`, `attachmentIdSchema`, `linkIdSchema`, `workItemIdSchema`, `articleIdSchema`, `userLoginSchema`, `projectIdSchema`).
+- Numeric-only issue ids must resolve through `resolveIssueId` so the `YOUTRACK_DEFAULT_PROJECT` prefix is applied automatically.
+
+## Output Directory and Path Safety
+- The `YOUTRACK_OUTPUT_DIR` environment variable is the only allowed root for files written by tools (`saveToFile`, `downloadToFile`).
+- Default to the current working directory when `YOUTRACK_OUTPUT_DIR` is not set; never accept absolute or traversal paths from clients.
+- All resolved paths must go through `resolveOutputPath`/`sanitizeFilename` in `src/utils/path-safety.ts`; absolute or `..`-containing paths must throw `UnsafePathError`.
+- Streaming downloads must clean up partial files on error (HTTP failure, abort, timeout) so a half-written file is never left on disk.
+
+## Batch Operations Contract (`processBatch`)
+- `processBatch` runs the supplied jobs with a bounded concurrency pool (default 10).
+- A single rejection is rethrown to the caller as-is so existing call sites receive the original error.
+- Multiple rejections are aggregated into an `AggregateError` (`message`: short summary, `errors`: array of original errors). Callers that want partial success must collect results inside the job function and not throw.
+- `processBatch` always preserves input order in the resolved array.
 
 ## Issue Creation Link Rules
 - Extend `issue_create` inputs to support link descriptors with `linkType`, `targetId`, optional `direction`, and optional `sourceId` so clients can build arbitrary relationship chains during creation.
