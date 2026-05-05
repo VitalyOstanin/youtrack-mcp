@@ -207,6 +207,31 @@ class YoutrackClientError extends Error {
   }
 }
 
+/**
+ * Whitelists a small set of well-known fields from a YouTrack/REST error
+ * response body. Returning the raw `response.data` would leak stack traces,
+ * internal identifiers, PII, or any non-standard payload added by middleware,
+ * since this object is bubbled up to MCP clients and logs.
+ */
+function pickSafeErrorDetails(data: unknown): Record<string, unknown> | undefined {
+  if (typeof data !== "object" || data === null) {
+    return undefined;
+  }
+
+  const allowed = ["error", "error_description", "message", "code"] as const;
+  const out: Record<string, unknown> = {};
+
+  for (const key of allowed) {
+    const value = (data as Record<string, unknown>)[key];
+
+    if (typeof value === "string" || typeof value === "number") {
+      out[key] = value;
+    }
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export class YoutrackClient {
   private readonly http: ReturnType<typeof axios.create>;
   private cachedCurrentUser?: YoutrackUser;
@@ -2702,7 +2727,8 @@ export class YoutrackClient {
 
       const fallbackMessage = typeof error.message === "string" && error.message.length > 0 ? error.message : undefined;
       const finalMessage = responseMessage ?? fallbackMessage ?? "Unknown error";
-      const normalizedError = new YoutrackClientError(`YouTrack API error: ${finalMessage}`, status, data);
+      const safeDetails = pickSafeErrorDetails(data);
+      const normalizedError = new YoutrackClientError(`YouTrack API error: ${finalMessage}`, status, safeDetails);
 
       return normalizedError;
     }
