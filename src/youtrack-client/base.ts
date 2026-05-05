@@ -366,6 +366,30 @@ export class YoutrackClientBase {
     return results;
   }
 
+  /**
+   * Expand a bare numeric issue id to the project-prefixed form when
+   * `defaultProject` is configured. "123" -> "PROJ-123". Strings that already
+   * contain "-" are passed through. Used by every domain that accepts an
+   * issueId from a tool call.
+   */
+  protected resolveIssueId(rawIssueId: string): string {
+    const trimmed = rawIssueId.trim();
+
+    if (!this.defaultProject) {
+      return trimmed;
+    }
+
+    if (trimmed.includes("-")) {
+      return trimmed;
+    }
+
+    return `${this.defaultProject}-${trimmed}`;
+  }
+
+  protected resolveIssueIds(issueIds: string[]): string[] {
+    return issueIds.map((id) => this.resolveIssueId(id));
+  }
+
   protected normalizeError(error: unknown): YoutrackClientError {
     if (error instanceof YoutrackClientError) {
       return error;
