@@ -5,6 +5,13 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     environment: "node",
     globals: false,
+    setupFiles: ["src/__tests__/setup.ts"],
+    testTimeout: 10_000,
+    hookTimeout: 10_000,
+    clearMocks: true,
+    restoreMocks: true,
+    unstubEnvs: true,
+    unstubGlobals: true,
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
@@ -12,5 +19,6 @@ export default defineConfig({
       exclude: ["src/**/*.test.ts", "src/**/__tests__/**"],
     },
     pool: "forks",
+    maxWorkers: 4,
   },
 });

@@ -12,6 +12,7 @@ const configSchema = z.object({
   YOUTRACK_USER_ALIASES: z.string().optional(),
   YOUTRACK_DEFAULT_PROJECT: z.string().optional(),
   YOUTRACK_OUTPUT_DIR: z.string().optional(),
+  YOUTRACK_UPLOAD_DIR: z.string().optional(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig {
@@ -30,9 +31,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
   }
 
   const outputDir = resolve(parsed.data.YOUTRACK_OUTPUT_DIR ?? process.cwd());
+  const uploadDir = resolve(parsed.data.YOUTRACK_UPLOAD_DIR ?? outputDir);
 
-  // Ensure outputDir exists so file-writing tools do not fail later.
   mkdirSync(outputDir, { recursive: true });
+  mkdirSync(uploadDir, { recursive: true });
 
   return {
     baseUrl: parsed.data.YOUTRACK_URL,
@@ -49,6 +51,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
       : undefined,
     defaultProject: parsed.data.YOUTRACK_DEFAULT_PROJECT,
     outputDir,
+    uploadDir,
   };
 }
 

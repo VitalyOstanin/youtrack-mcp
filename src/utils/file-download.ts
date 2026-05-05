@@ -1,7 +1,8 @@
-import { createWriteStream, existsSync, promises as fsPromises } from "node:fs";
+import { promises as fsPromises } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import { dirname } from "node:path";
+import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { resolveOutputPath } from "./path-safety.js";
@@ -17,6 +18,13 @@ export interface FileDownloadOptions {
   timeoutMs?: number;
   /** Maximum response body size in bytes (defaults to 50 MiB). */
   maxBytes?: number;
+  /**
+   * Whitelist of allowed origins (e.g., `["https://yt.example.com"]`). When
+   * provided, the request is rejected unless `url`'s origin matches one of
+   * the entries. Defends against SSRF when `url` originates from a
+   * server-supplied response.
+   */
+  allowedOrigins?: string[];
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -94,36 +102,75 @@ export async function downloadFileFromUrl(options: FileDownloadOptions): Promise
     overwrite = false,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     maxBytes = DEFAULT_MAX_BYTES,
+    allowedOrigins,
   } = options;
+
+  if (allowedOrigins && allowedOrigins.length > 0) {
+    const requestedOrigin = new URL(url).origin;
+
+    if (!allowedOrigins.includes(requestedOrigin)) {
+      throw new Error(
+        `Refusing to download from foreign origin ${requestedOrigin}; allowed: ${allowedOrigins.join(", ")}`,
+      );
+    }
+  }
+
   const finalPath = resolveOutputPath(targetRel, { rootDir });
 
   await fsPromises.mkdir(dirname(finalPath), { recursive: true });
 
-  if (existsSync(finalPath) && !overwrite) {
-    throw new Error(`File already exists: ${finalPath}. Use overwrite option to replace it.`);
-  }
-
-  const responseStream = await requestStream(url, headers, timeoutMs);
-  let receivedBytes = 0;
-  const limitedSource = responseStream as NodeJS.ReadableStream;
-
-  responseStream.on("data", (chunk: Buffer | string) => {
-    receivedBytes += typeof chunk === "string" ? Buffer.byteLength(chunk) : chunk.length;
-    if (receivedBytes > maxBytes) {
-      responseStream.destroy(new Error(`Response exceeded maxBytes=${maxBytes}`));
-    }
-  });
-
-  const writer = createWriteStream(finalPath);
+  let handle: fsPromises.FileHandle;
 
   try {
-    await pipeline(limitedSource, writer);
+    handle = await fsPromises.open(finalPath, overwrite ? "w" : "wx");
+  } catch (err) {
+    if (isEexistError(err)) {
+      throw new Error(`File already exists: ${finalPath}. Use overwrite option to replace it.`);
+    }
+
+    throw err;
+  }
+
+  let responseStream: ResponseStream | undefined;
+
+  try {
+    responseStream = await requestStream(url, headers, timeoutMs);
+
+    let receivedBytes = 0;
+    const sizeLimiter = new Transform({
+      transform(chunk: Buffer | string, _encoding, callback) {
+        const chunkLength = typeof chunk === "string" ? Buffer.byteLength(chunk) : chunk.length;
+
+        if (receivedBytes + chunkLength > maxBytes) {
+          callback(new Error(`Response exceeded maxBytes=${maxBytes}`));
+
+          return;
+        }
+
+        receivedBytes += chunkLength;
+        callback(null, chunk);
+      },
+    });
+    const writer = handle.createWriteStream();
+
+    await pipeline(responseStream, sizeLimiter, writer);
   } catch (error) {
+    responseStream?.destroy();
+    await handle.close().catch(() => undefined);
     await fsPromises.unlink(finalPath).catch(() => undefined);
     throw error;
   }
 
   return finalPath;
+}
+
+function isEexistError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "EEXIST"
+  );
 }
 
 /**

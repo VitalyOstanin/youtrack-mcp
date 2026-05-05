@@ -6,13 +6,11 @@ import { processWithFileStorage } from "../utils/file-storage.js";
 import { downloadFileFromUrl, extractFilenameFromUrlOrHeader } from "../utils/file-download.js";
 import { sanitizeFilename } from "../utils/path-safety.js";
 import { issueIdSchema, attachmentIdSchema } from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 const issueIdArgs = {
   issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 const issueIdInputSchema = z.object(issueIdArgs);
 const attachmentGetArgs = {
@@ -62,6 +60,7 @@ export async function issueAttachmentDownloadHandler(
         targetRel,
         rootDir,
         overwrite: payload.overwrite,
+        allowedOrigins: [new URL(client.getBaseUrl()).origin],
       });
 
       return toolSuccess({
@@ -78,7 +77,7 @@ export async function issueAttachmentDownloadHandler(
       {
         saveToFile: payload.saveToFile,
         filePath: payload.filePath,
-        format: payload.format ?? 'jsonl',
+        format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: payload.overwrite,
       },
       result,
@@ -106,7 +105,9 @@ const attachmentUploadArgs = {
     .array(z.string().min(1))
     .min(1)
     .max(10)
-    .describe("Array of absolute file paths to upload (max 10 files)"),
+    .describe(
+      "Array of file paths to upload (max 10 files). Each path must resolve (after symlinks) to a location inside YOUTRACK_UPLOAD_DIR (defaults to YOUTRACK_OUTPUT_DIR). Paths outside this directory are rejected.",
+    ),
   muteUpdateNotifications: z.boolean().optional().describe("If true, do not send update notifications"),
 };
 const attachmentUploadSchema = z.object(attachmentUploadArgs);
@@ -142,7 +143,7 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           result,

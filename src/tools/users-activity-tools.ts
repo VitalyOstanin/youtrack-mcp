@@ -5,6 +5,7 @@ import { mapActivityItems } from "../utils/mappers.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { userLoginSchema } from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 export const usersActivityArgs = {
   author: userLoginSchema.describe("Filter by author login (required, e.g., 'vyt'). Matches activities created by this user."),
@@ -12,7 +13,7 @@ export const usersActivityArgs = {
     .union([z.string(), z.number(), z.date()])
     .optional()
     .describe(
-      "Inclusive start of the interval. Accepts ISO string, unix timestamp (ms), or Date object. Converted to unix ms for /api/activities (default: no lower bound).",
+      "Inclusive start of the interval. Accepts ISO string, unix timestamp (ms), or Date object. Converted to unix ms for /api/activities (default: 30 days before end). Avoid omitting on instances with multi-year history -- /api/activities scans the full date window before applying $top.",
     ),
   end: z
     .union([z.string(), z.number(), z.date()])
@@ -48,10 +49,7 @@ export const usersActivityArgs = {
     .describe(
       "Override fields parameter passed to /api/activities (advanced). Defaults to issue idReadable, author, added/removed, category, timestamps.",
     ),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 
 export const usersActivitySchema = z.object(usersActivityArgs);
@@ -59,8 +57,9 @@ export const usersActivitySchema = z.object(usersActivityArgs);
 export async function usersActivityHandler(client: YoutrackClient, rawInput: unknown) {
   try {
     const input = usersActivitySchema.parse(rawInput);
-    const startMs = parseDateInput(input.start ?? unixMsToDate(0));
     const endMs = parseDateInput(input.end ?? getCurrentDate());
+    const DEFAULT_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
+    const startMs = parseDateInput(input.start ?? unixMsToDate(endMs - DEFAULT_LOOKBACK_MS));
 
     if (startMs > endMs) {
       throw new Error("'start' must be earlier than or equal to 'end'.");
@@ -96,7 +95,7 @@ export async function usersActivityHandler(client: YoutrackClient, rawInput: unk
       {
         saveToFile: input.saveToFile,
         filePath: input.filePath,
-        format: input.format ?? 'jsonl',
+        format: input.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: input.overwrite,
       },
       payload,

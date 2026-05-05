@@ -28,6 +28,7 @@ function firstTextPayload(result: { content?: unknown[]; isError?: boolean }): {
 function fakeClient(root: string, attachment: { name?: string; url?: string }, downloadUrl: string): Partial<YoutrackClient> {
   return {
     getOutputDir: () => root,
+    getBaseUrl: () => "https://example.com",
     getAttachmentDownloadInfo: vi.fn().mockResolvedValue({
       attachment: {
         id: "1-1",

@@ -64,8 +64,9 @@ export function isWeekend(dateIso: string): boolean {
 
 export function isHoliday(date: string | number | Date, holidays: Array<string | number | Date> = []): boolean {
   const target = toIsoDateString(date);
+  const holidaySet = new Set(holidays.map((holiday) => toIsoDateString(holiday)));
 
-  return holidays.some((holiday) => toIsoDateString(holiday) === target);
+  return holidaySet.has(target);
 }
 
 export function filterWorkingDays(
@@ -74,6 +75,8 @@ export function filterWorkingDays(
   excludeHolidays = true,
   holidays: Array<string | Date | number> = [],
 ): string[] {
+  const holidaySet = new Set(holidays.map((holiday) => toIsoDateString(holiday)));
+
   return dates
     .map((value) => toIsoDateString(value))
     .filter((dateIso) => {
@@ -81,7 +84,7 @@ export function filterWorkingDays(
         return false;
       }
 
-      if (excludeHolidays && isHoliday(dateIso, holidays)) {
+      if (excludeHolidays && holidaySet.has(dateIso)) {
         return false;
       }
 
@@ -182,12 +185,14 @@ export function filterWorkingDates(
   excludeHolidays = true,
   holidays: Date[] = [],
 ): Date[] {
+  const holidaySet = new Set(holidays.map((holiday) => formatDate(holiday)));
+
   return dates.filter((date) => {
     if (excludeWeekends && !isWorkingDay(date)) {
       return false;
     }
 
-    if (excludeHolidays && holidays.some((holiday) => formatDate(holiday) === formatDate(date))) {
+    if (excludeHolidays && holidaySet.has(formatDate(date))) {
       return false;
     }
 

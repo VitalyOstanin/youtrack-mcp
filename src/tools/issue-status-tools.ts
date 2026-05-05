@@ -4,13 +4,11 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema } from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 const issueStatusArgs = {
   issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 const issueStatusSchema = z.object(issueStatusArgs);
 const issuesStatusArgs = {
@@ -19,10 +17,7 @@ const issuesStatusArgs = {
     .min(1)
     .max(50)
     .describe("Array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50"),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 const issuesStatusSchema = z.object(issuesStatusArgs);
 
@@ -40,7 +35,7 @@ export async function issueStatusHandler(client: YoutrackClient, rawInput: unkno
       {
         saveToFile: payload.saveToFile,
         filePath: payload.filePath,
-        format: payload.format ?? "jsonl",
+        format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: payload.overwrite,
       },
       result,
@@ -77,7 +72,7 @@ export async function issuesStatusHandler(client: YoutrackClient, rawInput: unkn
       {
         saveToFile: payload.saveToFile,
         filePath: payload.filePath,
-        format: payload.format ?? "jsonl",
+        format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: payload.overwrite,
       },
       finalResult,

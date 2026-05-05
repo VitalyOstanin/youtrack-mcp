@@ -3,38 +3,39 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import { userLoginSchema, yqlIdentifierSchema } from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+
+const dateInputSchema = z
+  .string()
+  .regex(/^[0-9-]+$/, "Date must be YYYY-MM-DD or numeric timestamp");
 
 const issueListArgs = {
   projectIds: z
-    .array(z.string().min(1))
+    .array(yqlIdentifierSchema)
     .optional()
     .describe("Filter by project IDs or short names (e.g., ['PROJ', 'TEST'])"),
-  createdAfter: z
-    .string()
+  createdAfter: dateInputSchema
     .optional()
     .describe("Filter by creation date after (YYYY-MM-DD or timestamp)"),
-  createdBefore: z
-    .string()
+  createdBefore: dateInputSchema
     .optional()
     .describe("Filter by creation date before (YYYY-MM-DD or timestamp)"),
-  updatedAfter: z
-    .string()
+  updatedAfter: dateInputSchema
     .optional()
     .describe("Filter by update date after (YYYY-MM-DD or timestamp)"),
-  updatedBefore: z
-    .string()
+  updatedBefore: dateInputSchema
     .optional()
     .describe("Filter by update date before (YYYY-MM-DD or timestamp)"),
   statuses: z
-    .array(z.string().min(1))
+    .array(yqlIdentifierSchema)
     .optional()
     .describe("Filter by state/status names (e.g., ['Open', 'In Progress'])"),
-  assigneeLogin: z
-    .string()
+  assigneeLogin: userLoginSchema
     .optional()
     .describe("Filter by assignee login (e.g., 'john.doe' or 'me')"),
   types: z
-    .array(z.string().min(1))
+    .array(yqlIdentifierSchema)
     .optional()
     .describe("Filter by issue type names (e.g., ['Bug', 'Task', 'Feature'])"),
   sortField: z
@@ -63,23 +64,7 @@ const issueListArgs = {
     .nonnegative()
     .default(0)
     .describe("Offset for pagination (default: 0)"),
-  saveToFile: z
-    .boolean()
-    .optional()
-    .describe(
-      "Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts.",
-    ),
-  filePath: z
-    .string()
-    .optional()
-    .describe(
-      "Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist.",
-    ),
-  format: z
-    .enum(["json", "jsonl"])
-    .optional()
-    .describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 const issueListSchema = z.object(issueListArgs);
 
@@ -119,7 +104,7 @@ export function registerIssueListTools(server: McpServer, client: YoutrackClient
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           result,

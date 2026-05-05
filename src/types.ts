@@ -22,6 +22,11 @@ export interface YoutrackConfig {
   userAliases?: UserAliasMap;
   defaultProject?: string;
   outputDir: string;
+  /**
+   * Whitelist root for `issue_attachment_upload` source files. Defaults to
+   * `outputDir` when not provided. Files outside this directory are rejected.
+   */
+  uploadDir?: string;
 }
 
 export interface DurationValue {

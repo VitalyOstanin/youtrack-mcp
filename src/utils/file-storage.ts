@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, promises as fsPromises } from "node:fs";
+import { promises as fsPromises } from "node:fs";
 import { dirname } from "node:path";
 import { Transform, Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -109,13 +109,21 @@ export async function streamDataToFileAsync(options: StreamingFileStorageOptions
 
   await fsPromises.mkdir(dirname(finalPath), { recursive: true });
 
-  if (existsSync(finalPath) && !overwrite) {
-    throw new Error(
-      `File already exists: ${finalPath}. Choose a different file path or remove the existing file.`,
-    );
+  let handle: fsPromises.FileHandle;
+
+  try {
+    handle = await fsPromises.open(finalPath, overwrite ? "w" : "wx");
+  } catch (err) {
+    if (isEexistError(err)) {
+      throw new Error(
+        `File already exists: ${finalPath}. Choose a different file path or remove the existing file.`,
+      );
+    }
+
+    throw err;
   }
 
-  const writeStream = createWriteStream(finalPath, { encoding: "utf-8" });
+  const writeStream = handle.createWriteStream({ encoding: "utf-8" });
 
   try {
     if (format === "jsonl") {
@@ -180,6 +188,15 @@ export async function streamDataToFileAsync(options: StreamingFileStorageOptions
   }
 
   return finalPath;
+}
+
+function isEexistError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "EEXIST"
+  );
 }
 
 /**

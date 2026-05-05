@@ -60,7 +60,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
 
 ## Requirements
 
-- Node.js ≥ 20
+- Node.js ≥ 22
 - Environment variables:
   - `YOUTRACK_URL` — base URL of YouTrack instance
   - `YOUTRACK_TOKEN` — permanent token with read permissions for issues and work items
@@ -70,6 +70,7 @@ MCP server for comprehensive YouTrack integration with the following capabilitie
 - `YOUTRACK_USER_ALIASES` — optional comma-separated list of `alias:login` mappings (e.g., `me:vyt,petya:p.petrov`), used for automatic assignee selection
 - `YOUTRACK_DEFAULT_PROJECT` — optional project code used for manual verification tasks and default parent issues in docs/examples (use `PROJ` in documentation examples)
 - `YOUTRACK_OUTPUT_DIR` — optional root directory for files produced by `saveToFile` and `downloadToFile`. Defaults to the current working directory. Absolute paths and parent-traversal segments (`..`) are rejected for safety
+- `YOUTRACK_UPLOAD_DIR` — optional whitelist root for source files used by `issue_attachment_upload`. Defaults to `YOUTRACK_OUTPUT_DIR`. Paths whose realpath escapes this directory (including via symlinks) are rejected to prevent reading arbitrary files (`/etc/passwd`, `~/.ssh/id_rsa`, etc.)
 
 
 ## Installation
@@ -123,7 +124,7 @@ This project uses GitHub Actions for continuous integration and automated releas
 
 Runs automatically on every push and pull request:
 - **Triggers**: All branches, all pull requests
-- **Node.js versions**: 20.x, 22.x (matrix testing)
+- **Node.js versions**: 22.x, 24.x (matrix testing)
 - **Steps**:
   1. Install dependencies (`npm ci`)
   2. Run linter (`npm run lint`)
@@ -134,7 +135,7 @@ Runs automatically on every push and pull request:
 
 Runs automatically when you create a new version tag:
 - **Trigger**: Git tags matching `v*` pattern (e.g., `v0.1.0`, `v1.2.3`)
-- **Node.js version**: 20.x
+- **Node.js version**: 24.x
 - **Steps**:
   1. Install dependencies
   2. Build project

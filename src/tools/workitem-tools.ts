@@ -5,6 +5,7 @@ import { mapWorkItem, mapWorkItems } from "../utils/mappers.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema, workItemIdSchema, userLoginSchema } from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 const isoDate = z
   .string()
@@ -30,10 +31,7 @@ const baseFilterArgs = {
     .nonnegative()
     .default(0)
     .describe("Number of work items to skip for pagination (default 0). Applied as $skip on the server."),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 
 export { baseFilterArgs as workItemsBaseFilterArgs };
@@ -57,7 +55,7 @@ export async function workitemsListHandler(client: YoutrackClient, rawInput: unk
       {
         saveToFile: payload.saveToFile,
         filePath: payload.filePath,
-        format: payload.format ?? "jsonl",
+        format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: payload.overwrite,
       },
       result,
@@ -87,7 +85,7 @@ export async function workitemsAllUsersHandler(client: YoutrackClient, rawInput:
       {
         saveToFile: payload.saveToFile,
         filePath: payload.filePath,
-        format: payload.format ?? "jsonl",
+        format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: payload.overwrite,
       },
       result,
@@ -117,7 +115,7 @@ export async function workitemsForUsersHandler(client: YoutrackClient, rawInput:
       {
         saveToFile: payload.saveToFile,
         filePath: payload.filePath,
-        format: payload.format ?? "jsonl",
+        format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: payload.overwrite,
       },
       result,
@@ -226,10 +224,7 @@ const workItemsReportSchema = z.object(workItemsReportArgs);
 const workItemsRecentArgs = {
   users: z.array(userLoginSchema).optional().describe("User logins (defaults to current user)"),
   limit: z.number().int().positive().max(200).optional().describe("Maximum number of items (default 50)"),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 const workItemsRecentSchema = z.object(workItemsRecentArgs);
 
@@ -506,7 +501,7 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           result,

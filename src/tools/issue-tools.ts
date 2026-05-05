@@ -3,7 +3,12 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
-import { issueIdSchema as issueIdValidator, commentIdSchema, userLoginSchema } from "../utils/validators.js";
+import { issueIdSchema as issueIdValidator, commentIdSchema, userLoginSchema, yqlIdentifierSchema } from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+
+const dateInputSchema = z
+  .string()
+  .regex(/^[0-9-]+$/, "Date must be YYYY-MM-DD or numeric timestamp");
 
 const issueIdArgs = {
   issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
@@ -11,10 +16,7 @@ const issueIdArgs = {
     .boolean()
     .default(true)
     .describe("Brief mode (default: true). When false, include all available customFields including State."),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 const issueIdSchema = z.object(issueIdArgs);
 const issueCommentsArgs = {
@@ -44,10 +46,7 @@ const issueIdsArgs = {
     .boolean()
     .default(true)
     .describe("Brief mode (default: true). When false, include all available customFields for each issue."),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 const issueIdsSchema = z.object(issueIdsArgs);
 const issueCreateArgs = {
@@ -135,14 +134,14 @@ const issueChangeStateArgs = {
 };
 const issueChangeStateSchema = z.object(issueChangeStateArgs);
 const issuesCountArgs = {
-  projectIds: z.array(z.string().min(1)).optional().describe("Filter by project IDs or short names"),
-  createdAfter: z.string().optional().describe("Filter by creation date (YYYY-MM-DD or timestamp)"),
-  createdBefore: z.string().optional().describe("Filter by creation date (YYYY-MM-DD or timestamp)"),
-  updatedAfter: z.string().optional().describe("Filter by update date (YYYY-MM-DD or timestamp)"),
-  updatedBefore: z.string().optional().describe("Filter by update date (YYYY-MM-DD or timestamp)"),
-  statuses: z.array(z.string().min(1)).optional().describe("Filter by state names"),
-  types: z.array(z.string().min(1)).optional().describe("Filter by issue types"),
-  assigneeLogin: z.string().optional().describe("Filter by assignee login"),
+  projectIds: z.array(yqlIdentifierSchema).optional().describe("Filter by project IDs or short names"),
+  createdAfter: dateInputSchema.optional().describe("Filter by creation date (YYYY-MM-DD or timestamp)"),
+  createdBefore: dateInputSchema.optional().describe("Filter by creation date (YYYY-MM-DD or timestamp)"),
+  updatedAfter: dateInputSchema.optional().describe("Filter by update date (YYYY-MM-DD or timestamp)"),
+  updatedBefore: dateInputSchema.optional().describe("Filter by update date (YYYY-MM-DD or timestamp)"),
+  statuses: z.array(yqlIdentifierSchema).optional().describe("Filter by state names"),
+  types: z.array(yqlIdentifierSchema).optional().describe("Filter by issue types"),
+  assigneeLogin: userLoginSchema.optional().describe("Filter by assignee login"),
   top: z.number().int().positive().optional().describe("Maximum number of issues to count (optional limit)"),
 };
 const issuesCountSchema = z.object(issuesCountArgs);
@@ -230,7 +229,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           comments,
@@ -456,7 +455,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           result,
@@ -503,7 +502,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           result,
@@ -548,7 +547,7 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           result,

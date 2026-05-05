@@ -6,6 +6,7 @@ import { mapActivityItems } from "../utils/mappers.js";
 import { toIsoDateString } from "../utils/date.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema } from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 export const activityCategoryEnum = z.enum([
   "CustomFieldCategory",
@@ -51,10 +52,7 @@ export const issueActivitiesArgs = {
     .default(100)
     .describe("Maximum number of activities to return (default: 100, max: 200). Applied as $top on the server."),
   skip: z.number().int().nonnegative().default(0).describe("Number of activities to skip for pagination (default: 0). Applied as $skip on the server."),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 export const issueActivitiesSchema = z.object(issueActivitiesArgs);
 
@@ -91,7 +89,7 @@ export async function issueActivitiesHandler(client: YoutrackClient, rawInput: u
       {
         saveToFile: input.saveToFile,
         filePath: input.filePath,
-        format: input.format ?? "jsonl",
+        format: input.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: input.overwrite,
       },
       payload,

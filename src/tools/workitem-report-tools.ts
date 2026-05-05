@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 const sharedDate = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.number(), z.date()]);
 const reportBaseArgs = {
@@ -16,10 +17,7 @@ const reportBaseArgs = {
   holidays: z.array(sharedDate).optional().describe("List of holiday dates"),
   preHolidays: z.array(sharedDate).optional().describe("List of pre-holiday dates"),
   allUsers: z.boolean().optional().describe("Include work items for all users"),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 const reportArgsSchema = z.object(reportBaseArgs);
 const reportUsersArgsSchema = z.object({
@@ -48,7 +46,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           { report },
@@ -95,7 +93,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           { invalidDays },
@@ -142,7 +140,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
           {
             saveToFile: payload.saveToFile,
             filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
+            format: payload.format ?? DEFAULT_FILE_STORAGE_FORMAT,
             overwrite: payload.overwrite,
           },
           report,

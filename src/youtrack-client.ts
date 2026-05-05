@@ -1,6 +1,7 @@
 import axios from "axios";
 import FormData from "form-data";
 import fs from "fs";
+import path from "path";
 import { DateTime } from "luxon";
 import { MutexPool } from "@vitalyostanin/mutex-pool";
 
@@ -8,7 +9,6 @@ import {
   calculateTotalMinutes,
   enumerateDateRange,
   filterWorkingDays,
-  getCurrentDateTime,
   getCurrentTimestamp,
   getDayBounds,
   groupWorkItemsByDate,
@@ -112,6 +112,20 @@ import { buildIssueQuery } from "./utils/issue-query.js";
 const DEFAULT_PAGE_SIZE = 200;
 const DEFAULT_EXPECTED_MINUTES = 8 * 60;
 const MAX_STAR_BATCH_SIZE = 50;
+const CUSTOM_FIELDS_BASE = "customFields(id,name,value(id,login,name,presentation),$type)";
+const CUSTOM_FIELDS_WITH_EVENTS = "customFields(id,name,value(id,login,name,presentation),$type,possibleEvents(id,presentation))";
+const CUSTOM_FIELDS_DETAILS_WITH_EVENTS = "customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))";
+const CUSTOM_FIELDS_STATE_FETCH = "id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)";
+
+function withIssueCustomFieldEvents(baseFields: string): string {
+  return baseFields.includes(CUSTOM_FIELDS_BASE)
+    ? baseFields.replace(CUSTOM_FIELDS_BASE, CUSTOM_FIELDS_WITH_EVENTS)
+    : `${baseFields},${CUSTOM_FIELDS_WITH_EVENTS}`;
+}
+
+function withIssueDetailsCustomFieldEvents(baseFields: string): string {
+  return `${baseFields},${CUSTOM_FIELDS_DETAILS_WITH_EVENTS}`;
+}
 const defaultFields = {
   issue: [
     "id",
@@ -127,7 +141,7 @@ const defaultFields = {
     "assignee(id,login,name)",
     "reporter(id,login,name)",
     "updater(id,login,name)",
-    "customFields(id,name,value(id,login,name,presentation),$type)",
+    CUSTOM_FIELDS_BASE,
     "watchers(hasStar)",
   ].join(","),
   issueSearch: [
@@ -148,7 +162,7 @@ const defaultFields = {
     "summary",
     "project(id,shortName,name)",
     "parent(id,idReadable)",
-    "customFields(id,name,value(id,login,name,presentation),$type)",
+    CUSTOM_FIELDS_BASE,
     "watchers(hasStar)",
   ].join(","),
   issueDetails: [
@@ -1011,13 +1025,7 @@ export class YoutrackClient {
     const resolvedId = this.resolveIssueId(issueId);
 
     try {
-      let fields = defaultFields.issue;
-
-      if (includeCustomFields) {
-        // Include customFields with possibleEvents when requested
-        fields = `${defaultFields.issue.substring(0, defaultFields.issue.lastIndexOf(')')+1)},customFields(id,name,value(id,login,name,presentation),$type,possibleEvents(id,presentation))`;
-      }
-
+      const fields = includeCustomFields ? withIssueCustomFieldEvents(defaultFields.issue) : defaultFields.issue;
       const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${encId(resolvedId)}`, {
         params: { fields },
       });
@@ -1113,7 +1121,7 @@ export class YoutrackClient {
 
     try {
       const fields = includeCustomFields
-        ? `${defaultFields.issueDetails},customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))`
+        ? withIssueDetailsCustomFieldEvents(defaultFields.issueDetails)
         : defaultFields.issueDetails;
       const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${encId(resolvedId)}`, {
         params: { fields },
@@ -1395,23 +1403,28 @@ export class YoutrackClient {
       }
 
       if (input.links?.length) {
-        const linkErrors: Array<{ index: number; message: string }> = [];
+        const indexed = input.links.map((link, index) => ({ link, index }));
+        const linkResults = await this.processBatch(
+          indexed,
+          async ({ link, index }) => {
+            try {
+              await this.addIssueLink({
+                sourceId: link.sourceId ?? currentIssue.idReadable,
+                targetId: link.targetId,
+                linkType: link.linkType,
+                direction: link.direction,
+              });
 
-        for (const [index, link] of input.links.entries()) {
-          try {
-            await this.addIssueLink({
-              sourceId: link.sourceId ?? currentIssue.idReadable,
-              targetId: link.targetId,
-              linkType: link.linkType,
-              direction: link.direction,
-            });
-          } catch (error) {
-            linkErrors.push({
-              index,
-              message: this.buildPartialErrorMessage(error),
-            });
-          }
-        }
+              return { ok: true as const, index };
+            } catch (error) {
+              return { ok: false as const, index, message: this.buildPartialErrorMessage(error) };
+            }
+          },
+          10,
+        );
+        const linkErrors = linkResults
+          .filter((result) => !result.ok)
+          .map((result) => ({ index: result.index, message: result.message }));
 
         if (linkErrors.length > 0) {
           partialErrors.push({
@@ -1499,13 +1512,7 @@ export class YoutrackClient {
     const query = `issue id: ${resolvedIds.join(" ")}`;
 
     try {
-      let fields = defaultFields.issue;
-
-      if (includeCustomFields) {
-        // Include customFields with possibleEvents when requested
-        fields = `${defaultFields.issue.substring(0, defaultFields.issue.lastIndexOf(')')+1)},customFields(id,name,value(id,login,name,presentation),$type,possibleEvents(id,presentation))`;
-      }
-
+      const fields = includeCustomFields ? withIssueCustomFieldEvents(defaultFields.issue) : defaultFields.issue;
       const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
         fields,
         query,
@@ -1546,7 +1553,7 @@ export class YoutrackClient {
 
     try {
       const fields = includeCustomFields
-        ? `${defaultFields.issueDetails},customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))`
+        ? withIssueDetailsCustomFieldEvents(defaultFields.issueDetails)
         : defaultFields.issueDetails;
       const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
         fields,
@@ -1737,7 +1744,7 @@ export class YoutrackClient {
     // Add date range filter if provided
     if (input.startDate || input.endDate) {
       const startDateStr = input.startDate ? toIsoDateString(input.startDate) : "1970-01-01";
-      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : getCurrentDateTime().toISO();
+      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : "now";
 
       filters.push(`updated: ${startDateStr} .. ${endDateStr}`);
     }
@@ -1786,7 +1793,7 @@ export class YoutrackClient {
     // and to reduce candidate set before precise post-filtering.
     if (input.startDate || input.endDate) {
       const startDateStr = input.startDate ? toIsoDateString(input.startDate) : "1970-01-01";
-      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : getCurrentDateTime().toISO();
+      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : "now";
 
       filters.push(`updated: ${startDateStr} .. ${endDateStr}`);
     }
@@ -1807,74 +1814,7 @@ export class YoutrackClient {
       // If no data returned, still attempt a fallback without braces
       // No fallback needed here since we purposely avoided user filters in query
 
-      if (candidateIssues.length === 0) {
-        return {
-          issues: [],
-          userLogins: input.userLogins,
-          period: {
-            startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
-            endDate: input.endDate ? toIsoDateString(input.endDate) : undefined,
-          },
-          pagination: {
-            returned: 0,
-            limit: input.limit ?? 100,
-            skip: input.skip ?? 0,
-          },
-        };
-      }
-
-      // Get issueIds and fetch details + comments (light versions for filtering)
-      const issueIds = candidateIssues.map((issue) => issue.idReadable);
-      const [detailsLight, commentsLight] = await Promise.all([
-        this.getIssuesDetailsLight(issueIds),
-        this.getMultipleIssuesCommentsLight(issueIds),
-      ]);
-      // Get activities for each issue with concurrency limiting
-      const activitiesResults = await this.processBatch(
-        issueIds,
-        async (issueId) => {
-          try {
-            return await this.getIssueActivities(issueId);
-          } catch {
-            // Soft semantics: a per-issue activity fetch failure must not abort
-            // the whole strict search. Treat as no activity for this issue.
-            return [];
-          }
-        },
-        10,
-      );
-      // Process each issue to determine lastActivityDate
-      const issuesWithActivity = this.filterIssuesByUserActivity(
-        candidateIssues,
-        detailsLight,
-        commentsLight,
-        activitiesResults,
-        input,
-      );
-      // Apply pagination
-      const skip = input.skip ?? 0;
-      const limit = input.limit ?? 100;
-      const paginatedIssues = issuesWithActivity.slice(skip, skip + limit);
-      // Map issues with lastActivityDate (use brief mapping if requested)
-      const mapperFn = briefOutput ? mapIssueBrief : mapIssue;
-      const resultIssues = paginatedIssues.map(({ issue, lastActivityDate }) => ({
-        ...mapperFn(issue),
-        lastActivityDate,
-      }));
-
-      return {
-        issues: resultIssues,
-        userLogins: input.userLogins,
-        period: {
-          startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
-          endDate: input.endDate ? toIsoDateString(input.endDate) : undefined,
-        },
-        pagination: {
-          returned: resultIssues.length,
-          limit,
-          skip,
-        },
-      };
+      return await this.runStrictUserActivityPipeline(candidateIssues, briefOutput, input);
     } catch (error) {
       const normalized = this.normalizeError(error);
 
@@ -1883,66 +1823,7 @@ export class YoutrackClient {
         try {
           const candidateIssues = await this.searchIssuesStrictFallbackRequest(briefOutput, sortPart, input);
 
-          if (candidateIssues.length === 0) {
-            return {
-              issues: [],
-              userLogins: input.userLogins,
-              period: {
-                startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
-                endDate: input.endDate ? toIsoDateString(input.endDate) : undefined,
-              },
-              pagination: {
-                returned: 0,
-                limit: input.limit ?? 100,
-                skip: input.skip ?? 0,
-              },
-            };
-          }
-
-          // Re-run the rest of the strict pipeline with the already fetched list
-          const issueIds = candidateIssues.map((issue) => issue.idReadable);
-          const [detailsLight, commentsLight] = await Promise.all([
-            this.getIssuesDetailsLight(issueIds),
-            this.getMultipleIssuesCommentsLight(issueIds),
-          ]);
-          const activitiesResults = await this.processBatch(
-            issueIds,
-            async (issueId) => {
-              const activities = await this.getIssueActivities(issueId);
-
-              return activities;
-            },
-            10,
-          );
-          const issuesWithActivity = this.filterIssuesByUserActivity(
-            candidateIssues,
-            detailsLight,
-            commentsLight,
-            activitiesResults,
-            input,
-          );
-          const skip = input.skip ?? 0;
-          const limit = input.limit ?? 100;
-          const paginatedIssues = issuesWithActivity.slice(skip, skip + limit);
-          const mapperFn = briefOutput ? mapIssueBrief : mapIssue;
-          const resultIssues = paginatedIssues.map(({ issue, lastActivityDate }) => ({
-            ...mapperFn(issue),
-            lastActivityDate,
-          }));
-
-          return {
-            issues: resultIssues,
-            userLogins: input.userLogins,
-            period: {
-              startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
-              endDate: input.endDate ? toIsoDateString(input.endDate) : undefined,
-            },
-            pagination: {
-              returned: resultIssues.length,
-              limit,
-              skip,
-            },
-          };
+          return await this.runStrictUserActivityPipeline(candidateIssues, briefOutput, input);
         } catch {
           // If fallback also fails, return original error
           throw normalized;
@@ -1951,6 +1832,81 @@ export class YoutrackClient {
 
       throw normalized;
     }
+  }
+
+  /**
+   * Common tail of the strict user-activity search: takes already-fetched
+   * candidate issues, gathers details+comments+activities for them, filters
+   * by user activity within the requested period, and paginates the result.
+   *
+   * Per-issue activity fetches use soft semantics -- a single failure is
+   * treated as "no activity for this issue", not a fatal error.
+   */
+  private async runStrictUserActivityPipeline(
+    candidateIssues: YoutrackIssue[],
+    briefOutput: boolean,
+    input: IssueSearchInput,
+  ): Promise<IssueSearchPayload> {
+    const limit = input.limit ?? 100;
+    const skip = input.skip ?? 0;
+    const period = {
+      startDate: input.startDate ? toIsoDateString(input.startDate) : undefined,
+      endDate: input.endDate ? toIsoDateString(input.endDate) : undefined,
+    };
+
+    if (candidateIssues.length === 0) {
+      return {
+        issues: [],
+        userLogins: input.userLogins,
+        period,
+        pagination: {
+          returned: 0,
+          limit,
+          skip,
+        },
+      };
+    }
+
+    const issueIds = candidateIssues.map((issue) => issue.idReadable);
+    const [detailsLight, commentsLight] = await Promise.all([
+      this.getIssuesDetailsLight(issueIds),
+      this.getMultipleIssuesCommentsLight(issueIds),
+    ]);
+    const activitiesResults = await this.processBatch(
+      issueIds,
+      async (issueId) => {
+        try {
+          return await this.getIssueActivities(issueId);
+        } catch {
+          return [];
+        }
+      },
+      10,
+    );
+    const issuesWithActivity = this.filterIssuesByUserActivity(
+      candidateIssues,
+      detailsLight,
+      commentsLight,
+      activitiesResults,
+      input,
+    );
+    const paginatedIssues = issuesWithActivity.slice(skip, skip + limit);
+    const mapperFn = briefOutput ? mapIssueBrief : mapIssue;
+    const resultIssues = paginatedIssues.map(({ issue, lastActivityDate }) => ({
+      ...mapperFn(issue),
+      lastActivityDate,
+    }));
+
+    return {
+      issues: resultIssues,
+      userLogins: input.userLogins,
+      period,
+      pagination: {
+        returned: resultIssues.length,
+        limit,
+        skip,
+      },
+    };
   }
 
   /**
@@ -1967,14 +1923,22 @@ export class YoutrackClient {
     const startTimestamp = input.startDate ? parseDateInput(input.startDate) : 0;
     const endTimestamp = input.endDate ? parseDateInput(input.endDate) : getCurrentTimestamp();
     const issuesWithActivity: Array<{ issue: YoutrackIssue; lastActivityDate: string }> = [];
+    const detailsByIssueId = new Map<string, YoutrackIssueDetails>();
+
+    for (const detail of detailsLight) {
+      detailsByIssueId.set(detail.idReadable, detail);
+    }
 
     for (let i = 0; i < candidateIssues.length; i++) {
       const issue = candidateIssues[i];
       const issueId = issue.idReadable;
-      const details = detailsLight.find((d) => d.idReadable === issueId);
+      const details = detailsByIssueId.get(issueId);
       const comments = commentsLight[issueId] ?? [];
       const activities = activitiesResults[i] ?? [];
-      const dates: number[] = [];
+      // Set deduplicates timestamps: a single change can match by both
+      // author and added/removed for the same user, and we don't want
+      // those duplicates inflating logs or memory.
+      const dates = new Set<number>();
 
       for (const userLogin of input.userLogins) {
         // Check comments from user
@@ -1983,7 +1947,7 @@ export class YoutrackClient {
             const commentDate = comment.created;
 
             if (commentDate >= startTimestamp && commentDate <= endTimestamp) {
-              dates.push(commentDate);
+              dates.add(commentDate);
             }
           }
 
@@ -1992,7 +1956,7 @@ export class YoutrackClient {
             const commentDate = comment.created;
 
             if (commentDate >= startTimestamp && commentDate <= endTimestamp) {
-              dates.push(commentDate);
+              dates.add(commentDate);
             }
           }
         }
@@ -2002,7 +1966,7 @@ export class YoutrackClient {
           if (activity.timestamp >= startTimestamp && activity.timestamp <= endTimestamp) {
             // Activity by user
             if (activity.author?.login === userLogin) {
-              dates.push(activity.timestamp);
+              dates.add(activity.timestamp);
             }
 
             // User added or removed in field change (e.g., assignee)
@@ -2010,7 +1974,7 @@ export class YoutrackClient {
             const inRemoved = activity.removed?.some((v) => v.login === userLogin);
 
             if (inAdded || inRemoved) {
-              dates.push(activity.timestamp);
+              dates.add(activity.timestamp);
             }
           }
         }
@@ -2020,14 +1984,19 @@ export class YoutrackClient {
           const updateDate = details.updated;
 
           if (updateDate >= startTimestamp && updateDate <= endTimestamp) {
-            dates.push(updateDate);
+            dates.add(updateDate);
           }
         }
       }
 
-      if (dates.length > 0) {
-        // Avoid Math.max(...arr) since spread arg count is bounded by JS engines.
-        const lastActivityTimestamp = dates.reduce((acc, d) => (d > acc ? d : acc), -Infinity);
+      if (dates.size > 0) {
+        let lastActivityTimestamp = -Infinity;
+
+        for (const timestamp of dates) {
+          if (timestamp > lastActivityTimestamp) {
+            lastActivityTimestamp = timestamp;
+          }
+        }
         const lastActivityDate = DateTime.fromMillis(lastActivityTimestamp).toISO() ?? "";
 
         issuesWithActivity.push({
@@ -2061,7 +2030,7 @@ export class YoutrackClient {
 
     if (input.startDate || input.endDate) {
       const startDateStr = input.startDate ? toIsoDateString(input.startDate) : "1970-01-01";
-      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : getCurrentDateTime().toISO();
+      const endDateStr = input.endDate ? toIsoDateString(input.endDate) : "now";
 
       fallbackFilters.push(`updated: ${startDateStr} .. ${endDateStr}`);
     }
@@ -2282,9 +2251,6 @@ export class YoutrackClient {
     const date = input.date ?? existing.date;
     const summary = input.summary ?? existing.text ?? existing.description ?? "";
     const description = input.description ?? existing.description ?? existing.text ?? "";
-
-    await this.deleteWorkItem(input.issueId, input.workItemId);
-
     const workItem = await this.createWorkItem({
       issueId: input.issueId,
       date,
@@ -2293,6 +2259,18 @@ export class YoutrackClient {
       description,
       usesMarkdown: input.usesMarkdown ?? existing.usesMarkdown,
     });
+
+    try {
+      await this.deleteWorkItem(input.issueId, input.workItemId);
+    } catch (error) {
+      const cleanupError = this.normalizeError(error);
+
+      throw new YoutrackClientError(
+        `Work item updated as ${workItem.id}, but failed to delete the previous record ${input.workItemId}: ${cleanupError.message}. Manual cleanup required.`,
+        cleanupError.status,
+        cleanupError.details,
+      );
+    }
 
     return workItem;
   }
@@ -2397,6 +2375,22 @@ export class YoutrackClient {
     const endIso = options.endDate ? toIsoDateString(options.endDate) : undefined;
     const effectiveStart = startIso ?? fallbackStart;
     const effectiveEnd = endIso ?? fallbackEnd;
+
+    if (effectiveStart === undefined || effectiveEnd === undefined) {
+      return {
+        summary: {
+          totalMinutes: 0,
+          totalHours: 0,
+          expectedMinutes: 0,
+          expectedHours: 0,
+          workDays: 0,
+          averageHoursPerDay: 0,
+        },
+        days: [],
+        period: { startDate: startIso ?? "", endDate: endIso ?? "" },
+        invalidDays: [],
+      };
+    }
     const expectedDailyMinutes = options.expectedDailyMinutes ?? DEFAULT_EXPECTED_MINUTES;
     const excludeWeekends = options.excludeWeekends ?? true;
     const excludeHolidays = options.excludeHolidays ?? true;
@@ -2698,7 +2692,16 @@ export class YoutrackClient {
         throw new YoutrackClientError("Attachment URL is not available");
       }
 
-      const downloadUrl = `${this.config.baseUrl}${attachment.url}`;
+      const baseOrigin = new URL(this.config.baseUrl).origin;
+      const resolvedUrl = new URL(attachment.url, this.config.baseUrl);
+
+      if (resolvedUrl.origin !== baseOrigin) {
+        throw new YoutrackClientError(
+          `Refusing to download attachment from foreign origin ${resolvedUrl.origin} (expected ${baseOrigin})`,
+        );
+      }
+
+      const downloadUrl = resolvedUrl.toString();
       const mapped = mapAttachment(attachment);
       const payload = {
         attachment: mapped,
@@ -2713,17 +2716,30 @@ export class YoutrackClient {
   }
 
   async uploadAttachments(input: AttachmentUploadInput): Promise<AttachmentUploadPayload> {
-    // Validate file paths
+    const uploadRoot = path.resolve(this.config.uploadDir ?? this.config.outputDir);
+    const safePaths: string[] = [];
+
     for (const filePath of input.filePaths) {
-      if (!fs.existsSync(filePath)) {
-        throw new YoutrackClientError(`File not found: ${filePath}`);
+      let realPath: string;
+
+      try {
+        realPath = fs.realpathSync(filePath);
+      } catch {
+        throw new YoutrackClientError(`File not found or not readable: ${filePath}`);
       }
+
+      if (realPath !== uploadRoot && !realPath.startsWith(uploadRoot + path.sep)) {
+        throw new YoutrackClientError(
+          `Refusing to upload from outside YOUTRACK_UPLOAD_DIR (${uploadRoot}): ${filePath}`,
+        );
+      }
+
+      safePaths.push(realPath);
     }
 
     const formData = new FormData();
 
-    // Add files to form data
-    for (const filePath of input.filePaths) {
+    for (const filePath of safePaths) {
       formData.append("upload", fs.createReadStream(filePath));
     }
 
@@ -2859,11 +2875,9 @@ export class YoutrackClient {
     return rawWorkItem;
   }
 
-  private resolveReportBoundary(items: YoutrackWorkItem[], mode: "min" | "max"): string {
+  private resolveReportBoundary(items: YoutrackWorkItem[], mode: "min" | "max"): string | undefined {
     if (!items.length) {
-      const todayIso = getCurrentDateTime().toISO();
-
-      return todayIso ?? "";
+      return undefined;
     }
 
     const timestamps = items.map((item) => item.date);
@@ -2878,7 +2892,7 @@ export class YoutrackClient {
     try {
       const response = await this.http.get<YoutrackCustomField[]>(`/api/issues/${encId(issueId)}/customFields`, {
         params: {
-          fields: "id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)",
+          fields: CUSTOM_FIELDS_STATE_FETCH,
         },
       });
       const customFields = response.data;

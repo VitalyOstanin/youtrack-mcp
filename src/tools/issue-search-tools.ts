@@ -2,58 +2,60 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import {
+  projectIdSchema,
+  userLoginSchema,
+  yqlIdentifierSchema,
+  yqlQuerySchema,
+} from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 export const issuesSearchArgs = {
-  query: z
-    .string()
+  query: yqlQuerySchema
     .optional()
     .describe(
       "Search string for issues (e.g., 'login error'). If not provided or empty, all issues will be returned. You can also use YouTrack Query Language (e.g., 'State: Open', 'Type: Bug')",
     ),
   limit: z.number().int().positive().max(200).default(50).describe("Max results per page"),
   skip: z.number().int().nonnegative().default(0).describe("Offset for pagination"),
-  projects: z.array(z.string().min(1)).optional().describe("Filter by project short names (e.g., ['PROJ', 'TEST'])"),
-  projectIds: z.array(z.string().min(1)).optional().describe("Filter by project IDs (e.g., ['0-1', '0-2'])"),
-  assignee: z
-    .string()
+  projects: z.array(yqlIdentifierSchema).optional().describe("Filter by project short names (e.g., ['PROJ', 'TEST'])"),
+  projectIds: z.array(projectIdSchema).optional().describe("Filter by project IDs (e.g., ['0-1', '0-2'])"),
+  assignee: userLoginSchema
     .optional()
     .describe("DEPRECATED: use assigneeLogin instead. Filter by assignee login (e.g., 'john.doe' or 'me')"),
-  assigneeLogin: z.string().optional().describe("Filter by assignee login (e.g., 'john.doe' or 'me')"),
-  reporter: z.string().optional().describe("Filter by reporter/author login (e.g., 'john.doe' or 'me')"),
-  state: z.string().optional().describe("Filter by state/status (e.g., 'Open', 'In Progress', 'Fixed')"),
+  assigneeLogin: userLoginSchema.optional().describe("Filter by assignee login (e.g., 'john.doe' or 'me')"),
+  reporter: userLoginSchema.optional().describe("Filter by reporter/author login (e.g., 'john.doe' or 'me')"),
+  state: yqlIdentifierSchema.optional().describe("Filter by state/status (e.g., 'Open', 'In Progress', 'Fixed')"),
   statuses: z
-    .array(z.string().min(1))
+    .array(yqlIdentifierSchema)
     .optional()
     .describe("Filter by multiple state/status names (e.g., ['Open', 'In Progress'])"),
-  type: z.string().optional().describe("Filter by issue type (e.g., 'Bug', 'Feature', 'Task')"),
+  type: yqlIdentifierSchema.optional().describe("Filter by issue type (e.g., 'Bug', 'Feature', 'Task')"),
   types: z
-    .array(z.string().min(1))
+    .array(yqlIdentifierSchema)
     .optional()
     .describe("Filter by multiple issue types (e.g., ['Bug', 'Task', 'Feature'])"),
-  createdAfter: z.string().optional().describe("Filter by creation date after (YYYY-MM-DD or timestamp)"),
-  createdBefore: z.string().optional().describe("Filter by creation date before (YYYY-MM-DD or timestamp)"),
-  updatedAfter: z.string().optional().describe("Filter by update date after (YYYY-MM-DD or timestamp)"),
-  updatedBefore: z.string().optional().describe("Filter by update date before (YYYY-MM-DD or timestamp)"),
-  saveToFile: z
-    .boolean()
-    .optional()
-    .describe(
-      "Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts.",
-    ),
-  filePath: z
+  createdAfter: z
     .string()
+    .regex(/^[0-9-]+$/, "Date must be YYYY-MM-DD or numeric timestamp")
     .optional()
-    .describe(
-      "Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist.",
-    ),
-  format: z
-    .enum(["json", "jsonl"])
+    .describe("Filter by creation date after (YYYY-MM-DD or timestamp)"),
+  createdBefore: z
+    .string()
+    .regex(/^[0-9-]+$/, "Date must be YYYY-MM-DD or numeric timestamp")
     .optional()
-    .describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z
-    .boolean()
+    .describe("Filter by creation date before (YYYY-MM-DD or timestamp)"),
+  updatedAfter: z
+    .string()
+    .regex(/^[0-9-]+$/, "Date must be YYYY-MM-DD or numeric timestamp")
     .optional()
-    .describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+    .describe("Filter by update date after (YYYY-MM-DD or timestamp)"),
+  updatedBefore: z
+    .string()
+    .regex(/^[0-9-]+$/, "Date must be YYYY-MM-DD or numeric timestamp")
+    .optional()
+    .describe("Filter by update date before (YYYY-MM-DD or timestamp)"),
+  ...fileStorageArgs,
 };
 
 export const issuesSearchSchema = z.object(issuesSearchArgs).default({});
@@ -112,29 +114,20 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
       filters.push(`Type: {${input.type}}`);
     }
 
-    // Add date filters
-    if (input.createdAfter) {
-      filters.push(`created: ${input.createdAfter} .. *`);
-    }
-    if (input.createdBefore) {
-      filters.push(`created: * .. ${input.createdBefore}`);
-    }
     if (input.createdAfter && input.createdBefore) {
-      filters.pop(); // Remove the individual createdAfter filter
-      filters.pop(); // Remove the individual createdBefore filter
       filters.push(`created: ${input.createdAfter} .. ${input.createdBefore}`);
+    } else if (input.createdAfter) {
+      filters.push(`created: ${input.createdAfter} .. now`);
+    } else if (input.createdBefore) {
+      filters.push(`created: 1970-01-01 .. ${input.createdBefore}`);
     }
 
-    if (input.updatedAfter) {
-      filters.push(`updated: ${input.updatedAfter} .. *`);
-    }
-    if (input.updatedBefore) {
-      filters.push(`updated: * .. ${input.updatedBefore}`);
-    }
     if (input.updatedAfter && input.updatedBefore) {
-      filters.pop(); // Remove the individual updatedAfter filter
-      filters.pop(); // Remove the individual updatedBefore filter
       filters.push(`updated: ${input.updatedAfter} .. ${input.updatedBefore}`);
+    } else if (input.updatedAfter) {
+      filters.push(`updated: ${input.updatedAfter} .. now`);
+    } else if (input.updatedBefore) {
+      filters.push(`updated: 1970-01-01 .. ${input.updatedBefore}`);
     }
 
     // Combine query with filters
@@ -170,7 +163,7 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
       {
         saveToFile: input.saveToFile,
         filePath: input.filePath,
-        format: input.format ?? 'jsonl',
+        format: input.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: input.overwrite,
       },
       result,

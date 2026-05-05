@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [ "**" ]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
       matrix:
@@ -29,6 +34,12 @@ jobs:
 
     - name: Run linter
       run: npm run lint
+
+    - name: Typecheck
+      run: npm run typecheck
+
+    - name: Run tests
+      run: npm test
 
     - name: Build project
       run: npm run build

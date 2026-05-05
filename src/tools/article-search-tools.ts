@@ -3,6 +3,7 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { articleIdSchema, projectIdSchema } from "../utils/validators.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 
 export const articlesSearchArgs = {
   query: z
@@ -14,10 +15,7 @@ export const articlesSearchArgs = {
   skip: z.number().int().nonnegative().default(0).describe("Offset for pagination"),
   projectId: projectIdSchema.optional().describe("Filter by project ID"),
   parentArticleId: articleIdSchema.optional().describe("Filter by parent article ID"),
-  saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
-  filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
-  format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-  overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
+  ...fileStorageArgs,
 };
 
 export const articlesSearchSchema = z.object(articlesSearchArgs);
@@ -51,7 +49,7 @@ export async function articlesSearchHandler(client: YoutrackClient, rawInput: un
       {
         saveToFile: input.saveToFile,
         filePath: input.filePath,
-        format: input.format ?? 'jsonl',
+        format: input.format ?? DEFAULT_FILE_STORAGE_FORMAT,
         overwrite: input.overwrite,
       },
       articlesWithLinks,

@@ -53,3 +53,35 @@ export const articleIdSchema = z
   .string()
   .min(1)
   .regex(internalIdRegex, "Article id must be alphanumeric with . _ -");
+
+/**
+ * Reject `{`, `}` and ASCII control characters (NUL..US, DEL) in YQL inputs.
+ * This is the single source of truth for YQL injection defense across query
+ * fragments, field values and identifiers.
+ */
+// eslint-disable-next-line no-control-regex
+const YQL_FORBIDDEN = /[{}\x00-\x1F\x7F]/;
+
+/**
+ * YQL identifier value used inside `{...}` wrappers (state/type names,
+ * project short names, login-like ids). Permits spaces, hyphens, dots and
+ * unicode letters, but blocks `{`, `}` and control characters so the caller
+ * can safely interpolate the value as `{value}` in a YQL clause.
+ */
+export const yqlIdentifierSchema = z
+  .string()
+  .min(1)
+  .refine((value) => !YQL_FORBIDDEN.test(value), {
+    message: "YQL identifier must not contain { } or control characters",
+  });
+
+/**
+ * Free-text YQL fragment used as a search query. Forbids `{` and `}` so the
+ * value cannot break out of the surrounding `({...})` wrapping or smuggle a
+ * literal field-value clause.
+ */
+export const yqlQuerySchema = z
+  .string()
+  .refine((value) => !YQL_FORBIDDEN.test(value), {
+    message: "Search query must not contain { } or control characters",
+  });

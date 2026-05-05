@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Breaking
+
+- **Node.js minimum bumped to 22** — `engines.node` raised to `>=22.0.0`. Node.js 20 reached EOL on 2026-04-30 and was no longer covered by CI matrix (which ran 22.x/24.x). Users on Node 20 must upgrade.
+
+### Security
+
+- **Dependencies updated to clear all known advisories** — `@modelcontextprotocol/sdk` `^1.20.0` → `^1.29.0` (clears `GHSA-w48q-cv73-mx4w`, `GHSA-345p-7cg4-v4c7`, `GHSA-8r9q-7v3j-jr4g`); `axios` `^1.12.2` → `^1.16.0` (clears 16 advisories including `GHSA-43fc-jf86-j433`, `GHSA-5c9x-8gcm-mpgx`, `GHSA-pmwg-cvhr-8vh7`, `GHSA-q8qp-cvcw-x6jj`, `GHSA-pf86-5x62-jrwf`, `GHSA-6chq-wfr3-2hj9` and others); transitive cleanup via `npm audit fix` removes `flatted`, `minimatch`, `picomatch`, `js-yaml`, `ajv`, `brace-expansion` advisories. `npm audit` now reports 0 vulnerabilities.
+
+### Fixed
+
+- **`updateWorkItem` no longer loses data on transient failures** — previously deleted the existing record before creating the new one; if the create call failed (network/5xx) the original record was lost. Now creates the new record first and only deletes the previous one after success. If cleanup of the previous record fails, the error message contains both the new id and the orphaned id for manual reconciliation.
+
 ## [0.11.0] - 2026-05-05
 
 ### Breaking

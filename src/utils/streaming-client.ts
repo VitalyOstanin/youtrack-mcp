@@ -1,6 +1,6 @@
 import { request as httpsRequest } from "node:https";
 import { request as httpRequest, type IncomingMessage } from "node:http";
-import { createWriteStream, promises as fsp, existsSync } from "node:fs";
+import { promises as fsp } from "node:fs";
 import { dirname } from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -35,10 +35,18 @@ export async function streamArrayToFile(
 
   await fsp.mkdir(dirname(target), { recursive: true });
 
-  if (existsSync(target) && !options.overwrite) {
-    throw new Error(
-      `File already exists: ${target}. Choose a different file path or remove the existing file.`,
-    );
+  let handle: fsp.FileHandle;
+
+  try {
+    handle = await fsp.open(target, options.overwrite ? "w" : "wx");
+  } catch (err) {
+    if (isEexistError(err)) {
+      throw new Error(
+        `File already exists: ${target}. Choose a different file path or remove the existing file.`,
+      );
+    }
+
+    throw err;
   }
 
   const u = new URL(url);
@@ -46,7 +54,7 @@ export async function streamArrayToFile(
   const timeoutMs = options.timeoutMs ?? 60_000;
 
   return new Promise<string>((resolveP, rejectP) => {
-    const writer = createWriteStream(target, { encoding: "utf-8" });
+    const writer = handle.createWriteStream({ encoding: "utf-8" });
     let settled = false;
     const cleanupAndReject = (err: unknown): void => {
       if (settled) return;
@@ -63,6 +71,7 @@ export async function streamArrayToFile(
       },
       (res: IncomingMessage) => {
         if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
           cleanupAndReject(new Error(`HTTP ${res.statusCode ?? "no status"}: ${res.statusMessage ?? ""}`));
 
           return;
@@ -110,4 +119,13 @@ export async function streamArrayToFile(
 
 export function safeFilename(input: string): string {
   return sanitizeFilename(input);
+}
+
+function isEexistError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "EEXIST"
+  );
 }
