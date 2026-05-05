@@ -1113,13 +1113,30 @@ export class YoutrackClient {
 
   async getIssueActivities(
     issueId: string,
-    { author, startDate, endDate }: { author?: string; startDate?: number; endDate?: number } = {},
+    {
+      author,
+      startDate,
+      endDate,
+      top,
+      skip,
+      categories,
+    }: {
+      author?: string;
+      startDate?: number;
+      endDate?: number;
+      top?: number;
+      skip?: number;
+      categories?: string[];
+    } = {},
   ): Promise<YoutrackActivityItem[]> {
-    const categories = "CustomFieldCategory,CommentsCategory";
+    const resolvedId = this.resolveIssueId(issueId);
+    const effectiveCategories = categories?.length
+      ? categories.join(",")
+      : "CustomFieldCategory,CommentsCategory";
     const fields =
       "id,timestamp,author(id,login,name),category(id),target(text),added(name,id,login),removed(name,id,login),$type";
     const requestParams: Record<string, unknown> = {
-      categories,
+      categories: effectiveCategories,
       fields,
     };
 
@@ -1135,8 +1152,16 @@ export class YoutrackClient {
       requestParams.end = endDate;
     }
 
+    if (top !== undefined) {
+      requestParams.$top = top;
+    }
+
+    if (skip !== undefined) {
+      requestParams.$skip = skip;
+    }
+
     try {
-      const response = await this.http.get<YoutrackActivityItem[]>(`/api/issues/${encId(issueId)}/activities`, {
+      const response = await this.http.get<YoutrackActivityItem[]>(`/api/issues/${encId(resolvedId)}/activities`, {
         params: requestParams,
       });
       const activities = response.data;
