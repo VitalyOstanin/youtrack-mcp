@@ -124,7 +124,15 @@ const attachmentDeleteSchema = z.object(attachmentDeleteArgs);
 export function registerAttachmentTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_attachments_list",
-    "Get list of attachments for a YouTrack issue. Returns metadata for all files attached to the issue.",
+    [
+      "List metadata for all attachments on an issue.",
+      "Use cases:",
+      "- Inspect what files are attached before downloading.",
+      "- Audit attachment sizes and authors.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: attachments[] {id, name, author, created, updated, size, sizeFormatted, mimeType, extension, url, thumbnailURL}; or {savedToFile, savedTo, attachmentsCount}.",
+      "Limitations: returns metadata only -- use issue_attachment_download for content.",
+    ].join("\n"),
     issueIdArgs,
     async (rawInput) => {
       try {
@@ -160,7 +168,15 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
 
   server.tool(
     "issue_attachment_get",
-    "Get detailed information about a specific attachment in a YouTrack issue.",
+    [
+      "Fetch metadata for a single attachment by id.",
+      "Use cases:",
+      "- Resolve mimeType/size before deciding whether to download.",
+      "- Check the original author and timestamps.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, name, author, created, updated, size, sizeFormatted, mimeType, extension, url, thumbnailURL.",
+      "Limitations: returns metadata only.",
+    ].join("\n"),
     attachmentGetArgs,
     async (rawInput) => {
       try {
@@ -179,7 +195,15 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
 
   server.tool(
     "issue_attachment_download",
-    "Get download information for an attachment. Returns attachment metadata and a signed URL for downloading the file. The signed URL can be used directly without additional authentication. With downloadToFile=true, will download the file directly to local filesystem.",
+    [
+      "Get a signed download URL for an attachment, optionally streaming it to YOUTRACK_OUTPUT_DIR.",
+      "Use cases:",
+      "- Hand off the signed URL to a browser/client.",
+      "- Save the file directly to disk via downloadToFile=true.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: when downloadToFile=true: {downloaded, savedTo, attachmentId, issueId, originalAttachmentInfo}; otherwise {downloadUrl, attachment {...metadata}} or saved-to-file variant.",
+      "Limitations: signed URL has limited lifetime; downloadPath is sanitized via path-safety rules.",
+    ].join("\n"),
     attachmentDownloadArgs,
     async (rawInput) => {
       try {
@@ -194,7 +218,15 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
 
   server.tool(
     "issue_attachment_upload",
-    "Upload one or more files to a YouTrack issue. Files must exist on the local filesystem. Note: Can only attach files to existing issues, not during issue creation. After uploading, fetch the attachments list to verify each file appears with correct metadata.",
+    [
+      "Upload up to 10 local files as attachments to an existing issue.",
+      "Use cases:",
+      "- Attach screenshots or logs to a bug report.",
+      "- Bulk-attach generated artifacts (JSON, CSV).",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: uploaded[] {id, name, size, mimeType, url}, errors[] for failed paths.",
+      "Limitations: max 10 files per call; files must exist on the local filesystem and be readable.",
+    ].join("\n"),
     attachmentUploadArgs,
     async (rawInput) => {
       try {
@@ -217,7 +249,15 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
 
   server.tool(
     "issue_attachment_delete",
-    "Delete an attachment from a YouTrack issue. IMPORTANT: Requires explicit confirmation via the 'confirmation' parameter to prevent accidental deletion. This is a destructive operation that cannot be undone. After deletion, list attachments again to ensure the file no longer appears.",
+    [
+      "Permanently delete an attachment from an issue. Requires confirmation.",
+      "Use cases:",
+      "- Remove a sensitive file uploaded by mistake.",
+      "- Clean up obsolete artifacts.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: success, removedAttachmentId, issueId.",
+      "Limitations: confirmation: true is required; deletion cannot be undone -- re-list attachments to confirm.",
+    ].join("\n"),
     attachmentDeleteArgs,
     async (rawInput) => {
       try {
