@@ -4,9 +4,10 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import type { YoutrackCustomField } from "../types.js";
+import { issueIdSchema } from "../utils/validators.js";
 
 const issueStatusArgs = {
-  issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+  issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
   format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
@@ -15,7 +16,7 @@ const issueStatusArgs = {
 const issueStatusSchema = z.object(issueStatusArgs);
 const issuesStatusArgs = {
   issueIds: z
-    .array(z.string().min(1))
+    .array(issueIdSchema)
     .min(1)
     .max(50)
     .describe("Array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50"),

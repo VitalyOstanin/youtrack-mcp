@@ -2,14 +2,15 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { issueIdSchema as issueIdValidator, linkIdSchema } from "../utils/validators.js";
 
 const issueIdArgs = {
-  issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+  issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
 };
-const issueIdSchema = z.object(issueIdArgs);
+const issueIdInputSchema = z.object(issueIdArgs);
 const linkCreateArgs = {
-  sourceId: z.string().min(1).describe("Source issue code (e.g., PROJ-123)"),
-  targetId: z.string().min(1).describe("Target issue code (e.g., PROJ-456)"),
+  sourceId: issueIdValidator.describe("Source issue code (e.g., PROJ-123)"),
+  targetId: issueIdValidator.describe("Target issue code (e.g., PROJ-456)"),
   linkType: z
     .string()
     .min(1)
@@ -28,7 +29,7 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
     issueIdArgs,
     async (rawInput) => {
       try {
-        const payload = issueIdSchema.parse(rawInput);
+        const payload = issueIdInputSchema.parse(rawInput);
         const result = await client.getIssueLinks(payload.issueId);
 
         return toolSuccess(result);
@@ -70,9 +71,9 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
   );
 
   const linkDeleteArgs = {
-    issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
-    linkId: z.string().min(1).describe("Link ID to delete"),
-    targetId: z.string().optional().describe("Target issue ID (optional, for command-based deletion)"),
+    issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
+    linkId: linkIdSchema.describe("Link ID to delete"),
+    targetId: issueIdValidator.optional().describe("Target issue ID (optional, for command-based deletion)"),
   };
   const linkDeleteSchema = z.object(linkDeleteArgs);
 

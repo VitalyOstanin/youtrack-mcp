@@ -4,6 +4,7 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { mapWorkItem, mapWorkItems } from "../utils/mappers.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import { issueIdSchema, workItemIdSchema, userLoginSchema } from "../utils/validators.js";
 
 const isoDate = z
   .string()
@@ -11,8 +12,8 @@ const isoDate = z
   .describe("Date in YYYY-MM-DD format");
 const dateInput = z.union([isoDate, z.number(), z.date()]);
 const baseFilterArgs = {
-  issueId: z.string().optional().describe("Issue code (e.g., PROJ-123)"),
-  author: z.string().optional().describe("Work item author login"),
+  issueId: issueIdSchema.optional().describe("Issue code (e.g., PROJ-123)"),
+  author: userLoginSchema.optional().describe("Work item author login"),
   startDate: dateInput.optional().describe("Period start date"),
   endDate: dateInput.optional().describe("Period end date"),
   allUsers: z.boolean().optional().describe("Get work items for all users"),
@@ -24,11 +25,11 @@ const baseFilterArgs = {
 const workItemsListSchema = z.object(baseFilterArgs);
 const workItemsForUsersArgs = {
   ...baseFilterArgs,
-  users: z.array(z.string().min(1)).min(1).describe("User logins"),
+  users: z.array(userLoginSchema).min(1).describe("User logins"),
 };
 const workItemsUsersSchema = z.object(workItemsForUsersArgs);
 const workItemCreateArgs = {
-  issueId: z.string().min(1).describe("Issue ID"),
+  issueId: issueIdSchema.describe("Issue ID"),
   date: dateInput.describe("Date"),
   minutes: z.number().int().positive().describe("Minutes"),
   summary: z.string().optional().describe("Brief text"),
@@ -42,7 +43,7 @@ const workItemCreateArgs = {
 };
 const workItemCreateSchema = z.object(workItemCreateArgs);
 const workItemIdempotentArgs = {
-  issueId: z.string().min(1).describe("Issue ID"),
+  issueId: issueIdSchema.describe("Issue ID"),
   date: dateInput.describe("Date"),
   minutes: z.number().int().positive().describe("Minutes"),
   description: z
@@ -55,8 +56,8 @@ const workItemIdempotentArgs = {
 };
 const workItemIdempotentSchema = z.object(workItemIdempotentArgs);
 const workItemUpdateArgs = {
-  issueId: z.string().min(1).describe("Issue ID"),
-  workItemId: z.string().min(1).describe("Work item ID"),
+  issueId: issueIdSchema.describe("Issue ID"),
+  workItemId: workItemIdSchema.describe("Work item ID"),
   date: dateInput.optional().describe("New date"),
   minutes: z.number().int().positive().optional().describe("New minutes"),
   summary: z.string().optional().describe("New text"),
@@ -70,12 +71,12 @@ const workItemUpdateArgs = {
 };
 const workItemUpdateSchema = z.object(workItemUpdateArgs);
 const workItemDeleteArgs = {
-  issueId: z.string().min(1).describe("Issue ID"),
-  workItemId: z.string().min(1).describe("Work item ID"),
+  issueId: issueIdSchema.describe("Issue ID"),
+  workItemId: workItemIdSchema.describe("Work item ID"),
 };
 const workItemDeleteSchema = z.object(workItemDeleteArgs);
 const workItemsPeriodArgs = {
-  issueId: z.string().min(1).describe("Issue ID"),
+  issueId: issueIdSchema.describe("Issue ID"),
   startDate: dateInput.describe("Period start date"),
   endDate: dateInput.describe("Period end date"),
   minutes: z.number().int().positive().describe("Minutes per day"),
@@ -107,7 +108,7 @@ const workItemsReportArgs = {
 };
 const workItemsReportSchema = z.object(workItemsReportArgs);
 const workItemsRecentArgs = {
-  users: z.array(z.string().min(1)).optional().describe("User logins (defaults to current user)"),
+  users: z.array(userLoginSchema).optional().describe("User logins (defaults to current user)"),
   limit: z.number().int().positive().max(200).optional().describe("Maximum number of items (default 50)"),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),

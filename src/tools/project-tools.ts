@@ -2,9 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { projectIdSchema } from "../utils/validators.js";
 
 const projectLookupArgs = {
-  shortName: z.string().min(1).describe("Project short name"),
+  shortName: projectIdSchema.describe("Project short name"),
 };
 const projectLookupSchema = z.object(projectLookupArgs);
 

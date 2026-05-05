@@ -3,9 +3,10 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import { issueIdSchema as issueIdValidator, commentIdSchema, userLoginSchema } from "../utils/validators.js";
 
 const issueIdArgs = {
-  issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+  issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
   briefOutput: z
     .boolean()
     .optional()
@@ -18,7 +19,7 @@ const issueIdArgs = {
 const issueIdSchema = z.object(issueIdArgs);
 const issueIdsArgs = {
   issueIds: z
-    .array(z.string().min(1))
+    .array(issueIdValidator)
     .min(1)
     .max(50)
     .describe("Array of issue codes (e.g., ['PROJ-123', 'PROJ-124']), max 50"),
@@ -41,16 +42,15 @@ const issueCreateArgs = {
     .describe(
       "Full description. Supports folded sections: <details> <summary>Title</summary>Content</details>",
     ),
-  parentIssueId: z.string().optional().describe("Parent issue ID"),
-  assigneeLogin: z.string().optional().describe("Assignee login or me"),
+  parentIssueId: issueIdValidator.optional().describe("Parent issue ID"),
+  assigneeLogin: userLoginSchema.or(z.literal("me")).optional().describe("Assignee login or me"),
   stateName: z.string().optional().describe("Initial state name (case-insensitive)"),
   links: z
     .array(
       z.object({
         linkType: z.string().min(1).describe("Link type name or id (e.g., 'Subtask')"),
-        targetId: z.string().min(1).describe("Target issue code or readable id"),
-        sourceId: z
-          .string()
+        targetId: issueIdValidator.describe("Target issue code or readable id"),
+        sourceId: issueIdValidator
           .optional()
           .describe("Source issue code override (defaults to the new issue)"),
         direction: z
@@ -65,7 +65,7 @@ const issueCreateArgs = {
 };
 const issueCreateSchema = z.object(issueCreateArgs);
 const issueUpdateArgs = {
-  issueId: z.string().min(1).describe("Issue ID or code"),
+  issueId: issueIdValidator.describe("Issue ID or code"),
   summary: z.string().optional().describe("New summary"),
   description: z
     .string()
@@ -73,17 +73,20 @@ const issueUpdateArgs = {
     .describe(
       "New description. Supports folded sections: <details> <summary>Title</summary>Content</details>",
     ),
-  parentIssueId: z.string().optional().describe("New parent or empty string to remove"),
+  parentIssueId: z
+    .union([issueIdValidator, z.literal("")])
+    .optional()
+    .describe("New parent or empty string to remove"),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const issueUpdateSchema = z.object(issueUpdateArgs);
 const issueAssignArgs = {
-  issueId: z.string().min(1).describe("Issue ID or code"),
-  assigneeLogin: z.string().min(1).describe("Assignee login or me"),
+  issueId: issueIdValidator.describe("Issue ID or code"),
+  assigneeLogin: userLoginSchema.or(z.literal("me")).describe("Assignee login or me"),
 };
 const issueAssignSchema = z.object(issueAssignArgs);
 const issueCommentCreateArgs = {
-  issueId: z.string().min(1).describe("Issue ID or code"),
+  issueId: issueIdValidator.describe("Issue ID or code"),
   text: z
     .string()
     .min(1)
@@ -94,8 +97,8 @@ const issueCommentCreateArgs = {
 };
 const issueCommentCreateSchema = z.object(issueCommentCreateArgs);
 const issueCommentUpdateArgs = {
-  issueId: z.string().min(1).describe("Issue ID or code"),
-  commentId: z.string().min(1).describe("Comment ID"),
+  issueId: issueIdValidator.describe("Issue ID or code"),
+  commentId: commentIdSchema.describe("Comment ID"),
   text: z
     .string()
     .optional()
@@ -107,7 +110,7 @@ const issueCommentUpdateArgs = {
 };
 const issueCommentUpdateSchema = z.object(issueCommentUpdateArgs);
 const issueChangeStateArgs = {
-  issueId: z.string().min(1).describe("Issue code (e.g., BC-9205)"),
+  issueId: issueIdValidator.describe("Issue code (e.g., BC-9205)"),
   stateName: z
     .string()
     .min(1)

@@ -2,14 +2,14 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
+import { articleIdSchema, projectIdSchema } from "../utils/validators.js";
 
 const articleLookupArgs = {
-  articleId: z.string().min(1).describe("Article ID"),
+  articleId: articleIdSchema.describe("Article ID"),
 };
 const articleListArgs = {
-  parentArticleId: z.string().optional().describe("Parent article ID"),
-  projectId: z
-    .string()
+  parentArticleId: articleIdSchema.optional().describe("Parent article ID"),
+  projectId: projectIdSchema
     .optional()
     .describe("Project ID (defaults to YOUTRACK_DEFAULT_PROJECT when omitted)"),
 };
@@ -21,16 +21,15 @@ const articleCreateArgs = {
     .describe(
       "Article content. Supports folded sections: <details> <summary>Title</summary>Content</details>",
     ),
-  parentArticleId: z.string().optional().describe("Parent article ID"),
-  projectId: z
-    .string()
+  parentArticleId: articleIdSchema.optional().describe("Parent article ID"),
+  projectId: projectIdSchema
     .optional()
     .describe("Project ID (defaults to YOUTRACK_DEFAULT_PROJECT when omitted)"),
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
   returnRendered: z.boolean().optional().describe("Return rendered content preview"),
 };
 const articleUpdateArgs = {
-  articleId: z.string().min(1).describe("Article ID"),
+  articleId: articleIdSchema.describe("Article ID"),
   summary: z.string().optional().describe("New title"),
   content: z
     .string()

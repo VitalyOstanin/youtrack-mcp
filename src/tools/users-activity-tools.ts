@@ -4,12 +4,10 @@ import { parseDateInput, toIsoDateString, unixMsToDate, getCurrentDate } from ".
 import { mapActivityItems } from "../utils/mappers.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import { userLoginSchema } from "../utils/validators.js";
 
 export const usersActivityArgs = {
-  author: z
-    .string()
-    .min(1)
-    .describe("Filter by author login (required, e.g., 'vyt'). Matches activities created by this user."),
+  author: userLoginSchema.describe("Filter by author login (required, e.g., 'vyt'). Matches activities created by this user."),
   start: z
     .union([z.string(), z.number(), z.date()])
     .optional()

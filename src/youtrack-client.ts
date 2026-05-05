@@ -187,6 +187,15 @@ const defaultFields = {
   linkTypes: "id,name,directed,outwardName,inwardName,sourceToTarget,targetToSource",
 } as const;
 
+/**
+ * URL-encode a single path segment. Tool-level zod validators already restrict
+ * id-like inputs to safe character sets; encoding here is defense-in-depth so
+ * that any unexpected character cannot break out of the intended path.
+ */
+function encId(value: string): string {
+  return encodeURIComponent(value);
+}
+
 class YoutrackClientError extends Error {
   readonly status?: number;
   readonly details?: unknown;
@@ -304,7 +313,7 @@ export class YoutrackClient {
     const resolvedId = this.resolveIssueId(issueId);
 
     try {
-      const response = await this.http.get<YoutrackIssueLink[]>(`/api/issues/${resolvedId}/links`, {
+      const response = await this.http.get<YoutrackIssueLink[]>(`/api/issues/${encId(resolvedId)}/links`, {
         params: { fields: defaultFields.issueLinks },
       });
       const links = response.data
@@ -401,7 +410,7 @@ export class YoutrackClient {
     };
 
     try {
-      const response = await this.http.post<YoutrackIssueLink>(`/api/issues/${sourceId}/links`, restBody, {
+      const response = await this.http.post<YoutrackIssueLink>(`/api/issues/${encId(sourceId)}/links`, restBody, {
         params: { fields: defaultFields.issueLinks },
       });
       const variants = this.mapIssueLinkRow(sourceId, response.data);
@@ -547,7 +556,7 @@ export class YoutrackClient {
 
     try {
       // Try direct DELETE first (some YouTrack versions support it)
-      await this.http.delete(`/api/issues/${resolvedIssueId}/links/${input.linkId}`);
+      await this.http.delete(`/api/issues/${encId(resolvedIssueId)}/links/${encId(input.linkId)}`);
 
       const payload = {
         deleted: true,
@@ -849,7 +858,7 @@ export class YoutrackClient {
         fields = `${defaultFields.issue.substring(0, defaultFields.issue.lastIndexOf(')')+1)},customFields(id,name,value(id,login,name,presentation),$type,possibleEvents(id,presentation))`;
       }
 
-      const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${resolvedId}`, {
+      const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${encId(resolvedId)}`, {
         params: { fields },
       });
       const mappedIssue = mapIssueDetails(response.data);
@@ -868,7 +877,7 @@ export class YoutrackClient {
       const fields = includeCustomFields
         ? `${defaultFields.issueDetails},customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation))`
         : defaultFields.issueDetails;
-      const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${resolvedId}`, {
+      const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${encId(resolvedId)}`, {
         params: { fields },
       });
       const mappedIssue = mapIssueDetails(response.data);
@@ -884,7 +893,7 @@ export class YoutrackClient {
     const resolvedId = this.resolveIssueId(issueId);
 
     try {
-      const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${resolvedId}/comments`, {
+      const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${encId(resolvedId)}/comments`, {
         params: { fields: defaultFields.comments },
       });
       const mappedComments = mapComments(response.data, this.config.baseUrl, resolvedId);
@@ -906,7 +915,7 @@ export class YoutrackClient {
     }
 
     try {
-      const response = await this.http.post<YoutrackIssueComment>(`/api/issues/${input.issueId}/comments`, body, {
+      const response = await this.http.post<YoutrackIssueComment>(`/api/issues/${encId(input.issueId)}/comments`, body, {
         params: { fields: defaultFields.comments },
       });
       const mappedComment = mapComment(response.data, this.config.baseUrl, input.issueId);
@@ -942,7 +951,7 @@ export class YoutrackClient {
 
     try {
       const response = await this.http.post<YoutrackIssueComment>(
-        `/api/issues/${input.issueId}/comments/${input.commentId}`,
+        `/api/issues/${encId(input.issueId)}/comments/${encId(input.commentId)}`,
         body,
         { params },
       );
@@ -984,7 +993,7 @@ export class YoutrackClient {
     }
 
     try {
-      const response = await this.http.get<YoutrackActivityItem[]>(`/api/issues/${issueId}/activities`, {
+      const response = await this.http.get<YoutrackActivityItem[]>(`/api/issues/${encId(issueId)}/activities`, {
         params: requestParams,
       });
       const activities = response.data;
@@ -1164,7 +1173,7 @@ export class YoutrackClient {
     }
 
     try {
-      await this.http.post(`/api/issues/${input.issueId}`, body);
+      await this.http.post(`/api/issues/${encId(input.issueId)}`, body);
 
       const issue = await this.getIssueRaw(input.issueId);
       const mappedIssue = mapIssue(issue);
@@ -1190,7 +1199,7 @@ export class YoutrackClient {
     };
 
     try {
-      await this.http.post(`/api/issues/${resolvedId}`, body);
+      await this.http.post(`/api/issues/${encId(resolvedId)}`, body);
 
       const issue = await this.getIssueRaw(resolvedId);
       const mappedIssue = mapIssue(issue);
@@ -1333,7 +1342,7 @@ export class YoutrackClient {
       issueIds,
       async (issueId): Promise<Result> => {
         try {
-          const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
+          const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${encId(issueId)}/comments`, {
             params: { fields: defaultFields.comments },
           });
 
@@ -1392,7 +1401,7 @@ export class YoutrackClient {
       issueIds,
       async (issueId): Promise<Result> => {
         try {
-          const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${issueId}/comments`, {
+          const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${encId(issueId)}/comments`, {
             params: { fields: defaultFields.commentsLight },
           });
 
@@ -1960,7 +1969,7 @@ export class YoutrackClient {
 
     try {
       const response = await this.http.post<YoutrackWorkItem>(
-        `/api/issues/${input.issueId}/timeTracking/workItems`,
+        `/api/issues/${encId(input.issueId)}/timeTracking/workItems`,
         body,
         {
           params: { fields: defaultFields.workItem },
@@ -1983,7 +1992,7 @@ export class YoutrackClient {
 
   async deleteWorkItem(issueId: string, workItemId: string): Promise<WorkItemDeletePayload> {
     try {
-      await this.http.delete(`/api/issues/${issueId}/timeTracking/workItems/${workItemId}`);
+      await this.http.delete(`/api/issues/${encId(issueId)}/timeTracking/workItems/${encId(workItemId)}`);
 
       return {
         issueId,
@@ -2232,7 +2241,7 @@ export class YoutrackClient {
 
   async getArticle(articleId: string): Promise<ArticlePayload> {
     try {
-      const response = await this.http.get<YoutrackArticle>(`/api/articles/${articleId}`, {
+      const response = await this.http.get<YoutrackArticle>(`/api/articles/${encId(articleId)}`, {
         params: { fields: defaultFields.article },
       });
       const article = response.data;
@@ -2356,7 +2365,7 @@ export class YoutrackClient {
     }
 
     try {
-      const response = await this.http.post<YoutrackArticle>(`/api/articles/${input.articleId}`, body, {
+      const response = await this.http.post<YoutrackArticle>(`/api/articles/${encId(input.articleId)}`, body, {
         params,
       });
       const article = response.data;
@@ -2401,7 +2410,7 @@ export class YoutrackClient {
 
   async listAttachments(issueId: string): Promise<AttachmentsListPayload> {
     try {
-      const response = await this.http.get<YoutrackAttachment[]>(`/api/issues/${issueId}/attachments`, {
+      const response = await this.http.get<YoutrackAttachment[]>(`/api/issues/${encId(issueId)}/attachments`, {
         params: { fields: defaultFields.attachments },
       });
       const mapped = mapAttachments(response.data);
@@ -2418,7 +2427,7 @@ export class YoutrackClient {
 
   async getAttachment(issueId: string, attachmentId: string): Promise<AttachmentPayload> {
     try {
-      const response = await this.http.get<YoutrackAttachment>(`/api/issues/${issueId}/attachments/${attachmentId}`, {
+      const response = await this.http.get<YoutrackAttachment>(`/api/issues/${encId(issueId)}/attachments/${encId(attachmentId)}`, {
         params: { fields: defaultFields.attachment },
       });
       const mapped = mapAttachment(response.data);
@@ -2435,7 +2444,7 @@ export class YoutrackClient {
 
   async getAttachmentDownloadInfo(issueId: string, attachmentId: string): Promise<AttachmentDownloadPayload> {
     try {
-      const response = await this.http.get<YoutrackAttachment>(`/api/issues/${issueId}/attachments/${attachmentId}`, {
+      const response = await this.http.get<YoutrackAttachment>(`/api/issues/${encId(issueId)}/attachments/${encId(attachmentId)}`, {
         params: { fields: defaultFields.attachment },
       });
       const attachment = response.data;
@@ -2483,7 +2492,7 @@ export class YoutrackClient {
 
     try {
       const response = await this.http.post<YoutrackAttachment[]>(
-        `/api/issues/${input.issueId}/attachments`,
+        `/api/issues/${encId(input.issueId)}/attachments`,
         formData,
         {
           params,
@@ -2515,7 +2524,7 @@ export class YoutrackClient {
 
     // Perform deletion
     try {
-      await this.http.delete(`/api/issues/${input.issueId}/attachments/${input.attachmentId}`);
+      await this.http.delete(`/api/issues/${encId(input.issueId)}/attachments/${encId(input.attachmentId)}`);
 
       const payload = {
         deleted: true as const,
@@ -2583,7 +2592,7 @@ export class YoutrackClient {
   }
 
   private async getIssueRaw(issueId: string): Promise<YoutrackIssue> {
-    const response = await this.http.get<YoutrackIssue>(`/api/issues/${issueId}`, {
+    const response = await this.http.get<YoutrackIssue>(`/api/issues/${encId(issueId)}`, {
       params: { fields: defaultFields.issue },
     });
     const rawIssue = response.data;
@@ -2592,7 +2601,7 @@ export class YoutrackClient {
   }
 
   private async getWorkItemById(workItemId: string): Promise<YoutrackWorkItem> {
-    const response = await this.http.get<YoutrackWorkItem>(`/api/workItems/${workItemId}`, {
+    const response = await this.http.get<YoutrackWorkItem>(`/api/workItems/${encId(workItemId)}`, {
       params: { fields: defaultFields.workItem },
     });
     const rawWorkItem = response.data;
@@ -2617,7 +2626,7 @@ export class YoutrackClient {
   // State change methods
   async getIssueCustomFields(issueId: string): Promise<YoutrackCustomField[]> {
     try {
-      const response = await this.http.get<YoutrackCustomField[]>(`/api/issues/${issueId}/customFields`, {
+      const response = await this.http.get<YoutrackCustomField[]>(`/api/issues/${encId(issueId)}/customFields`, {
         params: {
           fields: "id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)",
         },
@@ -2677,7 +2686,7 @@ export class YoutrackClient {
           },
         };
 
-        await this.http.post(`/api/issues/${input.issueId}/fields/${stateField.id}`, body);
+        await this.http.post(`/api/issues/${encId(input.issueId)}/fields/${encId(stateField.id)}`, body);
 
         const payload = {
           issueId: input.issueId,
@@ -2707,7 +2716,7 @@ export class YoutrackClient {
         };
 
         try {
-          await this.http.post(`/api/issues/${input.issueId}`, body);
+          await this.http.post(`/api/issues/${encId(input.issueId)}`, body);
         } catch (error) {
           const normalized = this.normalizeError(error);
 
@@ -2746,7 +2755,7 @@ export class YoutrackClient {
    */
   private async getIssueWatchers(issueId: string): Promise<YoutrackIssueWatcher[]> {
     try {
-      const response = await this.http.get<YoutrackIssueWatcher[]>(`/api/issues/${issueId}/watchers/issueWatchers`, {
+      const response = await this.http.get<YoutrackIssueWatcher[]>(`/api/issues/${encId(issueId)}/watchers/issueWatchers`, {
         params: { fields: "id,user(id,login,name),isStarred,$type" },
       });
       const watchers = response.data;
@@ -2781,7 +2790,7 @@ export class YoutrackClient {
         isStarred: true,
       };
 
-      await this.http.post(`/api/issues/${issueId}/watchers/issueWatchers`, body);
+      await this.http.post(`/api/issues/${encId(issueId)}/watchers/issueWatchers`, body);
 
       const payload = {
         issueId,
@@ -2814,7 +2823,7 @@ export class YoutrackClient {
         return payload;
       }
 
-      await this.http.delete(`/api/issues/${issueId}/watchers/issueWatchers/${existingWatcher.id}`);
+      await this.http.delete(`/api/issues/${encId(issueId)}/watchers/issueWatchers/${encId(existingWatcher.id)}`);
 
       const payload = {
         issueId,

@@ -5,23 +5,24 @@ import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { downloadFileFromUrl, extractFilenameFromUrlOrHeader } from "../utils/file-download.js";
 import { sanitizeFilename } from "../utils/path-safety.js";
+import { issueIdSchema, attachmentIdSchema } from "../utils/validators.js";
 
 const issueIdArgs = {
-  issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+  issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
   saveToFile: z.boolean().optional().describe("Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts."),
   filePath: z.string().optional().describe("Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist."),
   format: z.enum(["json", "jsonl"]).optional().describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
   overwrite: z.boolean().optional().describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
-const issueIdSchema = z.object(issueIdArgs);
+const issueIdInputSchema = z.object(issueIdArgs);
 const attachmentGetArgs = {
   ...issueIdArgs,
-  attachmentId: z.string().min(1).describe("Attachment ID"),
+  attachmentId: attachmentIdSchema.describe("Attachment ID"),
 };
 const attachmentGetSchema = z.object(attachmentGetArgs);
 const attachmentDownloadArgs = {
   ...issueIdArgs,
-  attachmentId: z.string().min(1).describe("Attachment ID"),
+  attachmentId: attachmentIdSchema.describe("Attachment ID"),
   downloadToFile: z.boolean().optional().describe("Download the attachment file directly to local file system"),
   downloadPath: z.string().optional().describe("Path to save the downloaded file (optional, auto-generated if not provided based on attachment name). Directory will be created if it doesn't exist."),
 };
@@ -111,7 +112,7 @@ const attachmentUploadArgs = {
 const attachmentUploadSchema = z.object(attachmentUploadArgs);
 const attachmentDeleteArgs = {
   ...issueIdArgs,
-  attachmentId: z.string().min(1).describe("Attachment ID to delete"),
+  attachmentId: attachmentIdSchema.describe("Attachment ID to delete"),
   confirmation: z
     .boolean()
     .describe(
@@ -127,7 +128,7 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
     issueIdArgs,
     async (rawInput) => {
       try {
-        const payload = issueIdSchema.parse(rawInput);
+        const payload = issueIdInputSchema.parse(rawInput);
         const result = await client.listAttachments(payload.issueId);
         const processedResult = await processWithFileStorage(
           {

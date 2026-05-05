@@ -5,10 +5,10 @@ import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { mapActivityItems } from "../utils/mappers.js";
 import { toIsoDateString } from "../utils/date.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import { issueIdSchema } from "../utils/validators.js";
 
-// Zod args definition
 const issueActivitiesArgs = {
-  issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+  issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
   author: z.string().optional().describe("Filter by author login (e.g., 'john.doe')"),
   startDate: z
     .union([z.string(), z.number(), z.date()])

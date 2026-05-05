@@ -3,9 +3,10 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
+import { userLoginSchema } from "../utils/validators.js";
 
 const userLookupArgs = {
-  login: z.string().min(1).describe("User login"),
+  login: userLoginSchema.describe("User login"),
 };
 const userLookupSchema = z.object(userLookupArgs);
 

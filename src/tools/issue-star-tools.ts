@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
+import { issueIdSchema } from "../utils/validators.js";
 
 /**
  * Creates a tool handler with standard error handling
@@ -36,7 +37,7 @@ export function registerIssueStarTools(
     "issue_star",
     "Add star to YouTrack issue for current user. Use for: Marking important issues, Adding issues to watchlist, Quick access to frequently used issues. Returns: Confirmation of star status with issueId and starred flag. Note: If issue is already starred, returns success without making changes (idempotent operation). After starring, fetch the issue or starred list again to confirm the flag is set.",
     {
-      issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+      issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
     },
     createToolHandler(async (args) => client.starIssue(args.issueId)),
   );
@@ -46,7 +47,7 @@ export function registerIssueStarTools(
     "issue_unstar",
     "Remove star from YouTrack issue for current user. Use for: Removing issues from watchlist, Cleaning up unneeded stars, Managing starred issues list. Returns: Confirmation of unstar operation with issueId and starred flag. Note: If issue is not currently starred, returns success without making changes (idempotent operation). After unstarring, refresh the issue or starred list to ensure the star was cleared.",
     {
-      issueId: z.string().min(1).describe("Issue code (e.g., PROJ-123)"),
+      issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
     },
     createToolHandler(async (args) => client.unstarIssue(args.issueId)),
   );
@@ -57,7 +58,7 @@ export function registerIssueStarTools(
     "Add stars to multiple YouTrack issues (batch mode, max 50 issues). Use for: Bulk marking important issues, Batch adding to watchlist, Processing multiple issues at once, Quick setup of starred issues list. Returns: Object with 'successful' array (starred issues) and 'failed' array (errors with issue IDs). Note: Operations are processed with concurrency limit (10 concurrent requests) to prevent API overload. Partial success is possible - some issues may succeed while others fail. After completion, reload the starred list to confirm which issues were starred.",
     {
       issueIds: z
-        .array(z.string().min(1))
+        .array(issueIdSchema)
         .min(1)
         .max(50)
         .describe(
@@ -73,7 +74,7 @@ export function registerIssueStarTools(
     "Remove stars from multiple YouTrack issues (batch mode, max 50 issues). Use for: Bulk cleanup of watchlist, Batch removal of unneeded stars, Processing multiple issues at once, Managing starred issues list. Returns: Object with 'successful' array (unstarred issues) and 'failed' array (errors with issue IDs). Note: Operations are processed with concurrency limit (10 concurrent requests) to prevent API overload. Partial success is possible - some issues may succeed while others fail. After completion, fetch the starred list again to verify removals.",
     {
       issueIds: z
-        .array(z.string().min(1))
+        .array(issueIdSchema)
         .min(1)
         .max(50)
         .describe(
