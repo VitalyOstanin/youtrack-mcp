@@ -225,6 +225,17 @@ export interface IssueDetailsPayload {
   issue: MappedYoutrackIssueDetails;
 }
 
+export interface IssueStateInfo {
+  id?: string;
+  name?: string;
+  presentation?: string;
+}
+
+export interface IssueStatePayload {
+  issueId: string;
+  state: IssueStateInfo | null;
+}
+
 export interface YoutrackIssueComment {
   id: string;
   text?: string;

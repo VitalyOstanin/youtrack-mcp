@@ -3,7 +3,6 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
-import type { YoutrackCustomField } from "../types.js";
 import { issueIdSchema } from "../utils/validators.js";
 
 const issueStatusArgs = {
@@ -27,101 +26,91 @@ const issuesStatusArgs = {
 };
 const issuesStatusSchema = z.object(issuesStatusArgs);
 
+export async function issueStatusHandler(client: YoutrackClient, rawInput: unknown) {
+  try {
+    const payload = issueStatusSchema.parse(rawInput);
+    const stateResult = await client.getIssueState(payload.issueId);
+    const status = stateResult.state?.presentation ?? stateResult.state?.name ?? "Unknown";
+    const result = {
+      issueId: stateResult.issueId,
+      status,
+      state: stateResult.state,
+    };
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: payload.saveToFile,
+        filePath: payload.filePath,
+        format: payload.format ?? "jsonl",
+        overwrite: payload.overwrite,
+      },
+      result,
+      client.getOutputDir(),
+    );
+
+    if (processedResult.savedToFile) {
+      return toolSuccess({
+        savedToFile: true,
+        savedTo: processedResult.savedTo,
+      });
+    }
+
+    return toolSuccess(result);
+  } catch (error) {
+    return toolError(error);
+  }
+}
+
+export async function issuesStatusHandler(client: YoutrackClient, rawInput: unknown) {
+  try {
+    const payload = issuesStatusSchema.parse(rawInput);
+    const batch = await client.getIssuesState(payload.issueIds);
+    const statuses = batch.states.map((entry) => ({
+      issueId: entry.issueId,
+      status: entry.state?.presentation ?? entry.state?.name ?? "Unknown",
+      state: entry.state,
+    }));
+    const finalResult = {
+      statuses,
+      errors: batch.errors && batch.errors.length > 0 ? batch.errors : undefined,
+    };
+    const processedResult = await processWithFileStorage(
+      {
+        saveToFile: payload.saveToFile,
+        filePath: payload.filePath,
+        format: payload.format ?? "jsonl",
+        overwrite: payload.overwrite,
+      },
+      finalResult,
+      client.getOutputDir(),
+    );
+
+    if (processedResult.savedToFile) {
+      return toolSuccess({
+        savedToFile: true,
+        savedTo: processedResult.savedTo,
+        statusCount: statuses.length,
+        errorsCount: batch.errors?.length ?? 0,
+      });
+    }
+
+    return toolSuccess(finalResult);
+  } catch (error) {
+    return toolError(error);
+  }
+}
+
 export function registerIssueStatusTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_status",
     "Get status of a YouTrack issue. Returns the State of the issue.",
     issueStatusArgs,
-    async (rawInput) => {
-      try {
-        const payload = issueStatusSchema.parse(rawInput);
-        // Get issue with custom fields to get status
-        const issueResult: { issue: { customFields?: YoutrackCustomField[] } } = await client.getIssue(payload.issueId, true); // include custom fields
-        const {issue} = issueResult;
-        const stateField = issue.customFields?.find((f: { name: string }) => f.name === 'State');
-        const status = stateField ? (stateField.value?.presentation ?? stateField.value?.name) : 'Unknown';
-        const result = {
-          issueId: payload.issueId,
-          status,
-          stateField: stateField ?? null,
-        };
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
-            overwrite: payload.overwrite,
-          },
-          result,
-          client.getOutputDir(),
-        );
-
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-          });
-        }
-
-        return toolSuccess(result);
-      } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
-      }
-    },
+    (rawInput) => issueStatusHandler(client, rawInput),
   );
 
   server.tool(
     "issues_status",
     "Get status of multiple YouTrack issues (batch mode, max 50). Returns the State of each issue.",
     issuesStatusArgs,
-    async (rawInput) => {
-      try {
-        const payload = issuesStatusSchema.parse(rawInput);
-        // Get multiple issues to get statuses
-        const result: { issues: Array<{ idReadable: string; customFields?: YoutrackCustomField[] }>; errors?: Array<{ issueId: string; error: string }> } = await client.getIssues(payload.issueIds, true); // include custom fields
-        const statusResults = result.issues.map((issue: { idReadable: string; customFields?: YoutrackCustomField[] }) => {
-          const stateField = issue.customFields?.find((f: { name: string }) => f.name === 'State');
-          const status = stateField ? (stateField.value?.presentation ?? stateField.value?.name) : 'Unknown';
-
-          return {
-            issueId: issue.idReadable,
-            status,
-            stateField: stateField ?? null,
-          };
-        });
-        const errors = result.errors ?? [];
-        const finalResult = {
-          statuses: statusResults,
-          errors: errors.length > 0 ? errors : undefined,
-        };
-        const processedResult = await processWithFileStorage(
-          {
-            saveToFile: payload.saveToFile,
-            filePath: payload.filePath,
-            format: payload.format ?? 'jsonl',
-            overwrite: payload.overwrite,
-          },
-          finalResult,
-          client.getOutputDir(),
-        );
-
-        if (processedResult.savedToFile) {
-          return toolSuccess({
-            savedToFile: true,
-            savedTo: processedResult.savedTo,
-            statusCount: statusResults.length,
-            errorsCount: errors.length,
-          });
-        }
-
-        return toolSuccess(finalResult);
-      } catch (error) {
-        const errorResponse = toolError(error);
-
-        return errorResponse;
-      }
-    },
+    (rawInput) => issuesStatusHandler(client, rawInput),
   );
 }

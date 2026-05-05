@@ -53,6 +53,7 @@ import type {
   IssueDetailsPayload,
   IssueError,
   IssueLookupPayload,
+  IssueStatePayload,
   IssueCountInput,
   IssueCountPayload,
   IssueListInput,
@@ -927,6 +928,84 @@ export class YoutrackClient {
       const payload = { issue: mappedIssue };
 
       return payload;
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  /**
+   * Lightweight state lookup. Returns only the State custom field with
+   * id/name/presentation. Avoids fetching the full custom-field set or
+   * possibleEvents — useful for batch state checks.
+   */
+  async getIssueState(issueId: string): Promise<IssueStatePayload> {
+    const resolvedId = this.resolveIssueId(issueId);
+
+    try {
+      const fields = "id,idReadable,customFields(id,name,value(id,name,presentation),$type)";
+      const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${encId(resolvedId)}`, {
+        params: { fields },
+      });
+      const stateField = response.data.customFields?.find(
+        (f) => f.$type === "StateIssueCustomField" || f.$type === "StateMachineIssueCustomField" || f.name === "State",
+      );
+      const value = stateField?.value as { id?: string; name?: string; presentation?: string } | undefined;
+
+      return {
+        issueId: response.data.idReadable,
+        state: value
+          ? { id: value.id, name: value.name, presentation: value.presentation }
+          : null,
+      };
+    } catch (error) {
+      throw this.normalizeError(error);
+    }
+  }
+
+  /**
+   * Batch state lookup. Issues a single search query (`issue id: A B C`) and
+   * extracts the State custom field for each match. Issues that aren't found
+   * are reported in `errors`.
+   */
+  async getIssuesState(issueIds: string[]): Promise<{ states: IssueStatePayload[]; errors?: IssueError[] }> {
+    if (!issueIds.length) {
+      return { states: [] };
+    }
+
+    const resolvedIds = issueIds.map((id) => this.resolveIssueId(id));
+    const query = `issue id: ${resolvedIds.join(" ")}`;
+    const fields = "id,idReadable,customFields(id,name,value(id,name,presentation),$type)";
+
+    try {
+      const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
+        fields,
+        query,
+        $top: resolvedIds.length,
+      });
+      const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
+      const errors: IssueError[] = [];
+
+      for (const issueId of resolvedIds) {
+        if (!foundIds.has(issueId)) {
+          errors.push({ issueId, error: `Issue '${issueId}' not found` });
+        }
+      }
+
+      const states: IssueStatePayload[] = foundIssues.map((issue) => {
+        const stateField = issue.customFields?.find(
+          (f) => f.$type === "StateIssueCustomField" || f.$type === "StateMachineIssueCustomField" || f.name === "State",
+        );
+        const value = stateField?.value as { id?: string; name?: string; presentation?: string } | undefined;
+
+        return {
+          issueId: issue.idReadable,
+          state: value
+            ? { id: value.id, name: value.name, presentation: value.presentation }
+            : null,
+        };
+      });
+
+      return errors.length ? { states, errors } : { states };
     } catch (error) {
       throw this.normalizeError(error);
     }
