@@ -1047,6 +1047,7 @@ export class YoutrackClient {
   }
 
   async createIssueComment(input: IssueCommentCreateInput): Promise<{ comment: MappedYoutrackIssueComment }> {
+    const resolvedIssueId = this.resolveIssueId(input.issueId);
     const body: Record<string, unknown> = {
       text: input.text,
     };
@@ -1056,10 +1057,10 @@ export class YoutrackClient {
     }
 
     try {
-      const response = await this.http.post<YoutrackIssueComment>(`/api/issues/${encId(input.issueId)}/comments`, body, {
+      const response = await this.http.post<YoutrackIssueComment>(`/api/issues/${encId(resolvedIssueId)}/comments`, body, {
         params: { fields: defaultFields.comments },
       });
-      const mappedComment = mapComment(response.data, this.config.baseUrl, input.issueId);
+      const mappedComment = mapComment(response.data, this.config.baseUrl, resolvedIssueId);
       const payload = { comment: mappedComment };
 
       return payload;
@@ -1069,6 +1070,7 @@ export class YoutrackClient {
   }
 
   async updateIssueComment(input: IssueCommentUpdateInput): Promise<IssueCommentUpdatePayload> {
+    const resolvedIssueId = this.resolveIssueId(input.issueId);
     const body: Record<string, unknown> = {};
 
     if (input.text !== undefined) {
@@ -1092,14 +1094,14 @@ export class YoutrackClient {
 
     try {
       const response = await this.http.post<YoutrackIssueComment>(
-        `/api/issues/${encId(input.issueId)}/comments/${encId(input.commentId)}`,
+        `/api/issues/${encId(resolvedIssueId)}/comments/${encId(input.commentId)}`,
         body,
         { params },
       );
-      const mappedComment = mapComment(response.data, this.config.baseUrl, input.issueId);
+      const mappedComment = mapComment(response.data, this.config.baseUrl, resolvedIssueId);
       const payload = {
         comment: mappedComment,
-        issueId: input.issueId,
+        issueId: resolvedIssueId,
         commentId: input.commentId,
       };
 
@@ -1295,6 +1297,7 @@ export class YoutrackClient {
   }
 
   async updateIssue(input: YoutrackIssueUpdateInput): Promise<IssueLookupPayload> {
+    const resolvedId = this.resolveIssueId(input.issueId);
     const body: Record<string, unknown> = {};
 
     if (input.summary !== undefined) {
@@ -1306,7 +1309,7 @@ export class YoutrackClient {
     }
 
     if (input.parentIssueId !== undefined) {
-      body.parent = input.parentIssueId ? { id: input.parentIssueId } : null;
+      body.parent = input.parentIssueId ? { id: this.resolveIssueId(input.parentIssueId) } : null;
     }
 
     if (input.usesMarkdown !== undefined) {
@@ -1314,9 +1317,9 @@ export class YoutrackClient {
     }
 
     try {
-      await this.http.post(`/api/issues/${encId(input.issueId)}`, body);
+      await this.http.post(`/api/issues/${encId(resolvedId)}`, body);
 
-      const issue = await this.getIssueRaw(input.issueId);
+      const issue = await this.getIssueRaw(resolvedId);
       const mappedIssue = mapIssue(issue);
       const payload: IssueLookupPayload = { issue: mappedIssue };
 
@@ -1357,8 +1360,9 @@ export class YoutrackClient {
       return { issues: [], errors: [] };
     }
 
+    const resolvedIds = this.resolveIssueIds(issueIds);
     // Build query: "issue id: BC-123 BC-124 BC-125"
-    const query = `issue id: ${issueIds.join(" ")}`;
+    const query = `issue id: ${resolvedIds.join(" ")}`;
 
     try {
       let fields = defaultFields.issue;
@@ -1371,13 +1375,13 @@ export class YoutrackClient {
       const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
         fields,
         query,
-        $top: issueIds.length,
+        $top: resolvedIds.length,
       });
       const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
       const errors: IssueError[] = [];
 
       // Find issues that were not returned
-      for (const issueId of issueIds) {
+      for (const issueId of resolvedIds) {
         if (!foundIds.has(issueId)) {
           errors.push({
             issueId,
@@ -1402,8 +1406,9 @@ export class YoutrackClient {
       return { issues: [], errors: [] };
     }
 
+    const resolvedIds = this.resolveIssueIds(issueIds);
     // Build query: "issue id: BC-123 BC-124 BC-125"
-    const query = `issue id: ${issueIds.join(" ")}`;
+    const query = `issue id: ${resolvedIds.join(" ")}`;
 
     try {
       const fields = includeCustomFields
@@ -1412,13 +1417,13 @@ export class YoutrackClient {
       const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
         fields,
         query,
-        $top: issueIds.length,
+        $top: resolvedIds.length,
       });
       const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
       const errors: IssueError[] = [];
 
       // Find issues that were not returned
-      for (const issueId of issueIds) {
+      for (const issueId of resolvedIds) {
         if (!foundIds.has(issueId)) {
           errors.push({
             issueId,
@@ -1447,14 +1452,15 @@ export class YoutrackClient {
       return [];
     }
 
+    const resolvedIds = this.resolveIssueIds(issueIds);
     // Build query: "issue id: BC-123 BC-124 BC-125"
-    const query = `issue id: ${issueIds.join(" ")}`;
+    const query = `issue id: ${resolvedIds.join(" ")}`;
 
     try {
       return await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
         fields: defaultFields.issueDetailsLight,
         query,
-        $top: issueIds.length,
+        $top: resolvedIds.length,
       });
     } catch (error) {
       throw this.normalizeError(error);
@@ -2758,9 +2764,11 @@ export class YoutrackClient {
   }
 
   async changeIssueState(input: IssueChangeStateInput): Promise<IssueChangeStatePayload> {
+    const resolvedId = this.resolveIssueId(input.issueId);
+
     try {
       // Get state field
-      const customFields = await this.getIssueCustomFields(input.issueId);
+      const customFields = await this.getIssueCustomFields(resolvedId);
       const stateField = customFields.find(
         (field) =>
           (field.$type === "StateMachineIssueCustomField" || field.$type === "StateIssueCustomField") &&
@@ -2804,10 +2812,10 @@ export class YoutrackClient {
           },
         };
 
-        await this.http.post(`/api/issues/${encId(input.issueId)}/fields/${encId(stateField.id)}`, body);
+        await this.http.post(`/api/issues/${encId(resolvedId)}/fields/${encId(stateField.id)}`, body);
 
         const payload = {
-          issueId: input.issueId,
+          issueId: resolvedId,
           previousState,
           newState: matchingEvent.presentation,
           transitionUsed: matchingEvent.id,
@@ -2834,7 +2842,7 @@ export class YoutrackClient {
         };
 
         try {
-          await this.http.post(`/api/issues/${encId(input.issueId)}`, body);
+          await this.http.post(`/api/issues/${encId(resolvedId)}`, body);
         } catch (error) {
           const normalized = this.normalizeError(error);
 
@@ -2853,7 +2861,7 @@ export class YoutrackClient {
         }
 
         const payload = {
-          issueId: input.issueId,
+          issueId: resolvedId,
           previousState,
           newState: input.stateName,
         };
@@ -2888,14 +2896,16 @@ export class YoutrackClient {
    * Add star to an issue (idempotent)
    */
   async starIssue(issueId: string): Promise<IssueStarPayload> {
+    const resolvedId = this.resolveIssueId(issueId);
+
     try {
       const currentUser = await this.getCurrentUser();
-      const watchers = await this.getIssueWatchers(issueId);
+      const watchers = await this.getIssueWatchers(resolvedId);
       const existingWatcher = watchers.find((w) => w.user.id === currentUser.id && w.isStarred);
 
       if (existingWatcher) {
         const payload = {
-          issueId,
+          issueId: resolvedId,
           starred: true,
           message: "Issue already starred",
         };
@@ -2908,10 +2918,10 @@ export class YoutrackClient {
         isStarred: true,
       };
 
-      await this.http.post(`/api/issues/${encId(issueId)}/watchers/issueWatchers`, body);
+      await this.http.post(`/api/issues/${encId(resolvedId)}/watchers/issueWatchers`, body);
 
       const payload = {
-        issueId,
+        issueId: resolvedId,
         starred: true,
         message: "Issue starred successfully",
       };
@@ -2926,14 +2936,16 @@ export class YoutrackClient {
    * Remove star from an issue (idempotent)
    */
   async unstarIssue(issueId: string): Promise<IssueStarPayload> {
+    const resolvedId = this.resolveIssueId(issueId);
+
     try {
       const currentUser = await this.getCurrentUser();
-      const watchers = await this.getIssueWatchers(issueId);
+      const watchers = await this.getIssueWatchers(resolvedId);
       const existingWatcher = watchers.find((w) => w.user.id === currentUser.id && w.isStarred);
 
       if (!existingWatcher) {
         const payload = {
-          issueId,
+          issueId: resolvedId,
           starred: false,
           message: "Issue not starred",
         };
@@ -2941,10 +2953,10 @@ export class YoutrackClient {
         return payload;
       }
 
-      await this.http.delete(`/api/issues/${encId(issueId)}/watchers/issueWatchers/${encId(existingWatcher.id)}`);
+      await this.http.delete(`/api/issues/${encId(resolvedId)}/watchers/issueWatchers/${encId(existingWatcher.id)}`);
 
       const payload = {
-        issueId,
+        issueId: resolvedId,
         starred: false,
         message: "Issue unstarred successfully",
       };
