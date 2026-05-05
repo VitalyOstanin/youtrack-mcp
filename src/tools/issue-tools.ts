@@ -4,7 +4,7 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema as issueIdValidator, commentIdSchema, userLoginSchema, yqlIdentifierSchema } from "../utils/validators.js";
-import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, briefOutputArg, fileStorageArgs } from "../utils/tool-args.js";
 
 const dateInputSchema = z
   .string()
@@ -12,10 +12,7 @@ const dateInputSchema = z
 
 const issueIdArgs = {
   issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
-  briefOutput: z
-    .boolean()
-    .default(true)
-    .describe("Brief mode (default: true). When false, include all available customFields including State."),
+  briefOutput: briefOutputArg,
   ...fileStorageArgs,
 };
 const issueIdSchema = z.object(issueIdArgs);

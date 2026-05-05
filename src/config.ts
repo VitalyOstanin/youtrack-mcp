@@ -15,19 +15,30 @@ const configSchema = z.object({
   YOUTRACK_UPLOAD_DIR: z.string().optional(),
 });
 
+const SETUP_DOC_URL = "https://github.com/VitalyOstanin/youtrack-mcp#requirements";
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig {
   const parsed = configSchema.safeParse(env);
 
   if (!parsed.success) {
     const { fieldErrors } = parsed.error.flatten();
-    const missingFields = Object.entries(fieldErrors)
+    const fieldDetails = Object.entries(fieldErrors)
       .filter(([, issues]) => Array.isArray(issues) && issues.length > 0)
-      .map(([field]) => field);
-    const errorMessage = missingFields.length
-      ? `missing environment variables: ${missingFields.join(", ")}`
-      : "invalid configuration";
+      .map(([field, issues]) => `${field}: ${(issues as string[]).join("; ")}`);
+    const errorBody = fieldDetails.length ? fieldDetails.join("\n  ") : "invalid configuration";
 
-    throw new Error(`YouTrack configuration error: ${errorMessage}`);
+    throw new Error(
+      [
+        "YouTrack configuration error:",
+        `  ${errorBody}`,
+        "",
+        "Required:",
+        "  YOUTRACK_URL    -- e.g., https://youtrack.example.com",
+        "  YOUTRACK_TOKEN  -- a permanent token (perm:...)",
+        "",
+        `Setup guide: ${SETUP_DOC_URL}`,
+      ].join("\n"),
+    );
   }
 
   const outputDir = resolve(parsed.data.YOUTRACK_OUTPUT_DIR ?? process.cwd());

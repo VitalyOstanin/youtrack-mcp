@@ -20,6 +20,18 @@ export const DEFAULT_FILE_STORAGE_FORMAT: FileStorageFormat = "jsonl";
  *     ...fileStorageArgs,
  *   };
  */
+/**
+ * Reusable description for the `briefOutput` flag — shared across issue tools
+ * to keep the wording in sync if the brief contract changes.
+ */
+export const briefOutputArg = z
+  .boolean()
+  .optional()
+  .default(true)
+  .describe(
+    "Brief mode (default: true). When false, include all available customFields including State.",
+  );
+
 export const fileStorageArgs = {
   saveToFile: z
     .boolean()

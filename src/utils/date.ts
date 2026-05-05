@@ -1,6 +1,9 @@
 import { DateTime, Settings } from "luxon";
 
-let currentTimezone = "Europe/Moscow";
+// Default to UTC; the server entry point overrides via initializeTimezone()
+// using the value from loadConfig (which falls back to Europe/Moscow). Keeping
+// the library default as UTC removes a hidden region-specific binding.
+let currentTimezone = "UTC";
 
 export function initializeTimezone(timezone: string): void {
   currentTimezone = timezone;

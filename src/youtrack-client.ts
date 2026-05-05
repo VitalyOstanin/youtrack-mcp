@@ -362,7 +362,8 @@ export class YoutrackClient {
       Object.prototype.hasOwnProperty.call(params, "top") ||
       Object.prototype.hasOwnProperty.call(params, "$skip") ||
       Object.prototype.hasOwnProperty.call(params, "skip");
-    // First attempt: prefer $top/$skip
+    // Modern YouTrack expects $-prefixed pagination ($top/$skip); some on-prem
+    // versions reject it with 400 and we fall back to bare top/skip below.
     const dollarParams: Record<string, unknown> = { ...params };
 
     if (
@@ -1620,7 +1621,6 @@ export class YoutrackClient {
     }
     type Result = SuccessResult | ErrorResult;
 
-    // Make parallel requests for all issues with concurrency limiting
     const results = await this.processBatch(
       issueIds,
       async (issueId): Promise<Result> => {
@@ -1679,7 +1679,6 @@ export class YoutrackClient {
     }
     type Result = SuccessResult | ErrorResult;
 
-    // Make parallel requests for all issues with concurrency limiting
     const results = await this.processBatch(
       issueIds,
       async (issueId): Promise<Result> => {

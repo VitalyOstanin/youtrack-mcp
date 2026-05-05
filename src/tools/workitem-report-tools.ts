@@ -20,10 +20,11 @@ const reportBaseArgs = {
   ...fileStorageArgs,
 };
 const reportArgsSchema = z.object(reportBaseArgs);
-const reportUsersArgsSchema = z.object({
+const reportUsersArgs = {
   users: z.array(z.string().min(1)).min(1).describe("User logins"),
   ...reportBaseArgs,
-});
+};
+const reportUsersArgsSchema = z.object(reportUsersArgs);
 
 export function registerWorkitemReportTools(server: McpServer, client: YoutrackClient): void {
   server.tool(
@@ -124,10 +125,7 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
       "Response fields: reports[] {user, summary, byDate, items}; or {savedToFile, savedTo, usersCount}.",
       "Limitations: each user is queried separately -- larger lists are slower.",
     ].join("\n"),
-    {
-      users: z.array(z.string().min(1)).min(1).describe("User logins"),
-      ...reportBaseArgs,
-    },
+    reportUsersArgs,
     async (rawInput) => {
       try {
         const payload = reportUsersArgsSchema.parse(rawInput);

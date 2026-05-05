@@ -4,7 +4,7 @@ import type { YoutrackClient } from "../youtrack-client.js";
 import { toolSuccess, toolError } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { userLoginSchema, yqlIdentifierSchema } from "../utils/validators.js";
-import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
+import { DEFAULT_FILE_STORAGE_FORMAT, briefOutputArg, fileStorageArgs } from "../utils/tool-args.js";
 
 const dateInputSchema = z
   .string()
@@ -46,11 +46,7 @@ const issueListArgs = {
     .enum(["asc", "desc"])
     .optional()
     .describe("Sort direction (default: 'desc')"),
-  briefOutput: z
-    .boolean()
-    .optional()
-    .default(true)
-    .describe("Brief mode (default: true). When false, include all available customFields including State."),
+  briefOutput: briefOutputArg,
   limit: z
     .number()
     .int()
