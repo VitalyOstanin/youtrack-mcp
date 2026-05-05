@@ -5,7 +5,11 @@ import { processWithFileStorage } from "../utils/file-storage.js";
 import { articleIdSchema, projectIdSchema } from "../utils/validators.js";
 
 export const articlesSearchArgs = {
-  query: z.string().min(2).describe("Search string for articles (e.g., 'API token')"),
+  query: z
+    .string()
+    .min(2)
+    .regex(/^[^{}]+$/, "Query must not contain '{' or '}'")
+    .describe("Search string for articles (e.g., 'API token'). Must not contain { or }."),
   limit: z.number().int().positive().max(200).default(50).describe("Max results per page"),
   skip: z.number().int().nonnegative().default(0).describe("Offset for pagination"),
   projectId: projectIdSchema.optional().describe("Filter by project ID"),

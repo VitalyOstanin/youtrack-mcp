@@ -14,8 +14,11 @@ export const issuesSearchArgs = {
   skip: z.number().int().nonnegative().default(0).describe("Offset for pagination"),
   projects: z.array(z.string().min(1)).optional().describe("Filter by project short names (e.g., ['PROJ', 'TEST'])"),
   projectIds: z.array(z.string().min(1)).optional().describe("Filter by project IDs (e.g., ['0-1', '0-2'])"),
-  assignee: z.string().optional().describe("Filter by assignee login (e.g., 'john.doe' or 'me')"),
-  assigneeLogin: z.string().optional().describe("Filter by assignee login (alternative parameter)"),
+  assignee: z
+    .string()
+    .optional()
+    .describe("DEPRECATED: use assigneeLogin instead. Filter by assignee login (e.g., 'john.doe' or 'me')"),
+  assigneeLogin: z.string().optional().describe("Filter by assignee login (e.g., 'john.doe' or 'me')"),
   reporter: z.string().optional().describe("Filter by reporter/author login (e.g., 'john.doe' or 'me')"),
   state: z.string().optional().describe("Filter by state/status (e.g., 'Open', 'In Progress', 'Fixed')"),
   statuses: z
@@ -47,59 +50,13 @@ export const issuesSearchArgs = {
     .enum(["json", "jsonl"])
     .optional()
     .describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
+  overwrite: z
+    .boolean()
+    .optional()
+    .describe("Allow overwriting existing files when using explicit filePath. Default is false."),
 };
 
-export const issuesSearchSchema = z
-  .object({
-    query: z
-      .string()
-      .optional()
-      .describe(
-        "Search string for issues (e.g., 'login error'). If not provided or empty, all issues will be returned. You can also use YouTrack Query Language (e.g., 'State: Open', 'Type: Bug')",
-      ),
-    limit: z.number().int().positive().max(200).default(50).describe("Max results per page"),
-    skip: z.number().int().nonnegative().default(0).describe("Offset for pagination"),
-    projects: z.array(z.string().min(1)).optional().describe("Filter by project short names (e.g., ['PROJ', 'TEST'])"),
-    projectIds: z.array(z.string().min(1)).optional().describe("Filter by project IDs (e.g., ['0-1', '0-2'])"),
-    assignee: z.string().optional().describe("Filter by assignee login (e.g., 'john.doe' or 'me')"),
-    assigneeLogin: z.string().optional().describe("Filter by assignee login (alternative parameter)"),
-    reporter: z.string().optional().describe("Filter by reporter/author login (e.g., 'john.doe' or 'me')"),
-    state: z.string().optional().describe("Filter by state/status (e.g., 'Open', 'In Progress', 'Fixed')"),
-    statuses: z
-      .array(z.string().min(1))
-      .optional()
-      .describe("Filter by multiple state/status names (e.g., ['Open', 'In Progress'])"),
-    type: z.string().optional().describe("Filter by issue type (e.g., 'Bug', 'Feature', 'Task')"),
-    types: z
-      .array(z.string().min(1))
-      .optional()
-      .describe("Filter by multiple issue types (e.g., ['Bug', 'Task', 'Feature'])"),
-    createdAfter: z.string().optional().describe("Filter by creation date after (YYYY-MM-DD or timestamp)"),
-    createdBefore: z.string().optional().describe("Filter by creation date before (YYYY-MM-DD or timestamp)"),
-    updatedAfter: z.string().optional().describe("Filter by update date after (YYYY-MM-DD or timestamp)"),
-    updatedBefore: z.string().optional().describe("Filter by update date before (YYYY-MM-DD or timestamp)"),
-    saveToFile: z
-      .boolean()
-      .optional()
-      .describe(
-        "Save results to a file instead of returning them directly. Useful for large datasets that can be analyzed by scripts.",
-      ),
-    filePath: z
-      .string()
-      .optional()
-      .describe(
-        "Explicit path to save the file (optional, auto-generated if not provided). Directory will be created if it doesn't exist.",
-      ),
-    format: z
-      .enum(["json", "jsonl"])
-      .optional()
-      .describe("Output format when saving to file: jsonl (JSON Lines) or json (JSON array format). Default is jsonl."),
-    overwrite: z
-      .boolean()
-      .optional()
-      .describe("Allow overwriting existing files when using explicit filePath. Default is false."),
-  })
-  .default({});
+export const issuesSearchSchema = z.object(issuesSearchArgs).default({});
 
 export async function issuesSearchHandler(client: YoutrackClient, rawInput: unknown) {
   const input = issuesSearchSchema.parse(rawInput);
