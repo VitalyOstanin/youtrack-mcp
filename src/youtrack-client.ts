@@ -662,25 +662,39 @@ export class YoutrackClient {
   }
 
   /**
-   * Process items with concurrency limit using MutexPool
-   * @param items - Array of items to process
-   * @param processor - Async function to process each item
-   * @param limit - Maximum number of concurrent operations (default: 10)
-   * @returns Array of results in original order
+   * Process items with concurrency limit using MutexPool. Errors are collected
+   * and rethrown after all jobs finish: a single error is rethrown directly,
+   * multiple are wrapped into AggregateError. Callers that need soft semantics
+   * must wrap their own processor in try/catch and return a per-item payload.
    */
-  private async processBatch<T, R>(items: T[], processor: (item: T) => Promise<R>, limit: number = 10): Promise<R[]> {
+  private async processBatch<T, R>(
+    items: T[],
+    processor: (item: T) => Promise<R>,
+    limit: number = 10,
+  ): Promise<R[]> {
     const pool = new MutexPool(limit);
     const results: R[] = new Array(items.length);
+    const errors: unknown[] = [];
 
-    // Submit all jobs to the pool
     items.forEach((item, index) => {
       pool.start(async () => {
-        results[index] = await processor(item);
+        try {
+          results[index] = await processor(item);
+        } catch (error) {
+          errors.push(error);
+        }
       });
     });
 
-    // Wait for all jobs to complete
     await pool.allJobsFinished();
+
+    if (errors.length === 1) {
+      throw errors[0];
+    }
+
+    if (errors.length > 1) {
+      throw new AggregateError(errors, "processBatch: multiple jobs failed");
+    }
 
     return results;
   }
@@ -1552,9 +1566,13 @@ export class YoutrackClient {
       const activitiesResults = await this.processBatch(
         issueIds,
         async (issueId) => {
-          const activities = await this.getIssueActivities(issueId);
-
-          return activities;
+          try {
+            return await this.getIssueActivities(issueId);
+          } catch {
+            // Soft semantics: a per-issue activity fetch failure must not abort
+            // the whole strict search. Treat as no activity for this issue.
+            return [];
+          }
         },
         10,
       );
