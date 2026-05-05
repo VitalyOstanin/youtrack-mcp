@@ -21,7 +21,8 @@
   },
   "include": [
     "src/**/*.ts",
-    "index.ts"
+    "index.ts",
+    "vitest.config.ts"
   ],
   "exclude": [
     "dist",
