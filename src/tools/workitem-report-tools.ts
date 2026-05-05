@@ -30,7 +30,15 @@ const reportUsersArgsSchema = z.object({
 export function registerWorkitemReportTools(server: McpServer, client: YoutrackClient): void {
   server.tool(
     "workitems_report_summary",
-    "Summary report for work items in period. Note: Work items in report include predefined fields only - id, date, duration (minutes, presentation), text, description, issue (id, idReadable), author (id, login, name, email).",
+    [
+      "Aggregated time-tracking summary for one author or all users with optional working-day calendar.",
+      "Use cases:",
+      "- Monthly time report per author with weekend/holiday handling.",
+      "- Total billable minutes for an issue.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: report.summary {totalMinutes, workDays}, report.byDate, report.items.",
+      "Limitations: respects expectedDailyMinutes only when provided; allUsers=true requires elevated permissions.",
+    ].join("\n"),
     reportBaseArgs,
     async (rawInput) => {
       try {
@@ -69,7 +77,15 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
 
   server.tool(
     "workitems_report_invalid",
-    "List of days with deviation from expected. Note: Work items in report include predefined fields only - id, date, duration (minutes, presentation), text, description, issue (id, idReadable), author (id, login, name, email).",
+    [
+      "Days where logged minutes deviate from expectedDailyMinutes (under/over) for an author or team.",
+      "Use cases:",
+      "- Identify under-logged or over-logged days.",
+      "- Generate a follow-up checklist for missing time entries.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: invalidDays[] {date, totalMinutes, expectedMinutes, deviation, items[]}; or {savedToFile, savedTo, invalidDaysCount}.",
+      "Limitations: requires expectedDailyMinutes to compute deviations.",
+    ].join("\n"),
     reportBaseArgs,
     async (rawInput) => {
       try {
@@ -105,7 +121,15 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
 
   server.tool(
     "workitems_report_users",
-    "Work items report for list of users. Note: Work items in report include predefined fields only - id, date, duration (minutes, presentation), text, description, issue (id, idReadable), author (id, login, name, email).",
+    [
+      "Per-user time-tracking report for an explicit list of logins over a period.",
+      "Use cases:",
+      "- Cross-team comparison of logged time.",
+      "- Group payroll for a project squad.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: reports[] {user, summary, byDate, items}; or {savedToFile, savedTo, usersCount}.",
+      "Limitations: each user is queried separately -- larger lists are slower.",
+    ].join("\n"),
     {
       users: z.array(z.string().min(1)).min(1).describe("User logins"),
       ...reportBaseArgs,

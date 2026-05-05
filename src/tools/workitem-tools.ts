@@ -236,28 +236,61 @@ const workItemsRecentSchema = z.object(workItemsRecentArgs);
 export function registerWorkitemTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "workitems_list",
-    "Get list of work items with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    [
+      "List the current user's work items (or a single author's) with date filters and server-side pagination.",
+      "Use cases:",
+      "- Personal time tracking review.",
+      "- Filter by issueId or author for a focused slice.",
+      "- Persist to file via saveToFile for billing reports.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: items[] {id, date, duration, text, textPreview, usesMarkdown, description, issue, author}; or {savedToFile, savedTo, itemCount}.",
+      "Limitations: max 200 per page; date strings must match YYYY-MM-DD.",
+    ].join("\n"),
     baseFilterArgs,
     (rawInput) => workitemsListHandler(client, rawInput),
   );
 
   server.tool(
     "workitems_all_users",
-    "Get work items for all users with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    [
+      "List work items across all users (admin view) with date filters and server-side pagination.",
+      "Use cases:",
+      "- Team-wide time audit over a period.",
+      "- Identify missing entries before payroll.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: items[] {id, date, duration, text, textPreview, usesMarkdown, description, issue, author}; or {savedToFile, savedTo, itemCount}.",
+      "Limitations: requires elevated permissions; max 200 per page.",
+    ].join("\n"),
     baseFilterArgs,
     (rawInput) => workitemsAllUsersHandler(client, rawInput),
   );
 
   server.tool(
     "workitems_for_users",
-    "Get work items for selected users with server-side pagination ($top/$skip applied per user). Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    [
+      "List work items for an explicit subset of users with $top/$skip applied per user.",
+      "Use cases:",
+      "- Cross-team payroll for a specific group.",
+      "- Compare time logged by selected developers.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: items[], users[]; or {savedToFile, savedTo, itemCount, users}.",
+      "Limitations: limit/skip apply per user, not in aggregate; max 200 per user per page.",
+    ].join("\n"),
     workItemsForUsersArgs,
     (rawInput) => workitemsForUsersHandler(client, rawInput),
   );
 
   server.tool(
     "workitem_create",
-    "Create work item record. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email). After the call, re-fetch work items to confirm the new record appears with expected duration and description.",
+    [
+      "Log a single work item against an issue with optional summary and markdown description.",
+      "Use cases:",
+      "- Manual time entry from automation.",
+      "- Add a daily log with collapsible <details>/<summary>.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: item {id, date, duration {minutes, presentation}, text, textPreview, usesMarkdown, description, issue, author}.",
+      "Limitations: minutes must be positive; date must be YYYY-MM-DD; re-fetch via workitems_list to confirm.",
+    ].join("\n"),
     workItemCreateArgs,
     async (rawInput) => {
       try {
@@ -283,7 +316,15 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_create_idempotent",
-    "Create work item record if similar one does not exist. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email). After creation, reload work items to verify whether the entry was newly added or an existing one was reused.",
+    [
+      "Create a work item only if no similar entry already exists for the same issue/date/description.",
+      "Use cases:",
+      "- Replay-safe automation (cron, retries).",
+      "- Re-running a scripted timesheet without duplicates.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: created (boolean), item (the new or existing record).",
+      "Limitations: similarity check uses exact description match scoped to the issue and date.",
+    ].join("\n"),
     workItemIdempotentArgs,
     async (rawInput) => {
       try {
@@ -308,7 +349,15 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_update",
-    "Update work item record. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email). After updating, fetch the work item again to confirm the new values were applied.",
+    [
+      "Edit fields of an existing work item (date, duration, summary, description, markdown flag).",
+      "Use cases:",
+      "- Correct a wrong duration or date.",
+      "- Rewrite description with collapsible markdown.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: item {id, date, duration, text, textPreview, usesMarkdown, description, issue, author}.",
+      "Limitations: at least one of date/minutes/summary/description must be provided.",
+    ].join("\n"),
     workItemUpdateArgs,
     async (rawInput) => {
       try {
@@ -345,7 +394,15 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitem_delete",
-    "Delete work item record. After deletion, list work items again to ensure the record was removed.",
+    [
+      "Delete a work item from an issue. Requires explicit confirmation.",
+      "Use cases:",
+      "- Remove an entry created by mistake.",
+      "- Clean up duplicates left from migrations.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: success, removedWorkItemId, issueId.",
+      "Limitations: confirmation: true is required; re-fetch via workitems_list to verify removal.",
+    ].join("\n"),
     workItemDeleteArgs,
     async (rawInput) => {
       try {
@@ -364,7 +421,15 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitems_create_period",
-    "Create work items for period. Supports markdown with folded sections (<details>/<summary>) in description. Note: Created work items include predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email). After bulk creation, reload work items to validate that each day received the expected entry.",
+    [
+      "Bulk-create work items for each working day in a date range with optional weekend/holiday exclusion.",
+      "Use cases:",
+      "- Backfill a sprint or vacation week.",
+      "- Auto-fill default daily logs with one call.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: createdCount, skippedDates[], items[] of the created records.",
+      "Limitations: skips dates where a work item already exists; weekends/holidays are excluded only if flags are set.",
+    ].join("\n"),
     workItemsPeriodArgs,
     async (rawInput) => {
       try {
@@ -395,7 +460,15 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitems_report",
-    "Generate work items report",
+    [
+      "Aggregate work items into a per-day report with expected-vs-actual minutes per author.",
+      "Use cases:",
+      "- Daily compliance check (expectedDailyMinutes vs logged).",
+      "- Identify missing days for an author over a period.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: report.byDate[], totals, gaps[] (days below expected); structure depends on filters used.",
+      "Limitations: depends on workitems_list pagination behind the scenes; use allUsers=true for cross-team reporting.",
+    ].join("\n"),
     workItemsReportArgs,
     async (rawInput) => {
       try {
@@ -414,7 +487,15 @@ export function registerWorkitemTools(server: McpServer, client: YoutrackClient)
 
   server.tool(
     "workitems_recent",
-    "Get recent work items sorted by update time descending. Note: Returns predefined fields only - id, date, duration (minutes, presentation), text, textPreview, usesMarkdown, description, issue (id, idReadable), author (id, login, name, email).",
+    [
+      "Latest work items across one or more users sorted by update time desc.",
+      "Use cases:",
+      "- 'What did the team log today?' feed.",
+      "- Quick visibility into recent time entries.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: items[], count; or {savedToFile, savedTo, itemCount}.",
+      "Limitations: max 200 items; defaults to current user when users[] is omitted.",
+    ].join("\n"),
     workItemsRecentArgs,
     async (rawInput) => {
       try {
