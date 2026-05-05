@@ -90,6 +90,9 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
     issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
     linkId: linkIdSchema.describe("Link ID to delete"),
     targetId: issueIdValidator.optional().describe("Target issue ID (optional, for command-based deletion)"),
+    confirmation: z
+      .literal(true)
+      .describe("Must be true to confirm deletion. Guards against accidental destructive calls."),
   };
   const linkDeleteSchema = z.object(linkDeleteArgs);
 

@@ -181,11 +181,16 @@ const workItemUpdateArgs = {
   usesMarkdown: z.boolean().optional().describe("Use Markdown formatting"),
 };
 const workItemUpdateSchema = z.object(workItemUpdateArgs);
-const workItemDeleteArgs = {
+
+export const workItemDeleteArgs = {
   issueId: issueIdSchema.describe("Issue ID"),
   workItemId: workItemIdSchema.describe("Work item ID"),
+  confirmation: z
+    .literal(true)
+    .describe("Must be true to confirm deletion. Guards against accidental destructive calls."),
 };
-const workItemDeleteSchema = z.object(workItemDeleteArgs);
+export const workItemDeleteSchema = z.object(workItemDeleteArgs);
+
 const workItemsPeriodArgs = {
   issueId: issueIdSchema.describe("Issue ID"),
   startDate: dateInput.describe("Period start date"),
