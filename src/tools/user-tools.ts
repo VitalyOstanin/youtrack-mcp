@@ -33,7 +33,15 @@ const usersListSchema = z.object(usersListArgs);
 export function registerUserTools(server: McpServer, client: YoutrackClient): void {
   server.tool(
     "users_list",
-    "List YouTrack users with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, login, name, fullName, email.",
+    [
+      "Paginated list of YouTrack users with $top/$skip on the server.",
+      "Use cases:",
+      "- Build assignee pickers.",
+      "- Audit account directory or export to file via saveToFile.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: users[] (id, login, name, fullName, email), pagination; or {savedToFile, savedTo, usersCount}.",
+      "Limitations: max 200 per page; banned/inactive users may still appear.",
+    ].join("\n"),
     usersListArgs,
     async (rawInput) => {
       try {
@@ -67,7 +75,15 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
 
   server.tool(
     "user_get",
-    "Get YouTrack user by login. Note: Returns predefined fields only - id, login, name, fullName, email.",
+    [
+      "Resolve a user by login.",
+      "Use cases:",
+      "- Validate that a login exists before assigning.",
+      "- Look up email/fullName for notifications.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: user {id, login, name, fullName, email}.",
+      "Limitations: returns an error when login is not found.",
+    ].join("\n"),
     userLookupArgs,
     async (rawInput) => {
       try {
@@ -91,7 +107,15 @@ export function registerUserTools(server: McpServer, client: YoutrackClient): vo
 
   server.tool(
     "user_current",
-    "Get current authenticated user. Note: Returns predefined fields only - id, login, name, fullName, email.",
+    [
+      "Return the user authenticated by the current YouTrack token.",
+      "Use cases:",
+      "- Discover whose account the MCP is using.",
+      "- Resolve 'me' to a concrete login.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: user {id, login, name, fullName, email}.",
+      "Limitations: token must be valid; otherwise the call surfaces an HTTP error.",
+    ].join("\n"),
     {},
     async () => {
       try {

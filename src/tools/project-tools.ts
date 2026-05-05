@@ -30,7 +30,15 @@ const projectsListSchema = z.object(projectsListArgs);
 export function registerProjectTools(server: McpServer, client: YoutrackClient): void {
   server.tool(
     "projects_list",
-    "List YouTrack projects. By default returns all projects (auto-paginated); pass limit/skip for explicit server-side pagination ($top/$skip). Note: Returns predefined fields only - id, shortName, name.",
+    [
+      "List accessible projects with auto-pagination by default or explicit $top/$skip.",
+      "Use cases:",
+      "- Build a project picker.",
+      "- Discover available short names before scoping a search.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: projects[] (id, shortName, name).",
+      "Limitations: max 200 per page when limit/skip are provided; without them the client fetches all pages and caches via single-flight.",
+    ].join("\n"),
     projectsListArgs,
     async (rawInput) => {
       try {
@@ -46,7 +54,15 @@ export function registerProjectTools(server: McpServer, client: YoutrackClient):
 
   server.tool(
     "project_get",
-    "Get YouTrack project by short name. Note: Returns predefined fields only - id, shortName, name.",
+    [
+      "Resolve a project by its short name.",
+      "Use cases:",
+      "- Validate that a project code is reachable.",
+      "- Map shortName to internal id for downstream queries.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: project {id, shortName, name}.",
+      "Limitations: returns an error when the short name is not found.",
+    ].join("\n"),
     projectLookupArgs,
     async (rawInput) => {
       try {

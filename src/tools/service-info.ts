@@ -6,21 +6,34 @@ import { VERSION } from "../version.js";
 import { toolError, toolSuccess } from "../utils/tool-response.js";
 
 export function registerServiceInfoTool(server: McpServer, client: YoutrackClient) {
-  server.tool("service_info", "Get YouTrack integration status and environment configuration", async () => {
-    try {
-      const freshConfig = loadConfig();
-      const currentUser = await client.getCurrentUser();
-      const payload: ServiceStatusPayload = {
-        service: {
-          name: "youtrack-mcp",
-          version: VERSION,
-        },
-        configuration: enrichConfigWithRedaction(freshConfig),
-      };
+  server.tool(
+    "service_info",
+    [
+      "Report MCP service version and the current YouTrack integration configuration.",
+      "Use cases:",
+      "- Smoke-test the MCP server end-to-end (auth + reachability).",
+      "- Debug which baseUrl/timezone/defaultProject the process is using.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: service {name, version}, configuration (with redacted secrets), currentUser {id, login, name, fullName, email}.",
+      "Limitations: configuration values reflect the current process; secrets are redacted.",
+    ].join("\n"),
+    {},
+    async () => {
+      try {
+        const freshConfig = loadConfig();
+        const currentUser = await client.getCurrentUser();
+        const payload: ServiceStatusPayload = {
+          service: {
+            name: "youtrack-mcp",
+            version: VERSION,
+          },
+          configuration: enrichConfigWithRedaction(freshConfig),
+        };
 
-      return toolSuccess({ ...payload, currentUser } as Record<string, unknown>);
-    } catch (error) {
-      return toolError(error);
-    }
-  });
+        return toolSuccess({ ...payload, currentUser } as Record<string, unknown>);
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
 }

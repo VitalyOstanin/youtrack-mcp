@@ -85,7 +85,15 @@ export class YoutrackServer {
     registerUserTools(this.server, this.client);
     this.server.tool(
       "users_activity",
-      "Author-centric activity feed backed by /api/activities. Use for: auditing a teammate's updates, gathering comment/state changes across many issues, and reviewing deployment timelines. Always re-fetch affected entities to confirm final state.",
+      [
+        "Author-centric activity feed across issues backed by /api/activities.",
+        "Use cases:",
+        "- Audit one or more teammates' updates over a period.",
+        "- Aggregate comment/state changes across many issues for a release timeline.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: activities[] {id, timestamp, author, category, target, added, removed, $type}, filters, pagination.",
+        "Limitations: pagination is server-side; re-fetch the affected entities (issues, comments) to confirm their final state.",
+      ].join("\n"),
       usersActivityArgs,
       async (args) => usersActivityHandler(this.client, args),
     );
