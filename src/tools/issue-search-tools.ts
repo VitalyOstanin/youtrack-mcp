@@ -188,14 +188,13 @@ export async function issuesSearchHandler(client: YoutrackClient, rawInput: unkn
     }
 
     // Fetch issues
-    const data = await client["getWithFlexibleTop"]("/api/issues", {
+    const allIssues = await client.searchIssues({
       query,
       $top: limit,
       $skip: skip,
       fields: "id,idReadable,summary,project(shortName,name),assignee(name,login),created,updated",
     });
     // Count logic
-    const allIssues = Array.isArray(data) ? data : [];
     const total = allIssues.length;
     const byProject: Partial<Record<string, number>> = {};
 

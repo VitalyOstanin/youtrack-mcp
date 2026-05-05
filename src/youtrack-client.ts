@@ -36,8 +36,6 @@ import type {
   ArticleCreateInput,
   ArticleListPayload,
   ArticlePayload,
-  ArticleSearchInput,
-  ArticleSearchPayload,
   ArticleUpdateInput,
   AttachmentDeleteInput,
   AttachmentDeletePayload,
@@ -252,6 +250,50 @@ export class YoutrackClient {
    */
   getOutputDir(): string {
     return this.config.outputDir;
+  }
+
+  /**
+   * Returns the configured YouTrack base URL. Useful for building user-facing
+   * deep links inside tools without poking into private `config`.
+   */
+  getBaseUrl(): string {
+    return this.config.baseUrl;
+  }
+
+  /**
+   * Public wrapper around the issue list endpoint with `$top`/`$skip` fallback.
+   * Tools should call this instead of reaching into private `getWithFlexibleTop`.
+   */
+  async searchIssues(params: {
+    query?: string;
+    fields?: string;
+    $top?: number;
+    $skip?: number;
+  }): Promise<YoutrackIssueDetails[]> {
+    return this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
+      fields: params.fields ?? defaultFields.issue,
+      query: params.query,
+      $top: params.$top,
+      $skip: params.$skip,
+    });
+  }
+
+  /**
+   * Public wrapper around the articles list endpoint. Tools should call this
+   * instead of reaching into private `getWithFlexibleTop`.
+   */
+  async searchArticles(params: {
+    query?: string;
+    fields?: string;
+    $top?: number;
+    $skip?: number;
+  }): Promise<YoutrackArticle[]> {
+    return this.getWithFlexibleTop<YoutrackArticle[]>("/api/articles", {
+      fields: params.fields ?? defaultFields.articleList,
+      query: params.query,
+      $top: params.$top,
+      $skip: params.$skip,
+    });
   }
 
   /**
@@ -2396,37 +2438,6 @@ export class YoutrackClient {
       const articlePayload = { article };
 
       return articlePayload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  async searchArticles(input: ArticleSearchInput): Promise<ArticleSearchPayload> {
-    const queryParts = [`{${input.query}}`];
-    const projectIdentifier = input.projectId ?? this.defaultProject;
-
-    if (projectIdentifier) {
-      queryParts.push(`project: {${projectIdentifier}}`);
-    }
-
-    if (input.parentArticleId) {
-      queryParts.push(`parent article: {${input.parentArticleId}}`);
-    }
-
-    const query = queryParts.join(" and ");
-    const fields = input.returnRendered ? `${defaultFields.articleList},contentPreview` : defaultFields.articleList;
-
-    try {
-      const response = await this.http.get<YoutrackArticle[]>("/api/articles", {
-        params: {
-          fields,
-          query,
-          ...(input.limit ? { top: input.limit } : {}),
-        },
-      });
-      const searchPayload = { articles: response.data, query: input.query };
-
-      return searchPayload;
     } catch (error) {
       throw this.normalizeError(error);
     }

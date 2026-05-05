@@ -22,29 +22,27 @@ export async function articlesSearchHandler(client: YoutrackClient, rawInput: un
   const input = articlesSearchSchema.parse(rawInput);
 
   try {
-    const params: Record<string, unknown> = {
-      fields: "id,idReadable,summary,parentArticle(id,idReadable),project(id,shortName,name)",
-      query: `{${input.query}}`,
-      $top: input.limit,
-      $skip: input.skip,
-    };
+    const queryParts = [`{${input.query}}`];
 
     if (input.projectId) {
-      params.query += ` and project: {${input.projectId}}`;
+      queryParts.push(`project: {${input.projectId}}`);
     }
 
     if (input.parentArticleId) {
-      params.query += ` and parent article: {${input.parentArticleId}}`;
+      queryParts.push(`parent article: {${input.parentArticleId}}`);
     }
 
-    const data = await client["getWithFlexibleTop"]("/api/articles", params);
-    const baseUrl = (client as unknown as { config?: { baseUrl?: string } }).config?.baseUrl ?? "";
-    const articlesWithLinks = Array.isArray(data)
-      ? data.map((article: { idReadable: string }) => ({
-          ...article,
-          webUrl: `${baseUrl}/articles/${article.idReadable}`,
-        }))
-      : data;
+    const data = await client.searchArticles({
+      fields: "id,idReadable,summary,parentArticle(id,idReadable),project(id,shortName,name)",
+      query: queryParts.join(" and "),
+      $top: input.limit,
+      $skip: input.skip,
+    });
+    const baseUrl = client.getBaseUrl();
+    const articlesWithLinks = data.map((article) => ({
+      ...article,
+      webUrl: `${baseUrl}/articles/${article.idReadable}`,
+    }));
     const processedResult = await processWithFileStorage(
       {
         saveToFile: input.saveToFile,
@@ -60,7 +58,7 @@ export async function articlesSearchHandler(client: YoutrackClient, rawInput: un
       return toolSuccess({
         savedToFile: true,
         savedTo: processedResult.savedTo,
-        articleCount: Array.isArray(articlesWithLinks) ? articlesWithLinks.length : 0,
+        articleCount: articlesWithLinks.length,
       });
     }
 
