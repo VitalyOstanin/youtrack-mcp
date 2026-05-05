@@ -150,7 +150,16 @@ const issuesCountSchema = z.object(issuesCountArgs);
 export function registerIssueTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_lookup",
-    "Get information about YouTrack issue. Note: Returns predefined fields including timestamps (created, updated) and basic info - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). By default, custom fields are not included. Use briefOutput=false to get all customFields including State.",
+    [
+      "Fetch a single issue by id with brief or full custom-field detail.",
+      "Use cases:",
+      "- Inspect summary/description before commenting or editing.",
+      "- Resolve a numeric id (composes YOUTRACK_DEFAULT_PROJECT) to a full code.",
+      "- Read State and other custom fields with briefOutput=false.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, idReadable, summary, description, project, parent, assignee, reporter, updater, customFields (only when briefOutput=false).",
+      "Limitations: a single issue per call; payload may be large with briefOutput=false.",
+    ].join("\n"),
     issueIdArgs,
     async (rawInput) => {
       try {
@@ -170,7 +179,16 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_details",
-    "Get detailed information about YouTrack issue. Use for: Viewing full issue details.\n- Brief (default): returns predefined fields only — id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, resolved, project(id,shortName,name), parent(id,idReadable), assignee(id,login,name), reporter(id,login,name), updater(id,login,name), watchers(hasStar).\n- Full (briefOutput=false): adds customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)) so you can read State and other custom fields.",
+    [
+      "Fetch a single issue with timestamps, watchers and (optionally) custom fields with available transitions.",
+      "Use cases:",
+      "- Build a status dashboard that needs created/updated/resolved.",
+      "- Decide which workflow transitions are currently allowed (briefOutput=false exposes possibleEvents).",
+      "- Diagnose why a state change failed by inspecting the current State value.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, idReadable, summary, description, created, updated, resolved, project, parent, assignee, reporter, updater, watchers.hasStar, customFields (only when briefOutput=false).",
+      "Limitations: full mode payload can be large; prefer briefOutput=true for listings.",
+    ].join("\n"),
     issueIdArgs,
     async (rawInput) => {
       try {
@@ -190,7 +208,16 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comments",
-    "Get issue comments with server-side pagination ($top/$skip). Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
+    [
+      "List comments on an issue with server-side pagination ($top/$skip).",
+      "Use cases:",
+      "- Review discussion before answering.",
+      "- Page through long threads with limit/skip.",
+      "- Save a thread to a file via saveToFile for later analysis.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: comments[] with id, text, textPreview, usesMarkdown, author, created, updated, commentUrl; or {savedToFile, savedTo, commentCount} when saveToFile=true.",
+      "Limitations: max 200 per page; deleted comments are excluded.",
+    ].join("\n"),
     issueCommentsArgs,
     async (rawInput) => {
       try {
@@ -229,7 +256,16 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_create",
-    "Create new issue in YouTrack. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included. After the call, fetch the created issue again to confirm that every requested property (assignee, state, links, etc.) was applied by YouTrack.",
+    [
+      "Create a new issue with optional initial assignee, state, parent and links.",
+      "Use cases:",
+      "- File a bug or task from automation with a known assignee/state.",
+      "- Bootstrap a hierarchy by setting parentIssueId or links[] (Subtask, Relates, etc.).",
+      "- Use markdown with <details>/<summary> for collapsible code/log sections.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, idReadable, summary, description, project, parent, assignee.",
+      "Limitations: custom fields beyond State are not in the response; re-fetch with issue_details to verify links, state and other fields actually applied.",
+    ].join("\n"),
     issueCreateArgs,
     async (rawInput) => {
       try {
@@ -257,7 +293,16 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_update",
-    "Update existing issue. Supports markdown with folded sections (<details>/<summary>) in description. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included. Always re-fetch the issue after the update to verify that each requested change was applied.",
+    [
+      "Update summary, description, parent or markdown flag of an existing issue.",
+      "Use cases:",
+      "- Rename a misfiled issue or rewrite description with markdown.",
+      "- Re-parent a subtask (parentIssueId='') to detach it from a parent.",
+      "- Toggle usesMarkdown to switch the rendering pipeline.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, idReadable, summary, description, project, parent, assignee.",
+      "Limitations: at least one of summary/description/parentIssueId must be provided; re-fetch via issue_details to verify changes.",
+    ].join("\n"),
     issueUpdateArgs,
     async (rawInput) => {
       try {
@@ -291,7 +336,15 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_assign",
-    "Assign assignee to issue. Note: Response includes standard fields only (id, idReadable, summary, description, wikifiedDescription, usesMarkdown, project, parent, assignee). Custom fields are not included. After assignment, fetch the issue again to ensure the new assignee is set.",
+    [
+      "Set or change the Assignee custom field on an issue.",
+      "Use cases:",
+      "- Hand off work by login or with the literal 'me'.",
+      "- Programmatically reassign issues from automation.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, idReadable, summary, description, project, parent, assignee.",
+      "Limitations: response does not include other custom fields; re-fetch via issue_details to confirm.",
+    ].join("\n"),
     issueAssignArgs,
     async (rawInput) => {
       try {
@@ -313,7 +366,15 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comment_create",
-    "Add comment to issue. Supports markdown with folded sections (<details>/<summary>) for hiding logs, code examples, etc. Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment). Reload the comments list if you need to confirm formatting or visibility.",
+    [
+      "Post a new comment on an issue, optionally with markdown.",
+      "Use cases:",
+      "- Add a status update or hand-off note from automation.",
+      "- Wrap large logs or code in collapsible <details>/<summary> blocks.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, text, textPreview, usesMarkdown, author, created, updated, commentUrl.",
+      "Limitations: comment text length is limited by the YouTrack server; reload via issue_comments to verify rendering.",
+    ].join("\n"),
     issueCommentCreateArgs,
     async (rawInput) => {
       try {
@@ -336,7 +397,16 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_comment_update",
-    "Update existing issue comment. Supports markdown with folded sections (<details>/<summary>). Note: Response includes comment fields - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment). Use for: Editing comment text, changing formatting mode, correcting typos in comments. After updating, fetch the comment again if you need to confirm rendered content.",
+    [
+      "Edit text or markdown flag of an existing comment, with optional silent update.",
+      "Use cases:",
+      "- Fix a typo or expand a previously posted note.",
+      "- Toggle usesMarkdown after copy-pasting from a markdown source.",
+      "- Mute notifications via muteUpdateNotifications=true for cosmetic edits.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: id, text, textPreview, usesMarkdown, author, created, updated, commentUrl.",
+      "Limitations: at least one of text or usesMarkdown must be provided.",
+    ].join("\n"),
     issueCommentUpdateArgs,
     async (rawInput) => {
       try {
@@ -366,7 +436,16 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_lookup",
-    "Get information about multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields including timestamps (created, updated) and basic info - id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, project (id, shortName, name), parent (id, idReadable), assignee (id, login, name), reporter (id, login, name), updater (id, login, name). By default, custom fields are not included. Use briefOutput=false to get all customFields including State.",
+    [
+      "Fetch up to 50 issues by id in one batch (with errors per id) and optionally save to file.",
+      "Use cases:",
+      "- Hydrate a list of issue codes obtained from search.",
+      "- Snapshot a working set with saveToFile=true for downstream tools.",
+      "- Pull custom fields for a small batch via briefOutput=false.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: issues[] (id, idReadable, summary, project, parent, assignee, reporter, updater) and errors[] for missing/forbidden ids; or {savedToFile, savedTo, issueCount, errorsCount} when saveToFile=true.",
+      "Limitations: max 50 ids per call; numeric-only ids are resolved via YOUTRACK_DEFAULT_PROJECT.",
+    ].join("\n"),
     issueIdsArgs,
     async (rawInput) => {
       try {
@@ -404,7 +483,16 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_details",
-    "Get detailed information about multiple YouTrack issues (batch mode, max 50). Use for: Efficiently fetching issue details.\n- Brief (default): returns predefined fields only — id, idReadable, summary, description, wikifiedDescription, usesMarkdown, created, updated, resolved, project(id,shortName,name), parent(id,idReadable), assignee(id,login,name), reporter(id,login,name), updater(id,login,name), watchers(hasStar).\n- Full (briefOutput=false): adds customFields(id,name,value(id,name,presentation),$type,possibleEvents(id,presentation)) for each issue. Note: payloads can be large; defaults stay brief.",
+    [
+      "Fetch detailed view of up to 50 issues in one batch with timestamps and optional custom fields.",
+      "Use cases:",
+      "- Build dashboards needing created/updated/resolved across many issues.",
+      "- Inspect possibleEvents to plan transitions in bulk (briefOutput=false).",
+      "- Persist results via saveToFile for offline reporting.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: issues[] (id, idReadable, summary, created, updated, resolved, project, parent, assignee, watchers.hasStar, customFields when briefOutput=false) plus errors[]; or {savedToFile, savedTo, issueCount, errorsCount}.",
+      "Limitations: max 50 ids; full mode payloads can be large.",
+    ].join("\n"),
     issueIdsArgs,
     async (rawInput) => {
       try {
@@ -442,7 +530,15 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_comments",
-    "Get comments for multiple YouTrack issues (batch mode, max 50). Note: Returns predefined fields only - id, text, textPreview, usesMarkdown, author (id, login, name), created, updated, commentUrl (direct link to comment).",
+    [
+      "Fetch comments for up to 50 issues in one batch, grouped by issue.",
+      "Use cases:",
+      "- Aggregate discussion across a sprint to feed reports.",
+      "- Persist a slice of conversation history via saveToFile.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: commentsByIssue[issueId][] with id, text, textPreview, usesMarkdown, author, created, updated, commentUrl; or {savedToFile, savedTo, totalComments}.",
+      "Limitations: max 50 ids; per-issue pagination is not exposed here -- use issue_comments for paging.",
+    ].join("\n"),
     issueIdsArgs,
     async (rawInput) => {
       try {
@@ -478,7 +574,15 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issue_change_state",
-    "Change issue state/status using state machine transitions. Use for: Moving issues through workflow states (e.g., from 'Open' to 'In Progress'), updating issue status, triggering state transitions. Note: Only valid transitions are allowed based on current state and workflow rules. The tool automatically discovers available transitions and validates the requested state change. Returns information about the previous state, new state, and the transition used. After the transition, fetch issue details again to ensure the state is what you expect.",
+    [
+      "Move an issue to a target state via the workflow's state machine.",
+      "Use cases:",
+      "- Advance an issue (e.g., 'Open' -> 'In Progress' -> 'Fixed') from automation.",
+      "- Discover and apply the correct transition without inspecting workflow rules manually.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: issueId, previousState, newState, transitionUsed.",
+      "Limitations: only transitions allowed by the current state and workflow are accepted; invalid targets fail with a descriptive error.",
+    ].join("\n"),
     issueChangeStateArgs,
     async (rawInput) => {
       try {
@@ -500,7 +604,16 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
 
   server.tool(
     "issues_count",
-    "Count YouTrack issues with optional filters. Returns total count and breakdown by projects. Use for: Getting accurate issue counts without pagination limits, analyzing issue distribution across projects.",
+    [
+      "Count issues across one or many projects with date/state/type/assignee filters.",
+      "Use cases:",
+      "- Capacity planning: how many open issues per project.",
+      "- Time-bounded reports: counts in a date window.",
+      "- Sanity check before pulling a large list.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: total and byProject[] with project shortName and count.",
+      "Limitations: top trims the per-project query; counts beyond top are clipped.",
+    ].join("\n"),
     issuesCountArgs,
     async (rawInput) => {
       try {

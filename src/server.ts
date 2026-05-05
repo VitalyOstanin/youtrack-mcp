@@ -50,7 +50,16 @@ export class YoutrackServer {
     registerIssueActivityTools(this.server, this.client);
     this.server.tool(
       "issues_search",
-      "Search YouTrack issues by text in summary, description, and comments.",
+      [
+        "Free-text or YouTrack Query Language search across issues with composable filters.",
+        "Use cases:",
+        "- Find issues by keyword across summary/description/comments.",
+        "- Combine query with project/state/type/assignee/date filters.",
+        "- Snapshot a search to file via saveToFile for analysis.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: total, byProject[], items[] (id, idReadable, summary, project, assignee, created, updated); or {savedToFile, savedTo, total, byProject, itemCount}.",
+        "Limitations: max 200 per page; assignee is deprecated -- use assigneeLogin.",
+      ].join("\n"),
       issuesSearchArgs,
       async (args) => issuesSearchHandler(this.client, args),
     );

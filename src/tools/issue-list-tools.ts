@@ -86,7 +86,16 @@ const issueListSchema = z.object(issueListArgs);
 export function registerIssueListTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issues_list",
-    "List issues across projects with filtering and sorting. Use for: dashboards, team workload audit, batch operation preparation. Filters: project IDs, creation/update date ranges, statuses, assignee, types. Sorting: created/updated fields, ascending/descending. Pagination: limit, skip. Output: brief (default) or full details including custom fields.",
+    [
+      "List issues across projects with filters, sorting and server-side pagination.",
+      "Use cases:",
+      "- Dashboards over selected projects/states/assignees.",
+      "- Time-bounded scans via createdAfter/updatedAfter.",
+      "- Persist a working set via saveToFile for offline processing.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: issues[] (id, idReadable, summary, project, parent, assignee; customFields when briefOutput=false), pagination, filters, sort; or {savedToFile, savedTo, totalIssues, pagination, filters, sort}.",
+      "Limitations: max 200 per page; per-project query is serialized through a single-flight projects cache.",
+    ].join("\n"),
     issueListArgs,
     async (rawInput) => {
       try {

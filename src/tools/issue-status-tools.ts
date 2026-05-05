@@ -102,14 +102,30 @@ export async function issuesStatusHandler(client: YoutrackClient, rawInput: unkn
 export function registerIssueStatusTools(server: McpServer, client: YoutrackClient) {
   server.tool(
     "issue_status",
-    "Get status of a YouTrack issue. Returns the State of the issue.",
+    [
+      "Lightweight lookup of a single issue's State (without full details payload).",
+      "Use cases:",
+      "- Quickly check if an issue is Open/Fixed without re-fetching everything.",
+      "- Verify the State after issue_change_state.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: issueId, status (presentation || name || 'Unknown'), state {id, name, presentation}; or {savedToFile, savedTo}.",
+      "Limitations: returns the State custom field only -- use issue_details for the full picture.",
+    ].join("\n"),
     issueStatusArgs,
     (rawInput) => issueStatusHandler(client, rawInput),
   );
 
   server.tool(
     "issues_status",
-    "Get status of multiple YouTrack issues (batch mode, max 50). Returns the State of each issue.",
+    [
+      "Lightweight bulk lookup of State for up to 50 issues with per-id error reporting.",
+      "Use cases:",
+      "- Build a board view of state across many issues.",
+      "- Audit which issues are not yet Resolved.",
+      "Parameter examples: see schema descriptions.",
+      "Response fields: statuses[] {issueId, status, state {id, name, presentation}}, errors[] for failed ids; or {savedToFile, savedTo, statusCount, errorsCount}.",
+      "Limitations: max 50 ids; per-issue HTTP failures are returned in errors[] rather than aborting the batch.",
+    ].join("\n"),
     issuesStatusArgs,
     (rawInput) => issuesStatusHandler(client, rawInput),
   );
