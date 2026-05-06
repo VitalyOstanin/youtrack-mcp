@@ -2,17 +2,56 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-06
+
 ### Breaking
 
 - **Node.js minimum bumped to 22** — `engines.node` raised to `>=22.0.0`. Node.js 20 reached EOL on 2026-04-30 and was no longer covered by CI matrix (which ran 22.x/24.x). Users on Node 20 must upgrade.
 
 ### Security
 
-- **Dependencies updated to clear all known advisories** — `@modelcontextprotocol/sdk` `^1.20.0` → `^1.29.0` (clears `GHSA-w48q-cv73-mx4w`, `GHSA-345p-7cg4-v4c7`, `GHSA-8r9q-7v3j-jr4g`); `axios` `^1.12.2` → `^1.16.0` (clears 16 advisories including `GHSA-43fc-jf86-j433`, `GHSA-5c9x-8gcm-mpgx`, `GHSA-pmwg-cvhr-8vh7`, `GHSA-q8qp-cvcw-x6jj`, `GHSA-pf86-5x62-jrwf`, `GHSA-6chq-wfr3-2hj9` and others); transitive cleanup via `npm audit fix` removes `flatted`, `minimatch`, `picomatch`, `js-yaml`, `ajv`, `brace-expansion` advisories. `npm audit` now reports 0 vulnerabilities.
+- **Dependencies updated to clear major published advisories** — `@modelcontextprotocol/sdk` `^1.20.0` → `^1.29.0` (clears `GHSA-w48q-cv73-mx4w`, `GHSA-345p-7cg4-v4c7`, `GHSA-8r9q-7v3j-jr4g`); `axios` `^1.12.2` → `^1.16.0` (clears 16 advisories including `GHSA-43fc-jf86-j433`, `GHSA-5c9x-8gcm-mpgx`, `GHSA-pmwg-cvhr-8vh7`, `GHSA-q8qp-cvcw-x6jj`, `GHSA-pf86-5x62-jrwf`, `GHSA-6chq-wfr3-2hj9` and others); transitive cleanup via `npm audit fix` removes `flatted`, `minimatch`, `picomatch`, `js-yaml`, `ajv`, `brace-expansion` advisories. A separate moderate `ip-address` advisory (`GHSA-v2v4-37r5-5v8g`) remains transitively pulled by `@modelcontextprotocol/sdk` → `express-rate-limit` and only affects unused HTML-emitting methods on the SDK side.
+- **Path traversal hardening in `issue_attachment_upload`** — uploaded file paths are now resolved against `YOUTRACK_OUTPUT_DIR` and absolute / `..`-traversal segments are rejected with `UnsafePathError`, mirroring the existing safeguards on `saveToFile` / `downloadToFile`.
+- **YQL injection in `issues_search`** — user-supplied literals that flow into YouTrack search queries are now properly quoted/escaped; raw concatenation has been removed.
+- **SSRF mitigation in attachment URLs** — `attachment.url` is validated against the configured YouTrack base host; off-host redirects are rejected before the HTTP client follows them.
+- **Local OAuth tokens stay out of `temp/`** — clarified handling so transient credentials are never written to the repo working tree.
 
 ### Fixed
 
 - **`updateWorkItem` no longer loses data on transient failures** — previously deleted the existing record before creating the new one; if the create call failed (network/5xx) the original record was lost. Now creates the new record first and only deletes the previous one after success. If cleanup of the previous record fails, the error message contains both the new id and the orphaned id for manual reconciliation.
+- **`file-download` `maxBytes` is now enforced precisely** — early-exit happens at exactly the configured byte boundary instead of one chunk later.
+- **Date format consistency in YQL queries** — work-item / search filters now serialize dates the way the YouTrack API expects, eliminating off-by-one matches at day boundaries.
+- **`generateWorkItemReport` handles empty periods** — when the period has no work items the report now returns an empty `days` array with zeroed totals instead of failing on undefined boundaries.
+- **`streaming-client` no longer leaks sockets** — partial-file cleanup paths now also tear down the underlying HTTP socket on error / timeout / abort.
+
+### Performance
+
+- **`createIssue` creates links in parallel** — when `links[]` is provided the post-creation cascade now uses `processBatch` instead of awaiting each link sequentially.
+- **`filterIssuesByUserActivity` rebuilt around `Map`** — replaces O(n²) array lookups with O(n) hashed access.
+- **Holidays lookup switched to `Set`** — `filterWorkingDays` and the report builder now use a `Set<string>` for holiday membership instead of an array scan.
+- **`existsSync` replaced with `fs.access`** — removes synchronous filesystem calls from hot paths.
+
+### Changed (internal)
+
+- **`YoutrackClient` split into `base.ts` + 13 domain mixins** — `src/youtrack-client/index.ts` shrank from a 3397-line monolith to a 33-line mixin assembler. New domain files: `attachments.ts`, `users-projects.ts`, `articles.ts`, `comments.ts`, `stars.ts`, `state.ts`, `links.ts`, `core.ts`, `batch.ts`, `activities.ts`, `issue-search.ts`, `workitems.ts`. `YoutrackClientBase` exports the shared HTTP/cache/utility surface that every mixin depends on.
+- **Unified `createToolHandler` across all MCP tools** — every tool registration now goes through the same factory; common zod fragments (`saveToFile`, `format`, `briefOutput`) are shared.
+- **Lint pipeline tuned** — `parserOptions.projectService` (lazy TS Language Service) replaces eager project loading and `eslint --cache` is enabled. Cold lint now uses ~210 MB instead of >4 GB; warm runs are seconds.
+- **Typed `$type` discriminators for YouTrack entities** and a single `customFieldsWithEvents` constant remove duplicated literal lists.
+- **`searchIssuesByUserActivityStrict` pipeline deduplicated** — strict and simple variants now share the same builder.
+
+### Added
+
+- **`format` npm script and `.editorconfig`** for consistent editor / formatter behavior.
+- **CI**: `npm test` step and `timeout-minutes: 20` on publish / CI jobs.
+- **Tests**: `nock.disableNetConnect()`, explicit `testTimeout`, vitest pool limits.
+- **Dependabot** configuration; clearer error when `YOUTRACK_*` config is missing or invalid.
+- **Project Structure** section in README plus `CONTRIBUTING.md`.
+
+### Migration Notes
+
+- Verify your runtime is Node.js ≥ 22 before upgrading.
+- If you import from `src/youtrack-client/index.ts` directly (not the public `dist/` API), update imports — the file is now an assembler; types live in `base.ts` and the per-domain mixin files.
+- File paths passed to `issue_attachment_upload` must now be relative to `YOUTRACK_OUTPUT_DIR` (or absolute paths within it). Paths containing `..` segments are rejected.
 
 ## [0.11.0] - 2026-05-05
 
