@@ -11,16 +11,16 @@ import { createToolHandler } from "../utils/tool-handler.js";
 export const usersActivityArgs = {
   author: userLoginSchema.describe("Filter by author login (required, e.g., 'vyt'). Matches activities created by this user."),
   start: z
-    .union([z.string(), z.number(), z.date()])
+    .union([z.string(), z.number()])
     .optional()
     .describe(
-      "Inclusive start of the interval. Accepts ISO string, unix timestamp (ms), or Date object. Converted to unix ms for /api/activities (default: 30 days before end). Avoid omitting on instances with multi-year history -- /api/activities scans the full date window before applying $top.",
+      "Inclusive start of the interval. Accepts ISO string or unix timestamp (ms). Converted to unix ms for /api/activities (default: 30 days before end). Avoid omitting on instances with multi-year history -- /api/activities scans the full date window before applying $top.",
     ),
   end: z
-    .union([z.string(), z.number(), z.date()])
+    .union([z.string(), z.number()])
     .optional()
     .describe(
-      "Inclusive end of the interval. Accepts ISO string, unix timestamp (ms), or Date object. Converted to unix ms for /api/activities (default: now).",
+      "Inclusive end of the interval. Accepts ISO string or unix timestamp (ms). Converted to unix ms for /api/activities (default: now).",
     ),
   categories: z
     .string()

@@ -31,13 +31,13 @@ export const issueActivitiesArgs = {
   issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
   author: z.string().optional().describe("Filter by author login (e.g., 'john.doe')"),
   startDate: z
-    .union([z.string(), z.number(), z.date()])
+    .union([z.string(), z.number()])
     .optional()
-    .describe("Start date for filtering (format: YYYY-MM-DD, timestamp, or Date object)"),
+    .describe("Start date for filtering (format: YYYY-MM-DD or unix ms timestamp)"),
   endDate: z
-    .union([z.string(), z.number(), z.date()])
+    .union([z.string(), z.number()])
     .optional()
-    .describe("End date for filtering (format: YYYY-MM-DD, timestamp, or Date object)"),
+    .describe("End date for filtering (format: YYYY-MM-DD or unix ms timestamp)"),
   categories: z
     .array(activityCategoryEnum)
     .optional()

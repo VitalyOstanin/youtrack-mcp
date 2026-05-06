@@ -7,7 +7,7 @@ import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args
 import { createToolHandler } from "../utils/tool-handler.js";
 import { READ_ONLY_ANNOTATIONS } from "../utils/tool-annotations.js";
 
-const sharedDate = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.number(), z.date()]);
+const sharedDate = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.number()]);
 const reportBaseArgs = {
   author: z.string().optional().describe("Work item author login"),
   issueId: z.string().optional().describe("Issue code"),

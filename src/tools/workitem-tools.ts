@@ -13,7 +13,7 @@ const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .describe("Date in YYYY-MM-DD format");
-const dateInput = z.union([isoDate, z.number(), z.date()]);
+const dateInput = z.union([isoDate, z.number()]);
 const baseFilterArgs = {
   issueId: issueIdSchema.optional().describe("Issue code (e.g., PROJ-123)"),
   author: userLoginSchema.optional().describe("Work item author login"),
