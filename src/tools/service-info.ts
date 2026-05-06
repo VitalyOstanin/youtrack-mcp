@@ -5,20 +5,24 @@ import { loadConfig, enrichConfigWithRedaction } from "../config.js";
 import type { ServiceStatusPayload } from "../types.js";
 import { VERSION } from "../version.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { READ_ONLY_LOCAL_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 export function registerServiceInfoTool(server: McpServer, client: YoutrackClient) {
-  server.tool(
+  server.registerTool(
     "service_info",
-    [
-      "Report MCP service version and the current YouTrack integration configuration.",
-      "Use cases:",
-      "- Smoke-test the MCP server end-to-end (auth + reachability).",
-      "- Debug which baseUrl/timezone/defaultProject the process is using.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: service {name, version}, configuration (with redacted secrets), currentUser {id, login, name, fullName, email}.",
-      "Limitations: configuration values reflect the current process; secrets are redacted.",
-    ].join("\n"),
-    {},
+    {
+      description: [
+        "Report MCP service version and the current YouTrack integration configuration.",
+        "Use cases:",
+        "- Smoke-test the MCP server end-to-end (auth + reachability).",
+        "- Debug which baseUrl/timezone/defaultProject the process is using.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: service {name, version}, configuration (with redacted secrets), currentUser {id, login, name, fullName, email}.",
+        "Limitations: configuration values reflect the current process; secrets are redacted.",
+      ].join("\n"),
+      inputSchema: {},
+      annotations: READ_ONLY_LOCAL_ANNOTATIONS,
+    },
     createToolHandler(z.object({}), async () => {
       const freshConfig = loadConfig();
       const currentUser = await client.getCurrentUser();

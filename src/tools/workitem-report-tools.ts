@@ -5,6 +5,7 @@ import { toolSuccess } from "../utils/tool-response.js";
 import { processWithFileStorage } from "../utils/file-storage.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { READ_ONLY_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 const sharedDate = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.number(), z.date()]);
 const reportBaseArgs = {
@@ -28,18 +29,21 @@ const reportUsersArgs = {
 const reportUsersArgsSchema = z.object(reportUsersArgs);
 
 export function registerWorkitemReportTools(server: McpServer, client: YoutrackClient): void {
-  server.tool(
+  server.registerTool(
     "workitems_report_summary",
-    [
-      "Aggregated time-tracking summary for one author or all users with optional working-day calendar.",
-      "Use cases:",
-      "- Monthly time report per author with weekend/holiday handling.",
-      "- Total billable minutes for an issue.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: report.summary {totalMinutes, workDays}, report.byDate, report.items.",
-      "Limitations: respects expectedDailyMinutes only when provided; allUsers=true requires elevated permissions.",
-    ].join("\n"),
-    reportBaseArgs,
+    {
+      description: [
+        "Aggregated time-tracking summary for one author or all users with optional working-day calendar.",
+        "Use cases:",
+        "- Monthly time report per author with weekend/holiday handling.",
+        "- Total billable minutes for an issue.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: report.summary {totalMinutes, workDays}, report.byDate, report.items.",
+        "Limitations: respects expectedDailyMinutes only when provided; allUsers=true requires elevated permissions.",
+      ].join("\n"),
+      inputSchema: reportBaseArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(reportArgsSchema, async (payload) => {
       const report = await client.generateWorkItemReport(payload);
       const processedResult = await processWithFileStorage(
@@ -68,18 +72,21 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "workitems_report_invalid",
-    [
-      "Days where logged minutes deviate from expectedDailyMinutes (under/over) for an author or team.",
-      "Use cases:",
-      "- Identify under-logged or over-logged days.",
-      "- Generate a follow-up checklist for missing time entries.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: invalidDays[] {date, totalMinutes, expectedMinutes, deviation, items[]}; or {savedToFile, savedTo, invalidDaysCount}.",
-      "Limitations: requires expectedDailyMinutes to compute deviations.",
-    ].join("\n"),
-    reportBaseArgs,
+    {
+      description: [
+        "Days where logged minutes deviate from expectedDailyMinutes (under/over) for an author or team.",
+        "Use cases:",
+        "- Identify under-logged or over-logged days.",
+        "- Generate a follow-up checklist for missing time entries.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: invalidDays[] {date, totalMinutes, expectedMinutes, deviation, items[]}; or {savedToFile, savedTo, invalidDaysCount}.",
+        "Limitations: requires expectedDailyMinutes to compute deviations.",
+      ].join("\n"),
+      inputSchema: reportBaseArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(reportArgsSchema, async (payload) => {
       const invalidDays = await client.generateInvalidWorkItemReport(payload);
       const processedResult = await processWithFileStorage(
@@ -105,18 +112,21 @@ export function registerWorkitemReportTools(server: McpServer, client: YoutrackC
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "workitems_report_users",
-    [
-      "Per-user time-tracking report for an explicit list of logins over a period.",
-      "Use cases:",
-      "- Cross-team comparison of logged time.",
-      "- Group payroll for a project squad.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: reports[] {user, summary, byDate, items}; or {savedToFile, savedTo, usersCount}.",
-      "Limitations: each user is queried separately -- larger lists are slower.",
-    ].join("\n"),
-    reportUsersArgs,
+    {
+      description: [
+        "Per-user time-tracking report for an explicit list of logins over a period.",
+        "Use cases:",
+        "- Cross-team comparison of logged time.",
+        "- Group payroll for a project squad.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: reports[] {user, summary, byDate, items}; or {savedToFile, savedTo, usersCount}.",
+        "Limitations: each user is queried separately -- larger lists are slower.",
+      ].join("\n"),
+      inputSchema: reportUsersArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(reportUsersArgsSchema, async (payload) => {
       const report = await client.generateUsersWorkItemReports(payload.users, payload);
       const processedResult = await processWithFileStorage(

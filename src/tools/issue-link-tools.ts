@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { issueIdSchema as issueIdValidator, linkIdSchema } from "../utils/validators.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { DESTRUCTIVE_ANNOTATIONS, READ_ONLY_ANNOTATIONS, WRITE_CREATE_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 const issueLinksArgs = {
   issueId: issueIdValidator.describe("Issue code (e.g., PROJ-123)"),
@@ -36,18 +37,21 @@ const linkCreateArgs = {
 const linkCreateSchema = z.object(linkCreateArgs);
 
 export function registerIssueLinkTools(server: McpServer, client: YoutrackClient) {
-  server.tool(
+  server.registerTool(
     "issue_links",
-    [
-      "List links for an issue with server-side pagination ($top/$skip).",
-      "Use cases:",
-      "- Inspect parent/subtask hierarchy.",
-      "- Browse relations like 'Relates' or 'Duplicate'.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: links[] {id, direction, linkType, issue (idReadable, summary, project, assignee)}, pagination.",
-      "Limitations: max 200 per page; bidirectional types appear once per neighbour.",
-    ].join("\n"),
-    issueLinksArgs,
+    {
+      description: [
+        "List links for an issue with server-side pagination ($top/$skip).",
+        "Use cases:",
+        "- Inspect parent/subtask hierarchy.",
+        "- Browse relations like 'Relates' or 'Duplicate'.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: links[] {id, direction, linkType, issue (idReadable, summary, project, assignee)}, pagination.",
+        "Limitations: max 200 per page; bidirectional types appear once per neighbour.",
+      ].join("\n"),
+      inputSchema: issueLinksArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueLinksSchema, async (payload) =>
       client.getIssueLinks(payload.issueId, {
         limit: payload.limit,
@@ -56,34 +60,40 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_link_types",
-    [
-      "List available YouTrack link types (cached single-flight).",
-      "Use cases:",
-      "- Discover valid type names before calling issue_link_add.",
-      "- Distinguish directed vs symmetric link types via direction field.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: linkTypes[] {id, name, sourceToTarget, targetToSource, directed}.",
-      "Limitations: result is cached for the process lifetime; new types added in YouTrack require a server restart to refresh.",
-    ].join("\n"),
-    {},
+    {
+      description: [
+        "List available YouTrack link types (cached single-flight).",
+        "Use cases:",
+        "- Discover valid type names before calling issue_link_add.",
+        "- Distinguish directed vs symmetric link types via direction field.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: linkTypes[] {id, name, sourceToTarget, targetToSource, directed}.",
+        "Limitations: result is cached for the process lifetime; new types added in YouTrack require a server restart to refresh.",
+      ].join("\n"),
+      inputSchema: {},
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(z.object({}), async () => client.listLinkTypes()),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_link_add",
-    [
-      "Create a link between two issues with explicit type and optional direction flip.",
-      "Use cases:",
-      "- Mark duplicates (linkType='Duplicate').",
-      "- Build subtask trees (linkType='Subtask').",
-      "- Connect related work (linkType='Relates').",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: link.id, link.direction, link.linkType, source/target issue brief.",
-      "Limitations: link type must exist; re-fetch issue_links to confirm YouTrack accepted the relationship.",
-    ].join("\n"),
-    linkCreateArgs,
+    {
+      description: [
+        "Create a link between two issues with explicit type and optional direction flip.",
+        "Use cases:",
+        "- Mark duplicates (linkType='Duplicate').",
+        "- Build subtask trees (linkType='Subtask').",
+        "- Connect related work (linkType='Relates').",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: link.id, link.direction, link.linkType, source/target issue brief.",
+        "Limitations: link type must exist; re-fetch issue_links to confirm YouTrack accepted the relationship.",
+      ].join("\n"),
+      inputSchema: linkCreateArgs,
+      annotations: WRITE_CREATE_ANNOTATIONS,
+    },
     createToolHandler(linkCreateSchema, async (input) => client.addIssueLink(input)),
   );
 
@@ -97,18 +107,21 @@ export function registerIssueLinkTools(server: McpServer, client: YoutrackClient
   };
   const linkDeleteSchema = z.object(linkDeleteArgs);
 
-  server.tool(
+  server.registerTool(
     "issue_link_delete",
-    [
-      "Delete a single link by id with REST or command-based fallback (subtasks).",
-      "Use cases:",
-      "- Detach a wrongly attached subtask.",
-      "- Remove a duplicate or relates link.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: success, removedLinkId, mode ('rest' or 'command'), targetIssueId.",
-      "Limitations: confirmation: true is required; re-fetch issue_links to verify the link actually disappeared.",
-    ].join("\n"),
-    linkDeleteArgs,
+    {
+      description: [
+        "Delete a single link by id with REST or command-based fallback (subtasks).",
+        "Use cases:",
+        "- Detach a wrongly attached subtask.",
+        "- Remove a duplicate or relates link.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: success, removedLinkId, mode ('rest' or 'command'), targetIssueId.",
+        "Limitations: confirmation: true is required; re-fetch issue_links to verify the link actually disappeared.",
+      ].join("\n"),
+      inputSchema: linkDeleteArgs,
+      annotations: DESTRUCTIVE_ANNOTATIONS,
+    },
     createToolHandler(linkDeleteSchema, async (input) =>
       client.deleteIssueLink({
         issueId: input.issueId,

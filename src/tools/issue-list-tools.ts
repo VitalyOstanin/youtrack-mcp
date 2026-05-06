@@ -6,6 +6,7 @@ import { processWithFileStorage } from "../utils/file-storage.js";
 import { userLoginSchema, yqlIdentifierSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, briefOutputArg, fileStorageArgs } from "../utils/tool-args.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { READ_ONLY_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 const dateInputSchema = z
   .string()
@@ -65,19 +66,22 @@ const issueListArgs = {
 const issueListSchema = z.object(issueListArgs);
 
 export function registerIssueListTools(server: McpServer, client: YoutrackClient) {
-  server.tool(
+  server.registerTool(
     "issues_list",
-    [
-      "List issues across projects with filters, sorting and server-side pagination.",
-      "Use cases:",
-      "- Dashboards over selected projects/states/assignees.",
-      "- Time-bounded scans via createdAfter/updatedAfter.",
-      "- Persist a working set via saveToFile for offline processing.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: issues[] (id, idReadable, summary, project, parent, assignee; customFields when briefOutput=false), pagination, filters, sort; or {savedToFile, savedTo, totalIssues, pagination, filters, sort}.",
-      "Limitations: max 200 per page; per-project query is serialized through a single-flight projects cache.",
-    ].join("\n"),
-    issueListArgs,
+    {
+      description: [
+        "List issues across projects with filters, sorting and server-side pagination.",
+        "Use cases:",
+        "- Dashboards over selected projects/states/assignees.",
+        "- Time-bounded scans via createdAfter/updatedAfter.",
+        "- Persist a working set via saveToFile for offline processing.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: issues[] (id, idReadable, summary, project, parent, assignee; customFields when briefOutput=false), pagination, filters, sort; or {savedToFile, savedTo, totalIssues, pagination, filters, sort}.",
+        "Limitations: max 200 per page; per-project query is serialized through a single-flight projects cache.",
+      ].join("\n"),
+      inputSchema: issueListArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueListSchema, async (payload) => {
       const result = await client.listIssues({
         projectIds: payload.projectIds,

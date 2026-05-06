@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { projectIdSchema } from "../utils/validators.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { READ_ONLY_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 const projectLookupArgs = {
   shortName: projectIdSchema.describe("Project short name"),
@@ -28,35 +29,41 @@ const projectsListArgs = {
 const projectsListSchema = z.object(projectsListArgs);
 
 export function registerProjectTools(server: McpServer, client: YoutrackClient): void {
-  server.tool(
+  server.registerTool(
     "projects_list",
-    [
-      "List accessible projects with auto-pagination by default or explicit $top/$skip.",
-      "Use cases:",
-      "- Build a project picker.",
-      "- Discover available short names before scoping a search.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: projects[] (id, shortName, name).",
-      "Limitations: max 200 per page when limit/skip are provided; without them the client fetches all pages and caches via single-flight.",
-    ].join("\n"),
-    projectsListArgs,
+    {
+      description: [
+        "List accessible projects with auto-pagination by default or explicit $top/$skip.",
+        "Use cases:",
+        "- Build a project picker.",
+        "- Discover available short names before scoping a search.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: projects[] (id, shortName, name).",
+        "Limitations: max 200 per page when limit/skip are provided; without them the client fetches all pages and caches via single-flight.",
+      ].join("\n"),
+      inputSchema: projectsListArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(projectsListSchema, async (payload) =>
       client.listProjects({ limit: payload.limit, skip: payload.skip }),
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "project_get",
-    [
-      "Resolve a project by its short name.",
-      "Use cases:",
-      "- Validate that a project code is reachable.",
-      "- Map shortName to internal id for downstream queries.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: project {id, shortName, name}.",
-      "Limitations: returns an error when the short name is not found.",
-    ].join("\n"),
-    projectLookupArgs,
+    {
+      description: [
+        "Resolve a project by its short name.",
+        "Use cases:",
+        "- Validate that a project code is reachable.",
+        "- Map shortName to internal id for downstream queries.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: project {id, shortName, name}.",
+        "Limitations: returns an error when the short name is not found.",
+      ].join("\n"),
+      inputSchema: projectLookupArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(projectLookupSchema, async (payload) => {
       const project = await client.getProjectByShortName(payload.shortName);
 

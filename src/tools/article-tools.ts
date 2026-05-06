@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { YoutrackClient } from "../youtrack-client.js";
 import { articleIdSchema, projectIdSchema } from "../utils/validators.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { READ_ONLY_ANNOTATIONS, WRITE_CREATE_ANNOTATIONS, WRITE_IDEMPOTENT_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 const articleLookupArgs = {
   articleId: articleIdSchema.describe("Article ID"),
@@ -62,33 +63,39 @@ export function registerArticleTools(
   server: McpServer,
   client: YoutrackClient,
 ): void {
-  server.tool(
+  server.registerTool(
     "article_get",
-    [
-      "Fetch a single Knowledge Base article with full content and parent reference.",
-      "Use cases:",
-      "- Read an article inline before commenting or editing.",
-      "- Resolve a parent chain by following parentArticle.idReadable.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
-      "Limitations: returns only one article -- use article_list for hierarchy.",
-    ].join("\n"),
-    articleLookupArgs,
+    {
+      description: [
+        "Fetch a single Knowledge Base article with full content and parent reference.",
+        "Use cases:",
+        "- Read an article inline before commenting or editing.",
+        "- Resolve a parent chain by following parentArticle.idReadable.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
+        "Limitations: returns only one article -- use article_list for hierarchy.",
+      ].join("\n"),
+      inputSchema: articleLookupArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(articleLookupSchema, async (payload) => client.getArticle(payload.articleId)),
   );
 
-  server.tool(
+  server.registerTool(
     "article_list",
-    [
-      "List Knowledge Base articles (project- or parent-scoped) with server-side pagination.",
-      "Use cases:",
-      "- Browse top-level articles in a project.",
-      "- Walk children of a parentArticleId for tree views.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: articles[] (id, idReadable, summary, usesMarkdown, parentArticle, project) and pagination.",
-      "Limitations: content field is omitted; max 200 per page.",
-    ].join("\n"),
-    articleListArgs,
+    {
+      description: [
+        "List Knowledge Base articles (project- or parent-scoped) with server-side pagination.",
+        "Use cases:",
+        "- Browse top-level articles in a project.",
+        "- Walk children of a parentArticleId for tree views.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: articles[] (id, idReadable, summary, usesMarkdown, parentArticle, project) and pagination.",
+        "Limitations: content field is omitted; max 200 per page.",
+      ].join("\n"),
+      inputSchema: articleListArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(articleListSchema, async (payload) =>
       client.listArticles({
         parentArticleId: payload.parentArticleId,
@@ -99,18 +106,21 @@ export function registerArticleTools(
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "article_create",
-    [
-      "Create a Knowledge Base article in a project, optionally under a parent and with markdown rendering.",
-      "Use cases:",
-      "- Add a new runbook to the team's KB.",
-      "- Build hierarchy by passing parentArticleId.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
-      "Limitations: projectId defaults to YOUTRACK_DEFAULT_PROJECT; re-fetch via article_get to verify rendered content.",
-    ].join("\n"),
-    articleCreateArgs,
+    {
+      description: [
+        "Create a Knowledge Base article in a project, optionally under a parent and with markdown rendering.",
+        "Use cases:",
+        "- Add a new runbook to the team's KB.",
+        "- Build hierarchy by passing parentArticleId.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
+        "Limitations: projectId defaults to YOUTRACK_DEFAULT_PROJECT; re-fetch via article_get to verify rendered content.",
+      ].join("\n"),
+      inputSchema: articleCreateArgs,
+      annotations: WRITE_CREATE_ANNOTATIONS,
+    },
     createToolHandler(articleCreateSchema, async (payload) =>
       client.createArticle({
         summary: payload.summary,
@@ -123,18 +133,21 @@ export function registerArticleTools(
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "article_update",
-    [
-      "Edit summary or content of a Knowledge Base article (with optional rendered preview).",
-      "Use cases:",
-      "- Fix a typo or rewrite a runbook.",
-      "- Toggle usesMarkdown after migrating from plain text.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
-      "Limitations: at least one of summary/content must be provided.",
-    ].join("\n"),
-    articleUpdateArgs,
+    {
+      description: [
+        "Edit summary or content of a Knowledge Base article (with optional rendered preview).",
+        "Use cases:",
+        "- Fix a typo or rewrite a runbook.",
+        "- Toggle usesMarkdown after migrating from plain text.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, idReadable, summary, content, contentPreview, usesMarkdown, parentArticle, project.",
+        "Limitations: at least one of summary/content must be provided.",
+      ].join("\n"),
+      inputSchema: articleUpdateArgs,
+      annotations: WRITE_IDEMPOTENT_ANNOTATIONS,
+    },
     createToolHandler(articleUpdateSchema, async (payload) => {
       if (payload.summary === undefined && payload.content === undefined) {
         throw new Error("At least one field must be provided for update");

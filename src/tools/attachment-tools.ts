@@ -8,6 +8,7 @@ import { sanitizeFilename } from "../utils/path-safety.js";
 import { issueIdSchema, attachmentIdSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { DESTRUCTIVE_ANNOTATIONS, READ_ONLY_ANNOTATIONS, WRITE_CREATE_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 const issueIdArgs = {
   issueId: issueIdSchema.describe("Issue code (e.g., PROJ-123)"),
@@ -117,18 +118,21 @@ const attachmentDeleteArgs = {
 const attachmentDeleteSchema = z.object(attachmentDeleteArgs);
 
 export function registerAttachmentTools(server: McpServer, client: YoutrackClient) {
-  server.tool(
+  server.registerTool(
     "issue_attachments_list",
-    [
-      "List metadata for all attachments on an issue.",
-      "Use cases:",
-      "- Inspect what files are attached before downloading.",
-      "- Audit attachment sizes and authors.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: attachments[] {id, name, author, created, updated, size, sizeFormatted, mimeType, extension, url, thumbnailURL}; or {savedToFile, savedTo, attachmentsCount}.",
-      "Limitations: returns metadata only -- use issue_attachment_download for content.",
-    ].join("\n"),
-    issueIdArgs,
+    {
+      description: [
+        "List metadata for all attachments on an issue.",
+        "Use cases:",
+        "- Inspect what files are attached before downloading.",
+        "- Audit attachment sizes and authors.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: attachments[] {id, name, author, created, updated, size, sizeFormatted, mimeType, extension, url, thumbnailURL}; or {savedToFile, savedTo, attachmentsCount}.",
+        "Limitations: returns metadata only -- use issue_attachment_download for content.",
+      ].join("\n"),
+      inputSchema: issueIdArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueIdInputSchema, async (payload) => {
       const result = await client.listAttachments(payload.issueId);
       const processedResult = await processWithFileStorage(
@@ -154,50 +158,59 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_attachment_get",
-    [
-      "Fetch metadata for a single attachment by id.",
-      "Use cases:",
-      "- Resolve mimeType/size before deciding whether to download.",
-      "- Check the original author and timestamps.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, name, author, created, updated, size, sizeFormatted, mimeType, extension, url, thumbnailURL.",
-      "Limitations: returns metadata only.",
-    ].join("\n"),
-    attachmentGetArgs,
+    {
+      description: [
+        "Fetch metadata for a single attachment by id.",
+        "Use cases:",
+        "- Resolve mimeType/size before deciding whether to download.",
+        "- Check the original author and timestamps.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, name, author, created, updated, size, sizeFormatted, mimeType, extension, url, thumbnailURL.",
+        "Limitations: returns metadata only.",
+      ].join("\n"),
+      inputSchema: attachmentGetArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(attachmentGetSchema, async (payload) =>
       client.getAttachment(payload.issueId, payload.attachmentId),
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_attachment_download",
-    [
-      "Get a signed download URL for an attachment, optionally streaming it to YOUTRACK_OUTPUT_DIR.",
-      "Use cases:",
-      "- Hand off the signed URL to a browser/client.",
-      "- Save the file directly to disk via downloadToFile=true.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: when downloadToFile=true: {downloaded, savedTo, attachmentId, issueId, originalAttachmentInfo}; otherwise {downloadUrl, attachment {...metadata}} or saved-to-file variant.",
-      "Limitations: signed URL has limited lifetime; downloadPath is sanitized via path-safety rules.",
-    ].join("\n"),
-    attachmentDownloadArgs,
+    {
+      description: [
+        "Get a signed download URL for an attachment, optionally streaming it to YOUTRACK_OUTPUT_DIR.",
+        "Use cases:",
+        "- Hand off the signed URL to a browser/client.",
+        "- Save the file directly to disk via downloadToFile=true.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: when downloadToFile=true: {downloaded, savedTo, attachmentId, issueId, originalAttachmentInfo}; otherwise {downloadUrl, attachment {...metadata}} or saved-to-file variant.",
+        "Limitations: signed URL has limited lifetime; downloadPath is sanitized via path-safety rules.",
+      ].join("\n"),
+      inputSchema: attachmentDownloadArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     (rawInput) => issueAttachmentDownloadHandler(client, rawInput),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_attachment_upload",
-    [
-      "Upload up to 10 local files as attachments to an existing issue.",
-      "Use cases:",
-      "- Attach screenshots or logs to a bug report.",
-      "- Bulk-attach generated artifacts (JSON, CSV).",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: uploaded[] {id, name, size, mimeType, url}, errors[] for failed paths.",
-      "Limitations: max 10 files per call; files must exist on the local filesystem and be readable.",
-    ].join("\n"),
-    attachmentUploadArgs,
+    {
+      description: [
+        "Upload up to 10 local files as attachments to an existing issue.",
+        "Use cases:",
+        "- Attach screenshots or logs to a bug report.",
+        "- Bulk-attach generated artifacts (JSON, CSV).",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: uploaded[] {id, name, size, mimeType, url}, errors[] for failed paths.",
+        "Limitations: max 10 files per call; files must exist on the local filesystem and be readable.",
+      ].join("\n"),
+      inputSchema: attachmentUploadArgs,
+      annotations: WRITE_CREATE_ANNOTATIONS,
+    },
     createToolHandler(attachmentUploadSchema, async (payload) =>
       client.uploadAttachments({
         issueId: payload.issueId,
@@ -207,18 +220,21 @@ export function registerAttachmentTools(server: McpServer, client: YoutrackClien
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_attachment_delete",
-    [
-      "Permanently delete an attachment from an issue. Requires confirmation.",
-      "Use cases:",
-      "- Remove a sensitive file uploaded by mistake.",
-      "- Clean up obsolete artifacts.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: success, removedAttachmentId, issueId.",
-      "Limitations: confirmation: true is required; deletion cannot be undone -- re-list attachments to confirm.",
-    ].join("\n"),
-    attachmentDeleteArgs,
+    {
+      description: [
+        "Permanently delete an attachment from an issue. Requires confirmation.",
+        "Use cases:",
+        "- Remove a sensitive file uploaded by mistake.",
+        "- Clean up obsolete artifacts.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: success, removedAttachmentId, issueId.",
+        "Limitations: confirmation: true is required; deletion cannot be undone -- re-list attachments to confirm.",
+      ].join("\n"),
+      inputSchema: attachmentDeleteArgs,
+      annotations: DESTRUCTIVE_ANNOTATIONS,
+    },
     createToolHandler(attachmentDeleteSchema, async (payload) =>
       client.deleteAttachment({
         issueId: payload.issueId,

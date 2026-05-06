@@ -6,6 +6,7 @@ import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema as issueIdValidator, commentIdSchema, userLoginSchema, yqlIdentifierSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, briefOutputArg, fileStorageArgs } from "../utils/tool-args.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { READ_ONLY_ANNOTATIONS, WRITE_CREATE_ANNOTATIONS, WRITE_IDEMPOTENT_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 const dateInputSchema = z
   .string()
@@ -144,55 +145,64 @@ const issuesCountArgs = {
 const issuesCountSchema = z.object(issuesCountArgs);
 
 export function registerIssueTools(server: McpServer, client: YoutrackClient) {
-  server.tool(
+  server.registerTool(
     "issue_lookup",
-    [
-      "Fetch a single issue by id with brief or full custom-field detail.",
-      "Use cases:",
-      "- Inspect summary/description before commenting or editing.",
-      "- Resolve a numeric id (composes YOUTRACK_DEFAULT_PROJECT) to a full code.",
-      "- Read State and other custom fields with briefOutput=false.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, idReadable, summary, description, project, parent, assignee, reporter, updater, customFields (only when briefOutput=false).",
-      "Limitations: a single issue per call; payload may be large with briefOutput=false.",
-    ].join("\n"),
-    issueIdArgs,
+    {
+      description: [
+        "Fetch a single issue by id with brief or full custom-field detail.",
+        "Use cases:",
+        "- Inspect summary/description before commenting or editing.",
+        "- Resolve a numeric id (composes YOUTRACK_DEFAULT_PROJECT) to a full code.",
+        "- Read State and other custom fields with briefOutput=false.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, idReadable, summary, description, project, parent, assignee, reporter, updater, customFields (only when briefOutput=false).",
+        "Limitations: a single issue per call; payload may be large with briefOutput=false.",
+      ].join("\n"),
+      inputSchema: issueIdArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueIdSchema, async (payload) =>
       client.getIssue(payload.issueId, !payload.briefOutput),
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_details",
-    [
-      "Fetch a single issue with timestamps, watchers and (optionally) custom fields with available transitions.",
-      "Use cases:",
-      "- Build a status dashboard that needs created/updated/resolved.",
-      "- Decide which workflow transitions are currently allowed (briefOutput=false exposes possibleEvents).",
-      "- Diagnose why a state change failed by inspecting the current State value.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, idReadable, summary, description, created, updated, resolved, project, parent, assignee, reporter, updater, watchers.hasStar, customFields (only when briefOutput=false).",
-      "Limitations: full mode payload can be large; prefer briefOutput=true for listings.",
-    ].join("\n"),
-    issueIdArgs,
+    {
+      description: [
+        "Fetch a single issue with timestamps, watchers and (optionally) custom fields with available transitions.",
+        "Use cases:",
+        "- Build a status dashboard that needs created/updated/resolved.",
+        "- Decide which workflow transitions are currently allowed (briefOutput=false exposes possibleEvents).",
+        "- Diagnose why a state change failed by inspecting the current State value.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, idReadable, summary, description, created, updated, resolved, project, parent, assignee, reporter, updater, watchers.hasStar, customFields (only when briefOutput=false).",
+        "Limitations: full mode payload can be large; prefer briefOutput=true for listings.",
+      ].join("\n"),
+      inputSchema: issueIdArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueIdSchema, async (payload) =>
       client.getIssueDetails(payload.issueId, !payload.briefOutput),
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_comments",
-    [
-      "List comments on an issue with server-side pagination ($top/$skip).",
-      "Use cases:",
-      "- Review discussion before answering.",
-      "- Page through long threads with limit/skip.",
-      "- Save a thread to a file via saveToFile for later analysis.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: comments[] with id, text, textPreview, usesMarkdown, author, created, updated, commentUrl; or {savedToFile, savedTo, commentCount} when saveToFile=true.",
-      "Limitations: max 200 per page; deleted comments are excluded.",
-    ].join("\n"),
-    issueCommentsArgs,
+    {
+      description: [
+        "List comments on an issue with server-side pagination ($top/$skip).",
+        "Use cases:",
+        "- Review discussion before answering.",
+        "- Page through long threads with limit/skip.",
+        "- Save a thread to a file via saveToFile for later analysis.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: comments[] with id, text, textPreview, usesMarkdown, author, created, updated, commentUrl; or {savedToFile, savedTo, commentCount} when saveToFile=true.",
+        "Limitations: max 200 per page; deleted comments are excluded.",
+      ].join("\n"),
+      inputSchema: issueCommentsArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueCommentsSchema, async (payload) => {
       const comments = await client.getIssueComments(payload.issueId, {
         limit: payload.limit,
@@ -221,19 +231,22 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_create",
-    [
-      "Create a new issue with optional initial assignee, state, parent and links.",
-      "Use cases:",
-      "- File a bug or task from automation with a known assignee/state.",
-      "- Bootstrap a hierarchy by setting parentIssueId or links[] (Subtask, Relates, etc.).",
-      "- Use markdown with <details>/<summary> for collapsible code/log sections.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, idReadable, summary, description, project, parent, assignee.",
-      "Limitations: custom fields beyond State are not in the response; re-fetch with issue_details to verify links, state and other fields actually applied.",
-    ].join("\n"),
-    issueCreateArgs,
+    {
+      description: [
+        "Create a new issue with optional initial assignee, state, parent and links.",
+        "Use cases:",
+        "- File a bug or task from automation with a known assignee/state.",
+        "- Bootstrap a hierarchy by setting parentIssueId or links[] (Subtask, Relates, etc.).",
+        "- Use markdown with <details>/<summary> for collapsible code/log sections.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, idReadable, summary, description, project, parent, assignee.",
+        "Limitations: custom fields beyond State are not in the response; re-fetch with issue_details to verify links, state and other fields actually applied.",
+      ].join("\n"),
+      inputSchema: issueCreateArgs,
+      annotations: WRITE_CREATE_ANNOTATIONS,
+    },
     createToolHandler(issueCreateSchema, async (payload) =>
       client.createIssue({
         projectId: payload.projectId,
@@ -248,19 +261,22 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_update",
-    [
-      "Update summary, description, parent or markdown flag of an existing issue.",
-      "Use cases:",
-      "- Rename a misfiled issue or rewrite description with markdown.",
-      "- Re-parent a subtask (parentIssueId='') to detach it from a parent.",
-      "- Toggle usesMarkdown to switch the rendering pipeline.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, idReadable, summary, description, project, parent, assignee.",
-      "Limitations: at least one of summary/description/parentIssueId must be provided; re-fetch via issue_details to verify changes.",
-    ].join("\n"),
-    issueUpdateArgs,
+    {
+      description: [
+        "Update summary, description, parent or markdown flag of an existing issue.",
+        "Use cases:",
+        "- Rename a misfiled issue or rewrite description with markdown.",
+        "- Re-parent a subtask (parentIssueId='') to detach it from a parent.",
+        "- Toggle usesMarkdown to switch the rendering pipeline.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, idReadable, summary, description, project, parent, assignee.",
+        "Limitations: at least one of summary/description/parentIssueId must be provided; re-fetch via issue_details to verify changes.",
+      ].join("\n"),
+      inputSchema: issueUpdateArgs,
+      annotations: WRITE_IDEMPOTENT_ANNOTATIONS,
+    },
     createToolHandler(issueUpdateSchema, async (payload) => {
       if (
         payload.summary === undefined &&
@@ -280,18 +296,21 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_assign",
-    [
-      "Set or change the Assignee custom field on an issue.",
-      "Use cases:",
-      "- Hand off work by login or with the literal 'me'.",
-      "- Programmatically reassign issues from automation.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, idReadable, summary, description, project, parent, assignee.",
-      "Limitations: response does not include other custom fields; re-fetch via issue_details to confirm.",
-    ].join("\n"),
-    issueAssignArgs,
+    {
+      description: [
+        "Set or change the Assignee custom field on an issue.",
+        "Use cases:",
+        "- Hand off work by login or with the literal 'me'.",
+        "- Programmatically reassign issues from automation.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, idReadable, summary, description, project, parent, assignee.",
+        "Limitations: response does not include other custom fields; re-fetch via issue_details to confirm.",
+      ].join("\n"),
+      inputSchema: issueAssignArgs,
+      annotations: WRITE_IDEMPOTENT_ANNOTATIONS,
+    },
     createToolHandler(issueAssignSchema, async (payload) =>
       client.assignIssue({
         issueId: payload.issueId,
@@ -300,18 +319,21 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_comment_create",
-    [
-      "Post a new comment on an issue, optionally with markdown.",
-      "Use cases:",
-      "- Add a status update or hand-off note from automation.",
-      "- Wrap large logs or code in collapsible <details>/<summary> blocks.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, text, textPreview, usesMarkdown, author, created, updated, commentUrl.",
-      "Limitations: comment text length is limited by the YouTrack server; reload via issue_comments to verify rendering.",
-    ].join("\n"),
-    issueCommentCreateArgs,
+    {
+      description: [
+        "Post a new comment on an issue, optionally with markdown.",
+        "Use cases:",
+        "- Add a status update or hand-off note from automation.",
+        "- Wrap large logs or code in collapsible <details>/<summary> blocks.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, text, textPreview, usesMarkdown, author, created, updated, commentUrl.",
+        "Limitations: comment text length is limited by the YouTrack server; reload via issue_comments to verify rendering.",
+      ].join("\n"),
+      inputSchema: issueCommentCreateArgs,
+      annotations: WRITE_CREATE_ANNOTATIONS,
+    },
     createToolHandler(issueCommentCreateSchema, async (payload) =>
       client.createIssueComment({
         issueId: payload.issueId,
@@ -321,19 +343,22 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_comment_update",
-    [
-      "Edit text or markdown flag of an existing comment, with optional silent update.",
-      "Use cases:",
-      "- Fix a typo or expand a previously posted note.",
-      "- Toggle usesMarkdown after copy-pasting from a markdown source.",
-      "- Mute notifications via muteUpdateNotifications=true for cosmetic edits.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: id, text, textPreview, usesMarkdown, author, created, updated, commentUrl.",
-      "Limitations: at least one of text or usesMarkdown must be provided.",
-    ].join("\n"),
-    issueCommentUpdateArgs,
+    {
+      description: [
+        "Edit text or markdown flag of an existing comment, with optional silent update.",
+        "Use cases:",
+        "- Fix a typo or expand a previously posted note.",
+        "- Toggle usesMarkdown after copy-pasting from a markdown source.",
+        "- Mute notifications via muteUpdateNotifications=true for cosmetic edits.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: id, text, textPreview, usesMarkdown, author, created, updated, commentUrl.",
+        "Limitations: at least one of text or usesMarkdown must be provided.",
+      ].join("\n"),
+      inputSchema: issueCommentUpdateArgs,
+      annotations: WRITE_IDEMPOTENT_ANNOTATIONS,
+    },
     createToolHandler(issueCommentUpdateSchema, async (payload) => {
       if (payload.text === undefined && payload.usesMarkdown === undefined) {
         throw new Error("At least one field (text or usesMarkdown) must be provided for update");
@@ -349,19 +374,22 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "issues_lookup",
-    [
-      "Fetch up to 50 issues by id in one batch (with errors per id) and optionally save to file.",
-      "Use cases:",
-      "- Hydrate a list of issue codes obtained from search.",
-      "- Snapshot a working set with saveToFile=true for downstream tools.",
-      "- Pull custom fields for a small batch via briefOutput=false.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: issues[] (id, idReadable, summary, project, parent, assignee, reporter, updater) and errors[] for missing/forbidden ids; or {savedToFile, savedTo, issueCount, errorsCount} when saveToFile=true.",
-      "Limitations: max 50 ids per call; numeric-only ids are resolved via YOUTRACK_DEFAULT_PROJECT.",
-    ].join("\n"),
-    issueIdsArgs,
+    {
+      description: [
+        "Fetch up to 50 issues by id in one batch (with errors per id) and optionally save to file.",
+        "Use cases:",
+        "- Hydrate a list of issue codes obtained from search.",
+        "- Snapshot a working set with saveToFile=true for downstream tools.",
+        "- Pull custom fields for a small batch via briefOutput=false.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: issues[] (id, idReadable, summary, project, parent, assignee, reporter, updater) and errors[] for missing/forbidden ids; or {savedToFile, savedTo, issueCount, errorsCount} when saveToFile=true.",
+        "Limitations: max 50 ids per call; numeric-only ids are resolved via YOUTRACK_DEFAULT_PROJECT.",
+      ].join("\n"),
+      inputSchema: issueIdsArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueIdsSchema, async (payload) => {
       const result = await client.getIssues(payload.issueIds, !payload.briefOutput);
       const processedResult = await processWithFileStorage(
@@ -388,19 +416,22 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "issues_details",
-    [
-      "Fetch detailed view of up to 50 issues in one batch with timestamps and optional custom fields.",
-      "Use cases:",
-      "- Build dashboards needing created/updated/resolved across many issues.",
-      "- Inspect possibleEvents to plan transitions in bulk (briefOutput=false).",
-      "- Persist results via saveToFile for offline reporting.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: issues[] (id, idReadable, summary, created, updated, resolved, project, parent, assignee, watchers.hasStar, customFields when briefOutput=false) plus errors[]; or {savedToFile, savedTo, issueCount, errorsCount}.",
-      "Limitations: max 50 ids; full mode payloads can be large.",
-    ].join("\n"),
-    issueIdsArgs,
+    {
+      description: [
+        "Fetch detailed view of up to 50 issues in one batch with timestamps and optional custom fields.",
+        "Use cases:",
+        "- Build dashboards needing created/updated/resolved across many issues.",
+        "- Inspect possibleEvents to plan transitions in bulk (briefOutput=false).",
+        "- Persist results via saveToFile for offline reporting.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: issues[] (id, idReadable, summary, created, updated, resolved, project, parent, assignee, watchers.hasStar, customFields when briefOutput=false) plus errors[]; or {savedToFile, savedTo, issueCount, errorsCount}.",
+        "Limitations: max 50 ids; full mode payloads can be large.",
+      ].join("\n"),
+      inputSchema: issueIdsArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueIdsSchema, async (payload) => {
       const result = await client.getIssuesDetails(payload.issueIds, !payload.briefOutput);
       const processedResult = await processWithFileStorage(
@@ -427,18 +458,21 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "issues_comments",
-    [
-      "Fetch comments for up to 50 issues in one batch, grouped by issue.",
-      "Use cases:",
-      "- Aggregate discussion across a sprint to feed reports.",
-      "- Persist a slice of conversation history via saveToFile.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: commentsByIssue[issueId][] with id, text, textPreview, usesMarkdown, author, created, updated, commentUrl; or {savedToFile, savedTo, totalComments}.",
-      "Limitations: max 50 ids; per-issue pagination is not exposed here -- use issue_comments for paging.",
-    ].join("\n"),
-    issueIdsArgs,
+    {
+      description: [
+        "Fetch comments for up to 50 issues in one batch, grouped by issue.",
+        "Use cases:",
+        "- Aggregate discussion across a sprint to feed reports.",
+        "- Persist a slice of conversation history via saveToFile.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: commentsByIssue[issueId][] with id, text, textPreview, usesMarkdown, author, created, updated, commentUrl; or {savedToFile, savedTo, totalComments}.",
+        "Limitations: max 50 ids; per-issue pagination is not exposed here -- use issue_comments for paging.",
+      ].join("\n"),
+      inputSchema: issueIdsArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issueIdsSchema, async (payload) => {
       const result = await client.getMultipleIssuesComments(payload.issueIds);
       const processedResult = await processWithFileStorage(
@@ -464,18 +498,21 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     }),
   );
 
-  server.tool(
+  server.registerTool(
     "issue_change_state",
-    [
-      "Move an issue to a target state via the workflow's state machine.",
-      "Use cases:",
-      "- Advance an issue (e.g., 'Open' -> 'In Progress' -> 'Fixed') from automation.",
-      "- Discover and apply the correct transition without inspecting workflow rules manually.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: issueId, previousState, newState, transitionUsed.",
-      "Limitations: only transitions allowed by the current state and workflow are accepted; invalid targets fail with a descriptive error.",
-    ].join("\n"),
-    issueChangeStateArgs,
+    {
+      description: [
+        "Move an issue to a target state via the workflow's state machine.",
+        "Use cases:",
+        "- Advance an issue (e.g., 'Open' -> 'In Progress' -> 'Fixed') from automation.",
+        "- Discover and apply the correct transition without inspecting workflow rules manually.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: issueId, previousState, newState, transitionUsed.",
+        "Limitations: only transitions allowed by the current state and workflow are accepted; invalid targets fail with a descriptive error.",
+      ].join("\n"),
+      inputSchema: issueChangeStateArgs,
+      annotations: WRITE_IDEMPOTENT_ANNOTATIONS,
+    },
     createToolHandler(issueChangeStateSchema, async (payload) =>
       client.changeIssueState({
         issueId: payload.issueId,
@@ -484,19 +521,22 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     ),
   );
 
-  server.tool(
+  server.registerTool(
     "issues_count",
-    [
-      "Count issues across one or many projects with date/state/type/assignee filters.",
-      "Use cases:",
-      "- Capacity planning: how many open issues per project.",
-      "- Time-bounded reports: counts in a date window.",
-      "- Sanity check before pulling a large list.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: total and byProject[] with project shortName and count.",
-      "Limitations: top trims the per-project query; counts beyond top are clipped.",
-    ].join("\n"),
-    issuesCountArgs,
+    {
+      description: [
+        "Count issues across one or many projects with date/state/type/assignee filters.",
+        "Use cases:",
+        "- Capacity planning: how many open issues per project.",
+        "- Time-bounded reports: counts in a date window.",
+        "- Sanity check before pulling a large list.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: total and byProject[] with project shortName and count.",
+        "Limitations: top trims the per-project query; counts beyond top are clipped.",
+      ].join("\n"),
+      inputSchema: issuesCountArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     createToolHandler(issuesCountSchema, async (payload) => client.countIssues(payload)),
   );
 }

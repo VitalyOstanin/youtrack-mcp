@@ -8,6 +8,7 @@ import { processWithFileStorage } from "../utils/file-storage.js";
 import { issueIdSchema } from "../utils/validators.js";
 import { DEFAULT_FILE_STORAGE_FORMAT, fileStorageArgs } from "../utils/tool-args.js";
 import { createToolHandler } from "../utils/tool-handler.js";
+import { READ_ONLY_ANNOTATIONS } from "../utils/tool-annotations.js";
 
 export const activityCategoryEnum = z.enum([
   "CustomFieldCategory",
@@ -109,19 +110,22 @@ export async function issueActivitiesHandler(client: YoutrackClient, rawInput: u
 }
 
 export function registerIssueActivityTools(server: McpServer, client: YoutrackClient) {
-  server.tool(
+  server.registerTool(
     "issue_activities",
-    [
-      "Issue change-history feed with author/date/category filters and server-side pagination.",
-      "Use cases:",
-      "- Audit who changed which custom field and when.",
-      "- Filter to comments only via categories=['CommentsCategory'].",
-      "- Persist a long history slice via saveToFile.",
-      "Parameter examples: see schema descriptions.",
-      "Response fields: activities[] {id, timestamp, author, category, target, added, removed, $type}, issueId, filters, pagination; or {savedToFile, savedTo, activityCount}.",
-      "Limitations: max 200 per page; default categories are CustomFieldCategory and CommentsCategory.",
-    ].join("\n"),
-    issueActivitiesArgs,
+    {
+      description: [
+        "Issue change-history feed with author/date/category filters and server-side pagination.",
+        "Use cases:",
+        "- Audit who changed which custom field and when.",
+        "- Filter to comments only via categories=['CommentsCategory'].",
+        "- Persist a long history slice via saveToFile.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: activities[] {id, timestamp, author, category, target, added, removed, $type}, issueId, filters, pagination; or {savedToFile, savedTo, activityCount}.",
+        "Limitations: max 200 per page; default categories are CustomFieldCategory and CommentsCategory.",
+      ].join("\n"),
+      inputSchema: issueActivitiesArgs,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
     (rawInput) => issueActivitiesHandler(client, rawInput),
   );
 }
