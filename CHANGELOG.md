@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.13.1] - 2026-05-06
+
+### Fixed
+
+- **`tools/list` no longer fails after the zod 3 → 4 bump** — five tool input schemas (`workitems_report*`, `workitems_*`, `issue_activities`, `users_activity`) declared `z.union([z.string(), z.number(), z.date()])` for date arguments. Zod 4 throws `Date cannot be represented in JSON Schema` when the MCP SDK converts `inputSchema` for `tools/list`, so every client received an empty list and a JSON-RPC `-32603` error after `0.13.0`. `z.date()` was unreachable anyway (JSON-RPC carries strings/numbers, never native `Date`), so it has been removed from all five unions and the parameter descriptions reworded to drop the misleading "or Date object" wording.
+
 ## [0.13.0] - 2026-05-06
 
 ### Added
