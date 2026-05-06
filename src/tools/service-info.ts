@@ -30,7 +30,7 @@ export function registerServiceInfoTool(server: McpServer, client: YoutrackClien
         configuration: enrichConfigWithRedaction(freshConfig),
       };
 
-      return { ...payload, currentUser } as Record<string, unknown>;
+      return { ...payload, currentUser };
     }),
   );
 }

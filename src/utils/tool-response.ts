@@ -30,7 +30,7 @@ export function toolError(error: unknown): CallToolResult {
           text: JSON.stringify(errObj),
         },
       ],
-    } as CallToolResult;
+    };
   }
 
   if (error instanceof Error) {
@@ -44,7 +44,7 @@ export function toolError(error: unknown): CallToolResult {
       content: [
         { type: "text", text: JSON.stringify(errObj) },
       ],
-    } as CallToolResult;
+    };
   }
 
   const errObj = {
@@ -58,5 +58,5 @@ export function toolError(error: unknown): CallToolResult {
     content: [
       { type: "text", text: JSON.stringify(errObj) },
     ],
-  } as CallToolResult;
+  };
 }

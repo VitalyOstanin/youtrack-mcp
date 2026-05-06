@@ -456,7 +456,7 @@ export function withIssueSearch<
       const { query, resolvedProjects } = await buildIssueQuery(filtersInput, (projectId) =>
         this.getProjectById(projectId),
       );
-      const singleProject = resolvedProjects && resolvedProjects.length === 1 ? resolvedProjects[0] : undefined;
+      const singleProject = resolvedProjects?.length === 1 ? resolvedProjects[0] : undefined;
       const aggregateCounts = new Map<string | null, IssueProjectCount>();
       const addIssuesToCounts = (issues: YoutrackIssue[]) => {
         for (const issue of issues) {

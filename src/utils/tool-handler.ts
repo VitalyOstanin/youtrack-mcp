@@ -23,7 +23,7 @@ export function createToolHandler<TSchema extends z.ZodTypeAny>(
 ): (rawInput: unknown) => Promise<CallToolResult> {
   return async (rawInput: unknown) => {
     try {
-      const input = schema.parse(rawInput) as z.output<TSchema>;
+      const input = schema.parse(rawInput);
       const result = await fn(input);
 
       return isToolResponse(result) ? result : toolSuccess(result);

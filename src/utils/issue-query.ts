@@ -52,7 +52,7 @@ export async function buildIssueQuery(
           projectName: project.name,
           requestedId: projectId,
           count: 0,
-        } as IssueProjectCount & { originalId: string });
+        });
         projectFilterParts.push(`project: {${project.shortName}}`);
       } else {
         resolvedProjects.push({
@@ -60,7 +60,7 @@ export async function buildIssueQuery(
           projectId,
           requestedId: projectId,
           count: 0,
-        } as IssueProjectCount & { originalId: string });
+        });
         projectFilterParts.push(`project: {${projectId}}`);
       }
     }

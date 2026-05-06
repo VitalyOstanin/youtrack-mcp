@@ -1,6 +1,5 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import preferDeMorganLaw from '@vitalyostanin/eslint-prefer-de-morgan-law';
 
 export default [
   {
@@ -28,11 +27,6 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint.plugin,
-      'prefer-de-morgan-law': {
-        rules: {
-          'prefer-de-morgan-law': preferDeMorganLaw,
-        },
-      },
     },
     rules: {
       'eol-last': 'error',
@@ -102,7 +96,6 @@ export default [
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-      'prefer-de-morgan-law/prefer-de-morgan-law': 'error',
     },
   },
 ];

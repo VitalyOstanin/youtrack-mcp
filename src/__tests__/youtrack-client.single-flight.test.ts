@@ -25,7 +25,7 @@ describe("listProjects single-flight (auto-paginated)", () => {
         { id: "0-0", shortName: "BC", name: "Base" },
         { id: "0-1", shortName: "AB", name: "Alpha" },
       ],
-    } as unknown);
+    });
     const [a, b, c] = await Promise.all([
       client.listProjects(),
       client.listProjects(),
@@ -42,7 +42,7 @@ describe("listProjects single-flight (auto-paginated)", () => {
     const client = new YoutrackClient(baseConfig);
     const get = vi.spyOn(getHttp(client), "get").mockResolvedValue({
       data: [{ id: "0-0", shortName: "BC", name: "Base" }],
-    } as unknown);
+    });
 
     await client.listProjects();
     await client.listProjects();
@@ -55,7 +55,7 @@ describe("listProjects single-flight (auto-paginated)", () => {
     const client = new YoutrackClient(baseConfig);
     const get = vi.spyOn(getHttp(client), "get").mockResolvedValue({
       data: [{ id: "0-0", shortName: "BC", name: "Base" }],
-    } as unknown);
+    });
 
     await Promise.all([
       client.listProjects({ limit: 5 }),
@@ -74,7 +74,7 @@ describe("listLinkTypes single-flight", () => {
         { id: "1", name: "Subtask", directed: true },
         { id: "2", name: "Relates", directed: false },
       ],
-    } as unknown);
+    });
     const [a, b, c] = await Promise.all([
       client.listLinkTypes(),
       client.listLinkTypes(),
@@ -91,7 +91,7 @@ describe("listLinkTypes single-flight", () => {
     const client = new YoutrackClient(baseConfig);
     const get = vi.spyOn(getHttp(client), "get").mockResolvedValue({
       data: [{ id: "1", name: "Subtask", directed: true }],
-    } as unknown);
+    });
 
     await client.listLinkTypes();
     await client.listLinkTypes();

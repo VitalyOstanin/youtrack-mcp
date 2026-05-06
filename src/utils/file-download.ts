@@ -126,7 +126,7 @@ export async function downloadFileFromUrl(options: FileDownloadOptions): Promise
     handle = await fsPromises.open(finalPath, overwrite ? "w" : "wx");
   } catch (err) {
     if (isEexistError(err)) {
-      throw new Error(`File already exists: ${finalPath}. Use overwrite option to replace it.`);
+      throw new Error(`File already exists: ${finalPath}. Use overwrite option to replace it.`, { cause: err });
     }
 
     throw err;

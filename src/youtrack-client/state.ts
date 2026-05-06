@@ -44,7 +44,7 @@ export function withIssueState<TBase extends Constructor<YoutrackClientBase>>(
         const stateField = response.data.customFields?.find(
           (f) => f.$type === YOUTRACK_ENTITY_TYPE.stateField || f.$type === YOUTRACK_ENTITY_TYPE.stateMachineField || f.name === "State",
         );
-        const value = stateField?.value as { id?: string; name?: string; presentation?: string } | undefined;
+        const value = stateField?.value;
 
         return {
           issueId: response.data.idReadable,
@@ -90,7 +90,7 @@ export function withIssueState<TBase extends Constructor<YoutrackClientBase>>(
           const stateField = issue.customFields?.find(
             (f) => f.$type === YOUTRACK_ENTITY_TYPE.stateField || f.$type === YOUTRACK_ENTITY_TYPE.stateMachineField || f.name === "State",
           );
-          const value = stateField?.value as { id?: string; name?: string; presentation?: string } | undefined;
+          const value = stateField?.value;
 
           return {
             issueId: issue.idReadable,

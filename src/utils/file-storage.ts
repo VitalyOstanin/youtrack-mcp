@@ -117,6 +117,7 @@ export async function streamDataToFileAsync(options: StreamingFileStorageOptions
     if (isEexistError(err)) {
       throw new Error(
         `File already exists: ${finalPath}. Choose a different file path or remove the existing file.`,
+        { cause: err },
       );
     }
 

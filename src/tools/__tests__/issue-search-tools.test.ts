@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 
 import { issuesSearchSchema, issuesSearchArgs } from "../issue-search-tools.js";
 
@@ -24,8 +25,7 @@ describe("issuesSearchArgs / issuesSearchSchema", () => {
 
   it("schema is in sync with args (no missing keys)", () => {
     const argKeys = Object.keys(issuesSearchArgs).sort();
-    const inner = issuesSearchSchema.removeDefault();
-    const schemaKeys = Object.keys(inner.shape).sort();
+    const schemaKeys = Object.keys(z.object(issuesSearchArgs).shape).sort();
 
     expect(schemaKeys).toEqual(argKeys);
   });

@@ -44,6 +44,7 @@ export async function streamArrayToFile(
     if (isEexistError(err)) {
       throw new Error(
         `File already exists: ${target}. Choose a different file path or remove the existing file.`,
+        { cause: err },
       );
     }
 

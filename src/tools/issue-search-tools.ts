@@ -59,7 +59,7 @@ export const issuesSearchArgs = {
   ...fileStorageArgs,
 };
 
-export const issuesSearchSchema = z.object(issuesSearchArgs).default({});
+export const issuesSearchSchema = z.object(issuesSearchArgs).prefault({});
 
 export async function issuesSearchHandler(client: YoutrackClient, rawInput: unknown) {
   return createToolHandler(issuesSearchSchema, async (input) => {

@@ -24,7 +24,7 @@ function parsePayload(result: { content?: unknown[]; isError?: boolean }): {
 
   return {
     isError: Boolean(result.isError),
-    parsed: wrapped.payload ?? (wrapped as Record<string, unknown>),
+    parsed: wrapped.payload ?? (wrapped),
   };
 }
 
