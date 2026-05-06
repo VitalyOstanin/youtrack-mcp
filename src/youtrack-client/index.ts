@@ -43,9 +43,6 @@ import {
   type IssuesCommentsPayload,
   type IssuesDetailsPayload,
   type IssuesLookupPayload,
-  type IssueStarBatchPayload,
-  type IssueStarPayload,
-  type IssuesStarredPayload,
   type IssueLinksPayload,
   type IssueLinkTypesPayload,
   type IssueLinkCreateInput,
@@ -68,7 +65,6 @@ import {
   type YoutrackIssueCreateInput,
   type YoutrackIssueDetails,
   type YoutrackIssueUpdateInput,
-  type YoutrackIssueWatcher,
   type YoutrackStateField,
   type YoutrackUser,
   type YoutrackWorkItem,
@@ -86,7 +82,6 @@ import {
   CUSTOM_FIELDS_STATE_FETCH,
   DEFAULT_EXPECTED_MINUTES,
   DEFAULT_PAGE_SIZE,
-  MAX_STAR_BATCH_SIZE,
   YoutrackClientBase,
   YoutrackClientError,
   defaultFields,
@@ -97,12 +92,13 @@ import {
 import { withArticles } from "./articles.js";
 import { withAttachments } from "./attachments.js";
 import { withComments } from "./comments.js";
+import { withStars } from "./stars.js";
 import { withUsersProjects } from "./users-projects.js";
 
 export { YoutrackClientError } from "./base.js";
 
 export class YoutrackClient extends withComments(
-  withArticles(withAttachments(withUsersProjects(YoutrackClientBase))),
+  withArticles(withAttachments(withStars(withUsersProjects(YoutrackClientBase)))),
 ) {
   // =========================
   // Issue Links API
@@ -2022,217 +2018,6 @@ export class YoutrackClient extends withComments(
       }
 
       throw new YoutrackClientError(`Unsupported state field type: ${stateField.$type}`);
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  // Issue star management methods
-  /**
-   * Get watchers list for an issue (internal method)
-   */
-  private async getIssueWatchers(issueId: string): Promise<YoutrackIssueWatcher[]> {
-    try {
-      const response = await this.http.get<YoutrackIssueWatcher[]>(`/api/issues/${encId(issueId)}/watchers/issueWatchers`, {
-        params: { fields: "id,user(id,login,name),isStarred,$type" },
-      });
-      const watchers = response.data;
-
-      return watchers;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  /**
-   * Add star to an issue (idempotent)
-   */
-  async starIssue(issueId: string): Promise<IssueStarPayload> {
-    const resolvedId = this.resolveIssueId(issueId);
-
-    try {
-      const currentUser = await this.getCurrentUser();
-      const watchers = await this.getIssueWatchers(resolvedId);
-      const existingWatcher = watchers.find((w) => w.user.id === currentUser.id && w.isStarred);
-
-      if (existingWatcher) {
-        const payload = {
-          issueId: resolvedId,
-          starred: true,
-          message: "Issue already starred",
-        };
-
-        return payload;
-      }
-
-      const body = {
-        user: { id: currentUser.id },
-        isStarred: true,
-      };
-
-      await this.http.post(`/api/issues/${encId(resolvedId)}/watchers/issueWatchers`, body);
-
-      const payload = {
-        issueId: resolvedId,
-        starred: true,
-        message: "Issue starred successfully",
-      };
-
-      return payload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  /**
-   * Remove star from an issue (idempotent)
-   */
-  async unstarIssue(issueId: string): Promise<IssueStarPayload> {
-    const resolvedId = this.resolveIssueId(issueId);
-
-    try {
-      const currentUser = await this.getCurrentUser();
-      const watchers = await this.getIssueWatchers(resolvedId);
-      const existingWatcher = watchers.find((w) => w.user.id === currentUser.id && w.isStarred);
-
-      if (!existingWatcher) {
-        const payload = {
-          issueId: resolvedId,
-          starred: false,
-          message: "Issue not starred",
-        };
-
-        return payload;
-      }
-
-      await this.http.delete(`/api/issues/${encId(resolvedId)}/watchers/issueWatchers/${encId(existingWatcher.id)}`);
-
-      const payload = {
-        issueId: resolvedId,
-        starred: false,
-        message: "Issue unstarred successfully",
-      };
-
-      return payload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  /**
-   * Add stars to multiple issues with concurrency limiting (max 50 issues)
-   */
-  async starIssues(issueIds: string[]): Promise<IssueStarBatchPayload> {
-    if (issueIds.length > MAX_STAR_BATCH_SIZE) {
-      throw new YoutrackClientError(`Maximum ${MAX_STAR_BATCH_SIZE} issues allowed per batch operation`);
-    }
-
-    const results = await this.processBatch(
-      issueIds,
-      async (issueId) => {
-        try {
-          const result = await this.starIssue(issueId);
-
-          return { success: true as const, issueId, starred: result.starred };
-        } catch (error) {
-          const normalized = this.normalizeError(error);
-
-          return { success: false as const, issueId, error: normalized.message };
-        }
-      },
-      10,
-    );
-    const successful: Array<{ issueId: string; starred: boolean }> = [];
-    const failed: Array<{ issueId: string; error: string }> = [];
-
-    for (const result of results) {
-      if (result.success) {
-        successful.push({ issueId: result.issueId, starred: result.starred });
-
-        continue;
-      }
-
-      failed.push({ issueId: result.issueId, error: result.error });
-    }
-
-    const payload = {
-      successful,
-      failed,
-    };
-
-    return payload;
-  }
-
-  /**
-   * Remove stars from multiple issues with concurrency limiting (max 50 issues)
-   */
-  async unstarIssues(issueIds: string[]): Promise<IssueStarBatchPayload> {
-    if (issueIds.length > MAX_STAR_BATCH_SIZE) {
-      throw new YoutrackClientError(`Maximum ${MAX_STAR_BATCH_SIZE} issues allowed per batch operation`);
-    }
-
-    const results = await this.processBatch(
-      issueIds,
-      async (issueId) => {
-        try {
-          const result = await this.unstarIssue(issueId);
-
-          return { success: true as const, issueId, starred: result.starred };
-        } catch (error) {
-          const normalized = this.normalizeError(error);
-
-          return { success: false as const, issueId, error: normalized.message };
-        }
-      },
-      10,
-    );
-    const successful: Array<{ issueId: string; starred: boolean }> = [];
-    const failed: Array<{ issueId: string; error: string }> = [];
-
-    for (const result of results) {
-      if (result.success) {
-        successful.push({ issueId: result.issueId, starred: result.starred });
-
-        continue;
-      }
-
-      failed.push({ issueId: result.issueId, error: result.error });
-    }
-
-    const payload = {
-      successful,
-      failed,
-    };
-
-    return payload;
-  }
-
-  /**
-   * Get all starred issues for current user with pagination
-   */
-  async getStarredIssues(options: { limit?: number; skip?: number } = {}): Promise<IssuesStarredPayload> {
-    try {
-      const limit = options.limit ?? 50; // Default to 50 instead of 200
-      const skip = options.skip ?? 0;
-      const response = await this.http.get<YoutrackIssue[]>("/api/issues", {
-        params: {
-          fields: defaultFields.issueSearchBrief, // Use brief fields without description
-          query: "has: star",
-          $top: Math.min(limit, DEFAULT_PAGE_SIZE),
-          $skip: skip,
-        },
-      });
-      const payload = {
-        issues: response.data.map(mapIssueBrief),
-        returnedCount: response.data.length,
-        pagination: {
-          returned: response.data.length,
-          limit,
-          skip,
-        },
-      };
-
-      return payload;
     } catch (error) {
       throw this.normalizeError(error);
     }
