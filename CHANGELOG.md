@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [0.13.0] - 2026-05-06
+
+### Added
+
+- DX scaffolding: `.nvmrc` (Node 24), `tsconfig.base.json` shared compiler options (with full strict block).
+- `src/utils/tool-annotations.ts` exports five reusable `ToolAnnotations` presets — `READ_ONLY_ANNOTATIONS`, `READ_ONLY_LOCAL_ANNOTATIONS`, `WRITE_IDEMPOTENT_ANNOTATIONS`, `WRITE_CREATE_ANNOTATIONS`, `DESTRUCTIVE_ANNOTATIONS`.
+
+### Changed
+
+- Major dependency bumps: `zod` 3 → 4 (`z.record(value)` → `z.record(z.string(), value)`, `.passthrough()` → `z.looseObject()`, `.default({})` → `.prefault({})` for backward semantics on schemas with required-default fields, `Object.keys(z.object(args).shape)` instead of removed `.removeDefault()`); TypeScript 5.6 → 6 (added explicit `types: ["node"]` for the new default); ESLint 9 → 10 (with `preserve-caught-error` — explicit `{ cause: err }` on rethrows).
+- Enabled strict TS flags on `tsconfig.base.json`: `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`. Resolved 104 emerging type errors via `| undefined` on optional interface fields, `override` modifiers, and non-null assertions on guaranteed-present indexed accesses.
+- Migrated every tool registration from the deprecated `server.tool(name, description, schema, cb)` to the modern `server.registerTool(name, { description, inputSchema, annotations }, cb)`. Removes the SDK 1.10+ deprecation hint TypeScript was emitting at every registration site. All ~50 tools now declare the full `ToolAnnotations` set (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) so MCP hosts can apply the right confirmation flow without reading the description.
 
 ## [0.12.0] - 2026-05-06
 
