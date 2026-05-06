@@ -16,27 +16,20 @@ import {
   validateDateRange,
 } from "../utils/date.js";
 import {
-  mapComments,
   mapIssue,
   mapIssueBrief,
-  mapIssueDetails,
   mapWorkItem,
   mapWorkItems,
-  type MappedYoutrackIssueComment,
   type MappedYoutrackWorkItem,
 } from "../utils/mappers.js";
 
 import {
-  type IssueError,
   type IssueCountInput,
   type IssueCountPayload,
   type IssueListInput,
   type IssueListPayload,
   type IssueSearchInput,
   type IssueSearchPayload,
-  type IssuesCommentsPayload,
-  type IssuesDetailsPayload,
-  type IssuesLookupPayload,
   type WorkItemBulkResultPayload,
   type WorkItemDeletePayload,
   type WorkItemInvalidDay,
@@ -63,11 +56,10 @@ import {
   YoutrackClientError,
   defaultFields,
   encId,
-  withIssueCustomFieldEvents,
-  withIssueDetailsCustomFieldEvents,
 } from "./base.js";
 import { withArticles } from "./articles.js";
 import { withAttachments } from "./attachments.js";
+import { withIssueBatch } from "./batch.js";
 import { withComments } from "./comments.js";
 import { withIssueCore } from "./core.js";
 import { withIssueLinks } from "./links.js";
@@ -77,11 +69,13 @@ import { withUsersProjects } from "./users-projects.js";
 
 export { YoutrackClientError } from "./base.js";
 
-export class YoutrackClient extends withComments(
-  withArticles(
-    withAttachments(
-      withIssueCore(
-        withIssueLinks(withIssueState(withStars(withUsersProjects(YoutrackClientBase)))),
+export class YoutrackClient extends withIssueBatch(
+  withComments(
+    withArticles(
+      withAttachments(
+        withIssueCore(
+          withIssueLinks(withIssueState(withStars(withUsersProjects(YoutrackClientBase)))),
+        ),
       ),
     ),
   ),
@@ -199,214 +193,6 @@ export class YoutrackClient extends withComments(
     } catch (error) {
       throw this.normalizeError(error);
     }
-  }
-
-  async getIssues(issueIds: string[], includeCustomFields: boolean = false): Promise<IssuesLookupPayload> {
-    if (!issueIds.length) {
-      return { issues: [], errors: [] };
-    }
-
-    const resolvedIds = this.resolveIssueIds(issueIds);
-    // Build query: "issue id: BC-123 BC-124 BC-125"
-    const query = `issue id: ${resolvedIds.join(" ")}`;
-
-    try {
-      const fields = includeCustomFields ? withIssueCustomFieldEvents(defaultFields.issue) : defaultFields.issue;
-      const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
-        fields,
-        query,
-        $top: resolvedIds.length,
-      });
-      const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
-      const errors: IssueError[] = [];
-
-      // Find issues that were not returned
-      for (const issueId of resolvedIds) {
-        if (!foundIds.has(issueId)) {
-          errors.push({
-            issueId,
-            error: `Issue '${issueId}' not found`,
-          });
-        }
-      }
-
-      const payload = {
-        issues: foundIssues.map(mapIssueDetails),
-        errors: errors.length ? errors : undefined,
-      };
-
-      return payload;
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  async getIssuesDetails(issueIds: string[], includeCustomFields: boolean = false): Promise<IssuesDetailsPayload> {
-    if (!issueIds.length) {
-      return { issues: [], errors: [] };
-    }
-
-    const resolvedIds = this.resolveIssueIds(issueIds);
-    // Build query: "issue id: BC-123 BC-124 BC-125"
-    const query = `issue id: ${resolvedIds.join(" ")}`;
-
-    try {
-      const fields = includeCustomFields
-        ? withIssueDetailsCustomFieldEvents(defaultFields.issueDetails)
-        : defaultFields.issueDetails;
-      const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
-        fields,
-        query,
-        $top: resolvedIds.length,
-      });
-      const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
-      const errors: IssueError[] = [];
-
-      // Find issues that were not returned
-      for (const issueId of resolvedIds) {
-        if (!foundIds.has(issueId)) {
-          errors.push({
-            issueId,
-            error: `Issue '${issueId}' not found`,
-          });
-        }
-      }
-
-      return {
-        issues: foundIssues.map(mapIssueDetails),
-        errors: errors.length ? errors : undefined,
-      };
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  /**
-   * Light version of getIssuesDetails() that fetches only minimal fields (id, idReadable, updated, updater)
-   * Used for filtering in user_activity mode to reduce payload size
-   */
-  async getIssuesDetailsLight(issueIds: string[]): Promise<YoutrackIssueDetails[]> {
-    if (!issueIds.length) {
-      return [];
-    }
-
-    const resolvedIds = this.resolveIssueIds(issueIds);
-    // Build query: "issue id: BC-123 BC-124 BC-125"
-    const query = `issue id: ${resolvedIds.join(" ")}`;
-
-    try {
-      return await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
-        fields: defaultFields.issueDetailsLight,
-        query,
-        $top: resolvedIds.length,
-      });
-    } catch (error) {
-      throw this.normalizeError(error);
-    }
-  }
-
-  async getMultipleIssuesComments(issueIds: string[]): Promise<IssuesCommentsPayload> {
-    if (!issueIds.length) {
-      return { commentsByIssue: {}, errors: [] };
-    }
-
-    interface SuccessResult {
-      issueId: string;
-      comments: YoutrackIssueComment[];
-      success: true;
-    }
-    interface ErrorResult {
-      issueId: string;
-      error: string;
-      success: false;
-    }
-    type Result = SuccessResult | ErrorResult;
-
-    const results = await this.processBatch(
-      issueIds,
-      async (issueId): Promise<Result> => {
-        try {
-          const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${encId(issueId)}/comments`, {
-            params: { fields: defaultFields.comments },
-          });
-
-          return { issueId, comments: response.data, success: true };
-        } catch (error) {
-          const normalized = this.normalizeError(error);
-
-          return { issueId, error: normalized.message, success: false };
-        }
-      },
-      10,
-    );
-    const commentsByIssue: Record<string, MappedYoutrackIssueComment[]> = {};
-    const errors: IssueError[] = [];
-
-    for (const result of results) {
-      if (result.success) {
-        commentsByIssue[result.issueId] = mapComments(result.comments, this.config.baseUrl, result.issueId);
-
-        continue;
-      }
-
-      errors.push({ issueId: result.issueId, error: result.error });
-    }
-
-    const payload = {
-      commentsByIssue,
-      errors: errors.length ? errors : undefined,
-    };
-
-    return payload;
-  }
-
-  /**
-   * Light version of getMultipleIssuesComments() that fetches only minimal comment fields
-   * (id, author.login, created, text) for filtering in user_activity mode to reduce payload size
-   */
-  async getMultipleIssuesCommentsLight(issueIds: string[]): Promise<Record<string, YoutrackIssueComment[]>> {
-    if (!issueIds.length) {
-      return {};
-    }
-
-    interface SuccessResult {
-      issueId: string;
-      comments: YoutrackIssueComment[];
-      success: true;
-    }
-    interface ErrorResult {
-      issueId: string;
-      success: false;
-    }
-    type Result = SuccessResult | ErrorResult;
-
-    const results = await this.processBatch(
-      issueIds,
-      async (issueId): Promise<Result> => {
-        try {
-          const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${encId(issueId)}/comments`, {
-            params: { fields: defaultFields.commentsLight },
-          });
-
-          return { issueId, comments: response.data, success: true };
-        } catch {
-          // Silently ignore errors in light mode - return empty array
-          return { issueId, success: false };
-        }
-      },
-      10,
-    );
-    const commentsByIssue: Record<string, YoutrackIssueComment[]> = {};
-
-    for (const result of results) {
-      if (result.success) {
-        commentsByIssue[result.issueId] = result.comments;
-      }
-    }
-
-    const payload = commentsByIssue;
-
-    return payload;
   }
 
   async searchIssuesByUserActivity(input: IssueSearchInput): Promise<IssueSearchPayload> {
