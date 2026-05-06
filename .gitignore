@@ -15,3 +15,6 @@ tmp/
 temp/
 .claude/
 .qwen/
+
+# local review reports
+docs/reviews/
