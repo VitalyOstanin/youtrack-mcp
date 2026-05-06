@@ -23,6 +23,7 @@
 - **Date format consistency in YQL queries** — work-item / search filters now serialize dates the way the YouTrack API expects, eliminating off-by-one matches at day boundaries.
 - **`generateWorkItemReport` handles empty periods** — when the period has no work items the report now returns an empty `days` array with zeroed totals instead of failing on undefined boundaries.
 - **`streaming-client` no longer leaks sockets** — partial-file cleanup paths now also tear down the underlying HTTP socket on error / timeout / abort.
+- **`streaming-client` cleanup is now awaited before rejection** — `cleanupAndReject` waits for `fsp.unlink` to complete before settling the promise, so callers (and tests) that observe the file system right after a rejection see the partial file removed.
 
 ### Performance
 

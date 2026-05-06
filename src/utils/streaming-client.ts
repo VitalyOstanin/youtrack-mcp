@@ -57,11 +57,15 @@ export async function streamArrayToFile(
   return new Promise<string>((resolveP, rejectP) => {
     const writer = handle.createWriteStream({ encoding: "utf-8" });
     let settled = false;
-    const cleanupAndReject = (err: unknown): void => {
+    const cleanupAndReject = async (err: unknown): Promise<void> => {
       if (settled) return;
       settled = true;
       writer.destroy();
-      void fsp.unlink(target).catch(() => undefined);
+      try {
+        await fsp.unlink(target);
+      } catch {
+        // ignore: file may not exist yet
+      }
       rejectP(err instanceof Error ? err : new Error(String(err)));
     };
     const req = lib(
@@ -73,7 +77,7 @@ export async function streamArrayToFile(
       (res: IncomingMessage) => {
         if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
           res.resume();
-          cleanupAndReject(new Error(`HTTP ${res.statusCode ?? "no status"}: ${res.statusMessage ?? ""}`));
+          void cleanupAndReject(new Error(`HTTP ${res.statusCode ?? "no status"}: ${res.statusMessage ?? ""}`));
 
           return;
         }
