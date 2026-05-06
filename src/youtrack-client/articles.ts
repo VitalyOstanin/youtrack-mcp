@@ -18,10 +18,10 @@ import type { UsersProjectsMixin } from "./users-projects.js";
 export interface ArticlesMixin {
   getArticle: (articleId: string) => Promise<ArticlePayload>;
   listArticles: (args?: {
-    parentArticleId?: string;
-    projectId?: string;
-    limit?: number;
-    skip?: number;
+    parentArticleId?: string | undefined;
+    projectId?: string | undefined;
+    limit?: number | undefined;
+    skip?: number | undefined;
   }) => Promise<ArticleListPayload>;
   createArticle: (input: ArticleCreateInput) => Promise<ArticlePayload>;
   updateArticle: (input: ArticleUpdateInput) => Promise<ArticlePayload>;
@@ -46,10 +46,10 @@ export function withArticles<
 
     async listArticles(
       args: {
-        parentArticleId?: string;
-        projectId?: string;
-        limit?: number;
-        skip?: number;
+        parentArticleId?: string | undefined;
+        projectId?: string | undefined;
+        limit?: number | undefined;
+        skip?: number | undefined;
       } = {},
     ): Promise<ArticleListPayload> {
       const queryParts: string[] = [];

@@ -23,7 +23,7 @@ export interface StarsMixin {
   unstarIssue: (issueId: string) => Promise<IssueStarPayload>;
   starIssues: (issueIds: string[]) => Promise<IssueStarBatchPayload>;
   unstarIssues: (issueIds: string[]) => Promise<IssueStarBatchPayload>;
-  getStarredIssues: (options?: { limit?: number; skip?: number }) => Promise<IssuesStarredPayload>;
+  getStarredIssues: (options?: { limit?: number | undefined; skip?: number | undefined }) => Promise<IssuesStarredPayload>;
   // Internal helper, exposed for the issue-state mixin (changeIssueState reads
   // watchers too) once that lands.
   getIssueWatchers: (issueId: string) => Promise<YoutrackIssueWatcher[]>;
@@ -197,7 +197,7 @@ export function withStars<
       return payload;
     }
 
-    async getStarredIssues(options: { limit?: number; skip?: number } = {}): Promise<IssuesStarredPayload> {
+    async getStarredIssues(options: { limit?: number | undefined; skip?: number | undefined } = {}): Promise<IssuesStarredPayload> {
       try {
         const limit = options.limit ?? 50;
         const skip = options.skip ?? 0;

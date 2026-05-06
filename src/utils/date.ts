@@ -111,7 +111,7 @@ export function hoursToMinutes(hours: number): number {
   return Math.round(hours * 60);
 }
 
-export function calculateTotalMinutes(items: Array<{ duration: { minutes?: number } }>): number {
+export function calculateTotalMinutes(items: Array<{ duration: { minutes?: number | undefined } }>): number {
   return items.reduce((total, item) => total + (item.duration.minutes ?? 0), 0);
 }
 

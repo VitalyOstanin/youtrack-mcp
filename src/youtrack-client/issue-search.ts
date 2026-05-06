@@ -66,7 +66,7 @@ export function withIssueSearch<
         );
 
         if (userClauses.length === 1) {
-          filters.push(userClauses[0]);
+          filters.push(userClauses[0]!);
         } else {
           filters.push(`(${userClauses.join(" or ")})`);
         }
@@ -253,6 +253,9 @@ export function withIssueSearch<
 
       for (let i = 0; i < candidateIssues.length; i++) {
         const issue = candidateIssues[i];
+
+        if (!issue) continue;
+
         const issueId = issue.idReadable;
         const details = detailsByIssueId.get(issueId);
         const comments = commentsLight[issueId] ?? [];
@@ -340,7 +343,7 @@ export function withIssueSearch<
           (login) => `updater: ${login} or mentions: ${login} or reporter: ${login} or assignee: ${login}`,
         );
 
-        fallbackFilters.push(noBraceClauses.length === 1 ? noBraceClauses[0] : `(${noBraceClauses.join(" or ")})`);
+        fallbackFilters.push(noBraceClauses.length === 1 ? noBraceClauses[0]! : `(${noBraceClauses.join(" or ")})`);
       }
 
       if (input.startDate || input.endDate) {

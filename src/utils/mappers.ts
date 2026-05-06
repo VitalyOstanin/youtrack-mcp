@@ -56,9 +56,9 @@ export type MappedYoutrackIssue = YoutrackIssue;
  * Mapped issue details with ISO date strings
  */
 export interface MappedYoutrackIssueDetails extends Omit<YoutrackIssueDetails, "created" | "updated" | "resolved"> {
-  created?: string;
-  updated?: string;
-  resolved?: string;
+  created?: string | undefined;
+  updated?: string | undefined;
+  resolved?: string | undefined;
 }
 
 /**
@@ -73,8 +73,8 @@ export interface MappedYoutrackWorkItem extends Omit<YoutrackWorkItem, "date"> {
  */
 export interface MappedYoutrackIssueComment extends Omit<YoutrackIssueComment, "created" | "updated"> {
   created: string;
-  updated?: string;
-  commentUrl?: string;
+  updated?: string | undefined;
+  commentUrl?: string | undefined;
 }
 
 /**
@@ -237,25 +237,25 @@ export interface MappedYoutrackActivityItem {
   author?: {
     id: string;
     login: string;
-    name?: string;
-  };
+    name?: string | undefined;
+  } | undefined;
   category?: {
     id: string;
-  };
+  } | undefined;
   target?: {
-    text?: string;
-  };
+    text?: string | undefined;
+  } | undefined;
   added?: Array<{
-    name?: string;
-    id?: string;
-    login?: string;
-  }>;
+    name?: string | undefined;
+    id?: string | undefined;
+    login?: string | undefined;
+  }> | undefined;
   removed?: Array<{
-    name?: string;
-    id?: string;
-    login?: string;
-  }>;
-  $type?: string;
+    name?: string | undefined;
+    id?: string | undefined;
+    login?: string | undefined;
+  }> | undefined;
+  $type?: string | undefined;
 }
 
 /**

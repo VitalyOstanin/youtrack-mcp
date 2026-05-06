@@ -3,12 +3,12 @@ import type { IssueCountInput, IssueListInput, IssueProjectCount } from "../type
 
 export interface IssueQueryBuildResult {
   query: string;
-  resolvedProjects?: Array<IssueProjectCount & { originalId: string }>;
+  resolvedProjects?: Array<IssueProjectCount & { originalId: string }> | undefined;
 }
 
 export async function buildIssueQuery(
   input: IssueCountInput | IssueListInput,
-  resolveProject: (projectId: string) => Promise<{ id?: string; shortName?: string; name?: string } | null>,
+  resolveProject: (projectId: string) => Promise<{ id?: string | undefined; shortName?: string | undefined; name?: string | undefined } | null>,
 ): Promise<IssueQueryBuildResult> {
   const {
     projectIds,

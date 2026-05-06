@@ -36,8 +36,8 @@ describe("streamArrayToFile (jsonl)", () => {
     const lines = content.split("\n").filter(Boolean);
 
     expect(lines).toHaveLength(3);
-    expect(JSON.parse(lines[0])).toEqual({ id: 1 });
-    expect(JSON.parse(lines[2])).toEqual({ id: 3 });
+    expect(JSON.parse(lines[0]!)).toEqual({ id: 1 });
+    expect(JSON.parse(lines[2]!)).toEqual({ id: 3 });
   });
 
   it("handles a 50-element array correctly", async () => {
@@ -52,7 +52,7 @@ describe("streamArrayToFile (jsonl)", () => {
     const lines = readFileSync(path, "utf-8").split("\n").filter(Boolean);
 
     expect(lines).toHaveLength(50);
-    expect(JSON.parse(lines[49])).toEqual({ id: 49 });
+    expect(JSON.parse(lines[49]!)).toEqual({ id: 49 });
   });
 
   it("removes file on transport error", async () => {

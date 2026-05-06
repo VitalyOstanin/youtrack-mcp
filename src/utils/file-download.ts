@@ -13,27 +13,27 @@ export interface FileDownloadOptions {
   /** Path relative to rootDir; absolute or traversal paths are rejected. */
   targetRel: string;
   rootDir: string;
-  headers?: Record<string, string>;
-  overwrite?: boolean;
+  headers?: Record<string, string> | undefined;
+  overwrite?: boolean | undefined;
   /** Request timeout in milliseconds (defaults to 60s). */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
   /** Maximum response body size in bytes (defaults to 50 MiB). */
-  maxBytes?: number;
+  maxBytes?: number | undefined;
   /**
    * Whitelist of allowed origins (e.g., `["https://yt.example.com"]`). When
    * provided, the request is rejected unless `url`'s origin matches one of
    * the entries. Defends against SSRF when `url` originates from a
    * server-supplied response.
    */
-  allowedOrigins?: string[];
+  allowedOrigins?: string[] | undefined;
 }
 
 const DEFAULT_TIMEOUT_MS = HTTP_DOWNLOAD_TIMEOUT_MS;
 const DEFAULT_MAX_BYTES = HTTP_DOWNLOAD_MAX_BYTES;
 
 interface ResponseStream extends NodeJS.ReadableStream {
-  statusCode?: number;
-  statusMessage?: string;
+  statusCode?: number | undefined;
+  statusMessage?: string | undefined;
   destroy: (err?: Error) => void;
 }
 

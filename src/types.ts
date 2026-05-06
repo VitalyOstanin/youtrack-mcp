@@ -26,7 +26,7 @@ export type YoutrackEntityType =
 export interface ServiceInfo {
   name: string;
   version: string;
-  description?: string;
+  description?: string | undefined;
 }
 
 export type UserAliasMap = Record<string, string>;
@@ -35,28 +35,28 @@ export interface YoutrackConfig {
   baseUrl: string;
   token: string;
   timezone: string;
-  holidays?: string[];
-  preHolidays?: string[];
-  userAliases?: UserAliasMap;
-  defaultProject?: string;
+  holidays?: string[] | undefined;
+  preHolidays?: string[] | undefined;
+  userAliases?: UserAliasMap | undefined;
+  defaultProject?: string | undefined;
   outputDir: string;
   /**
    * Whitelist root for `issue_attachment_upload` source files. Defaults to
    * `outputDir` when not provided. Files outside this directory are rejected.
    */
-  uploadDir?: string;
+  uploadDir?: string | undefined;
 }
 
 export interface DurationValue {
-  minutes?: number;
-  presentation?: string;
+  minutes?: number | undefined;
+  presentation?: string | undefined;
   $type?: string;
 }
 
 export interface YoutrackProject {
   id: string;
   shortName: string;
-  name?: string;
+  name?: string | undefined;
 }
 
 export interface YoutrackIssueWatchers {
@@ -67,15 +67,15 @@ export interface YoutrackIssueWatchers {
 export interface YoutrackIssue {
   id: string;
   idReadable: string;
-  summary?: string;
-  description?: string;
-  wikifiedDescription?: string;
-  usesMarkdown?: boolean;
-  project?: YoutrackProject;
+  summary?: string | undefined;
+  description?: string | undefined;
+  wikifiedDescription?: string | undefined;
+  usesMarkdown?: boolean | undefined;
+  project?: YoutrackProject | undefined;
   parent?: { idReadable: string; id?: string } | null;
-  assignee?: YoutrackUser | null;
-  watchers?: YoutrackIssueWatchers | null;
-  customFields?: YoutrackCustomField[];
+  assignee?: YoutrackUser | null | undefined;
+  watchers?: YoutrackIssueWatchers | null | undefined;
+  customFields?: YoutrackCustomField[] | undefined;
 }
 
 export interface PartialOperationItemError {
@@ -86,35 +86,35 @@ export interface PartialOperationItemError {
 export interface PartialOperationError {
   operation: string;
   message: string;
-  details?: PartialOperationItemError[];
+  details?: PartialOperationItemError[] | undefined;
 }
 
 export interface IssueCreatePayload extends IssueLookupPayload {
-  partialErrors?: PartialOperationError[];
+  partialErrors?: PartialOperationError[] | undefined;
 }
 
 export interface YoutrackIssueCreateInput {
-  projectId?: string;
+  projectId?: string | undefined;
   summary: string;
-  description?: string;
-  parentIssueId?: string;
-  assigneeLogin?: string;
-  stateName?: string;
+  description?: string | undefined;
+  parentIssueId?: string | undefined;
+  assigneeLogin?: string | undefined;
+  stateName?: string | undefined;
   links?: Array<{
     linkType: string;
     targetId: string;
-    sourceId?: string;
-    direction?: "inbound" | "outbound";
-  }>;
-  usesMarkdown?: boolean;
+    sourceId?: string | undefined;
+    direction?: "inbound" | "outbound" | undefined;
+  }> | undefined;
+  usesMarkdown?: boolean | undefined;
 }
 
 export interface YoutrackIssueUpdateInput {
   issueId: string;
-  summary?: string;
-  description?: string;
-  parentIssueId?: string | null;
-  usesMarkdown?: boolean;
+  summary?: string | undefined;
+  description?: string | undefined;
+  parentIssueId?: string | null | undefined;
+  usesMarkdown?: boolean | undefined;
 }
 
 export interface YoutrackIssueAssignInput {
@@ -125,9 +125,9 @@ export interface YoutrackIssueAssignInput {
 export interface YoutrackUser {
   id: string;
   login: string;
-  name?: string;
-  fullName?: string;
-  email?: string;
+  name?: string | undefined;
+  fullName?: string | undefined;
+  email?: string | undefined;
 }
 
 export interface YoutrackUserListPayload {
@@ -141,36 +141,36 @@ export interface YoutrackProjectListPayload {
 export interface YoutrackWorkItem {
   id: string;
   date: number;
-  updated?: number;
+  updated?: number | undefined;
   duration: DurationValue;
-  text?: string;
-  textPreview?: string;
-  usesMarkdown?: boolean;
-  description?: string;
+  text?: string | undefined;
+  textPreview?: string | undefined;
+  usesMarkdown?: boolean | undefined;
+  description?: string | undefined;
   issue: {
     idReadable: string;
-    id?: string;
+    id?: string | undefined;
   };
-  author?: YoutrackUser;
+  author?: YoutrackUser | undefined;
 }
 
 export interface YoutrackWorkItemCreateInput {
   issueId: string;
   date: string | number | Date;
   minutes: number;
-  summary?: string;
-  description?: string;
-  usesMarkdown?: boolean;
+  summary?: string | undefined;
+  description?: string | undefined;
+  usesMarkdown?: boolean | undefined;
 }
 
 export interface YoutrackWorkItemUpdateInput {
   issueId: string;
   workItemId: string;
-  date?: string | number | Date;
-  minutes?: number;
-  summary?: string;
-  description?: string;
-  usesMarkdown?: boolean;
+  date?: string | number | Date | undefined;
+  minutes?: number | undefined;
+  summary?: string | undefined;
+  description?: string | undefined;
+  usesMarkdown?: boolean | undefined;
 }
 
 export interface YoutrackWorkItemPeriodCreateInput {
@@ -178,13 +178,13 @@ export interface YoutrackWorkItemPeriodCreateInput {
   startDate: string | number | Date;
   endDate: string | number | Date;
   minutes: number;
-  summary?: string;
-  description?: string;
-  usesMarkdown?: boolean;
-  excludeWeekends?: boolean;
-  excludeHolidays?: boolean;
-  holidays?: Array<string | number | Date>;
-  preHolidays?: Array<string | number | Date>;
+  summary?: string | undefined;
+  description?: string | undefined;
+  usesMarkdown?: boolean | undefined;
+  excludeWeekends?: boolean | undefined;
+  excludeHolidays?: boolean | undefined;
+  holidays?: Array<string | number | Date> | undefined;
+  preHolidays?: Array<string | number | Date> | undefined;
 }
 
 export interface YoutrackWorkItemIdempotentCreateInput {
@@ -192,20 +192,20 @@ export interface YoutrackWorkItemIdempotentCreateInput {
   date: string | number | Date;
   minutes: number;
   description: string;
-  usesMarkdown?: boolean;
+  usesMarkdown?: boolean | undefined;
 }
 
 export interface YoutrackWorkItemReportOptions {
-  author?: string;
-  startDate?: string | number | Date;
-  endDate?: string | number | Date;
-  issueId?: string;
-  expectedDailyMinutes?: number;
-  excludeWeekends?: boolean;
-  excludeHolidays?: boolean;
-  holidays?: Array<string | number | Date>;
-  preHolidays?: Array<string | number | Date>;
-  allUsers?: boolean;
+  author?: string | undefined;
+  startDate?: string | number | Date | undefined;
+  endDate?: string | number | Date | undefined;
+  issueId?: string | undefined;
+  expectedDailyMinutes?: number | undefined;
+  excludeWeekends?: boolean | undefined;
+  excludeHolidays?: boolean | undefined;
+  holidays?: Array<string | number | Date> | undefined;
+  preHolidays?: Array<string | number | Date> | undefined;
+  allUsers?: boolean | undefined;
 }
 
 export interface ServiceStatusPayload {
@@ -213,10 +213,10 @@ export interface ServiceStatusPayload {
   configuration: {
     hasToken: boolean;
     baseUrl: string | null;
-    timezone?: string;
-    outputDir?: string;
-    holidays?: string[];
-    preHolidays?: string[];
+    timezone?: string | undefined;
+    outputDir?: string | undefined;
+    holidays?: string[] | undefined;
+    preHolidays?: string[] | undefined;
   };
 }
 
@@ -243,11 +243,11 @@ export interface WorkItemDeletePayload {
 }
 
 export interface YoutrackIssueDetails extends YoutrackIssue {
-  created?: number | null;
-  updated?: number | null;
-  resolved?: number | null;
-  reporter?: YoutrackUser;
-  updater?: YoutrackUser;
+  created?: number | null | undefined;
+  updated?: number | null | undefined;
+  resolved?: number | null | undefined;
+  reporter?: YoutrackUser | undefined;
+  updater?: YoutrackUser | undefined;
 }
 
 export interface IssueDetailsPayload {
@@ -255,9 +255,9 @@ export interface IssueDetailsPayload {
 }
 
 export interface IssueStateInfo {
-  id?: string;
-  name?: string;
-  presentation?: string;
+  id?: string | undefined;
+  name?: string | undefined;
+  presentation?: string | undefined;
 }
 
 export interface IssueStatePayload {
@@ -267,12 +267,12 @@ export interface IssueStatePayload {
 
 export interface YoutrackIssueComment {
   id: string;
-  text?: string;
-  textPreview?: string;
-  usesMarkdown?: boolean;
-  author?: YoutrackUser;
+  text?: string | undefined;
+  textPreview?: string | undefined;
+  usesMarkdown?: boolean | undefined;
+  author?: YoutrackUser | undefined;
   created: number;
-  updated?: number;
+  updated?: number | undefined;
 }
 
 export interface IssueCommentsPayload {
@@ -282,23 +282,23 @@ export interface IssueCommentsPayload {
 export interface IssueCommentCreateInput {
   issueId: string;
   text: string;
-  usesMarkdown?: boolean;
+  usesMarkdown?: boolean | undefined;
 }
 
 export interface IssueCommentUpdateInput {
   issueId: string;
   commentId: string;
-  text?: string;
-  usesMarkdown?: boolean;
-  muteUpdateNotifications?: boolean;
+  text?: string | undefined;
+  usesMarkdown?: boolean | undefined;
+  muteUpdateNotifications?: boolean | undefined;
 }
 
 export interface YoutrackActivityItem {
   id: string;
   timestamp: number;
-  author?: YoutrackUser;
-  category?: { id: string };
-  target?: { text?: string };
+  author?: YoutrackUser | undefined;
+  category?: { id: string } | undefined;
+  target?: { text?: string } | undefined;
   added?: Array<{ name?: string; id?: string; login?: string }>;
   removed?: Array<{ name?: string; id?: string; login?: string }>;
   $type?: string;
@@ -389,9 +389,9 @@ export interface YoutrackArticle {
   id: string;
   idReadable: string;
   summary: string;
-  content?: string;
-  contentPreview?: string;
-  usesMarkdown?: boolean;
+  content?: string | undefined;
+  contentPreview?: string | undefined;
+  usesMarkdown?: boolean | undefined;
   parentArticle?: {
     id: string;
     idReadable: string;
@@ -404,7 +404,7 @@ export interface YoutrackArticle {
   project?: {
     id: string;
     shortName: string;
-    name?: string;
+    name?: string | undefined;
   };
 }
 
@@ -418,27 +418,27 @@ export interface ArticleListPayload {
 
 export interface ArticleCreateInput {
   summary: string;
-  content?: string;
-  parentArticleId?: string;
-  projectId?: string;
-  usesMarkdown?: boolean;
-  returnRendered?: boolean;
+  content?: string | undefined;
+  parentArticleId?: string | undefined;
+  projectId?: string | undefined;
+  usesMarkdown?: boolean | undefined;
+  returnRendered?: boolean | undefined;
 }
 
 export interface ArticleUpdateInput {
   articleId: string;
-  summary?: string;
-  content?: string;
-  usesMarkdown?: boolean;
-  returnRendered?: boolean;
+  summary?: string | undefined;
+  content?: string | undefined;
+  usesMarkdown?: boolean | undefined;
+  returnRendered?: boolean | undefined;
 }
 
 export interface ArticleSearchInput {
   query: string;
-  projectId?: string;
-  parentArticleId?: string;
-  limit?: number;
-  returnRendered?: boolean;
+  projectId?: string | undefined;
+  parentArticleId?: string | undefined;
+  limit?: number | undefined;
+  returnRendered?: boolean | undefined;
 }
 
 export interface ArticleSearchPayload {
@@ -448,20 +448,20 @@ export interface ArticleSearchPayload {
 
 export interface IssueSearchInput {
   userLogins: string[];
-  startDate?: string | number | Date;
-  endDate?: string | number | Date;
-  dateFilterMode?: "issue_updated" | "user_activity";
-  briefOutput?: boolean;
-  limit?: number;
-  skip?: number;
+  startDate?: string | number | Date | undefined;
+  endDate?: string | number | Date | undefined;
+  dateFilterMode?: "issue_updated" | "user_activity" | undefined;
+  briefOutput?: boolean | undefined;
+  limit?: number | undefined;
+  skip?: number | undefined;
 }
 
 export interface IssueSearchPayload {
   issues: Array<MappedYoutrackIssue & { lastActivityDate?: string }>;
   userLogins: string[];
   period?: {
-    startDate?: string;
-    endDate?: string;
+    startDate?: string | undefined;
+    endDate?: string | undefined;
   };
   pagination: {
     returned: number;
@@ -471,32 +471,32 @@ export interface IssueSearchPayload {
 }
 
 export interface IssueListInput {
-  projectIds?: string[];
-  createdAfter?: string | number | Date;
-  createdBefore?: string | number | Date;
-  updatedAfter?: string | number | Date;
-  updatedBefore?: string | number | Date;
-  statuses?: string[];
-  assigneeLogin?: string;
-  types?: string[];
-  sortField?: "created" | "updated";
-  sortDirection?: "asc" | "desc";
-  briefOutput?: boolean;
-  limit?: number;
-  skip?: number;
+  projectIds?: string[] | undefined;
+  createdAfter?: string | number | Date | undefined;
+  createdBefore?: string | number | Date | undefined;
+  updatedAfter?: string | number | Date | undefined;
+  updatedBefore?: string | number | Date | undefined;
+  statuses?: string[] | undefined;
+  assigneeLogin?: string | undefined;
+  types?: string[] | undefined;
+  sortField?: "created" | "updated" | undefined;
+  sortDirection?: "asc" | "desc" | undefined;
+  briefOutput?: boolean | undefined;
+  limit?: number | undefined;
+  skip?: number | undefined;
 }
 
 export interface IssueListPayload {
   issues: MappedYoutrackIssue[];
   filters: {
-    projectIds?: string[];
-    createdAfter?: string;
-    createdBefore?: string;
-    updatedAfter?: string;
-    updatedBefore?: string;
-    statuses?: string[];
-    assigneeLogin?: string;
-    types?: string[];
+    projectIds?: string[] | undefined;
+    createdAfter?: string | undefined;
+    createdBefore?: string | undefined;
+    updatedAfter?: string | undefined;
+    updatedBefore?: string | undefined;
+    statuses?: string[] | undefined;
+    assigneeLogin?: string | undefined;
+    types?: string[] | undefined;
   };
   sort: {
     field: "created" | "updated";
@@ -510,22 +510,22 @@ export interface IssueListPayload {
 }
 
 export interface IssueCountInput {
-  projectIds?: string[];
-  createdAfter?: string | number | Date;
-  createdBefore?: string | number | Date;
-  updatedAfter?: string | number | Date;
-  updatedBefore?: string | number | Date;
-  statuses?: string[];
-  assigneeLogin?: string;
-  types?: string[];
-  top?: number;
+  projectIds?: string[] | undefined;
+  createdAfter?: string | number | Date | undefined;
+  createdBefore?: string | number | Date | undefined;
+  updatedAfter?: string | number | Date | undefined;
+  updatedBefore?: string | number | Date | undefined;
+  statuses?: string[] | undefined;
+  assigneeLogin?: string | undefined;
+  types?: string[] | undefined;
+  top?: number | undefined;
 }
 
 export interface IssueProjectCount {
   projectId: string | null;
-  projectShortName?: string;
-  projectName?: string;
-  requestedId?: string;
+  projectShortName?: string | undefined;
+  projectName?: string | undefined;
+  requestedId?: string | undefined;
   count: number;
 }
 
@@ -533,21 +533,21 @@ export interface IssueCountPayload {
   total: number;
   projects: IssueProjectCount[];
   filters: {
-    projectIds?: string[];
-    createdAfter?: string;
-    createdBefore?: string;
-    updatedAfter?: string;
-    updatedBefore?: string;
-    statuses?: string[];
-    assigneeLogin?: string;
-    types?: string[];
-    top?: number;
+    projectIds?: string[] | undefined;
+    createdAfter?: string | undefined;
+    createdBefore?: string | undefined;
+    updatedAfter?: string | undefined;
+    updatedBefore?: string | undefined;
+    statuses?: string[] | undefined;
+    assigneeLogin?: string | undefined;
+    types?: string[] | undefined;
+    top?: number | undefined;
   };
   /**
    * True when the fallback pagination hit FALLBACK_COUNT_HARD_LIMIT before
    * exhausting the result set. Callers should treat `total` as a lower bound.
    */
-  partial?: boolean;
+  partial?: boolean | undefined;
 }
 
 export interface IssueError {
@@ -557,17 +557,17 @@ export interface IssueError {
 
 export interface IssuesLookupPayload {
   issues: MappedYoutrackIssue[];
-  errors?: IssueError[];
+  errors?: IssueError[] | undefined;
 }
 
 export interface IssuesDetailsPayload {
   issues: MappedYoutrackIssueDetails[];
-  errors?: IssueError[];
+  errors?: IssueError[] | undefined;
 }
 
 export interface IssuesCommentsPayload {
   commentsByIssue: Record<string, MappedYoutrackIssueComment[]>;
-  errors?: IssueError[];
+  errors?: IssueError[] | undefined;
 }
 
 // =========================
@@ -576,12 +576,12 @@ export interface IssuesCommentsPayload {
 
 export interface YoutrackIssueLinkType {
   id: string;
-  name?: string; // e.g., "Relates", "Duplicate"
-  directed?: boolean;
-  outwardName?: string; // e.g., "relates to", "duplicates"
-  inwardName?: string; // e.g., "is related to", "is duplicated by"
-  sourceToTarget?: string; // command keyword from source to target (YouTrack commands API)
-  targetToSource?: string; // command keyword from target to source (YouTrack commands API)
+  name?: string | undefined; // e.g., "Relates", "Duplicate"
+  directed?: boolean | undefined;
+  outwardName?: string | undefined; // e.g., "relates to", "duplicates"
+  inwardName?: string | undefined; // e.g., "is related to", "is duplicated by"
+  sourceToTarget?: string | undefined; // command keyword from source to target (YouTrack commands API)
+  targetToSource?: string | undefined; // command keyword from target to source (YouTrack commands API)
 }
 
 // Keep direction flexible as YouTrack may return values like 'INWARD'/'OUTWARD'/'BOTH'
@@ -597,9 +597,9 @@ export interface YoutrackIssueLink {
   };
   issue: {
     idReadable: string;
-    summary?: string;
-    project?: { id: string; shortName: string; name?: string };
-    assignee?: YoutrackUser | null;
+    summary?: string | undefined;
+    project?: { id: string; shortName: string; name?: string | undefined } | undefined;
+    assignee?: YoutrackUser | null | undefined;
   };
 }
 
@@ -618,7 +618,7 @@ export interface IssueLinkCreateInput {
   sourceId: string; // idReadable of source issue
   targetId: string; // idReadable of target issue
   linkType: string; // name or id of link type
-  direction?: "inbound" | "outbound";
+  direction?: "inbound" | "outbound" | undefined;
 }
 
 export interface IssueLinkCreatePayload {
@@ -628,31 +628,31 @@ export interface IssueLinkCreatePayload {
 export interface IssueLinkDeleteInput {
   issueId: string; // idReadable of the issue
   linkId: string; // ID of the link to delete
-  linkType?: string; // Optional: type of link for command-based deletion
-  targetId?: string; // Optional: target issue ID for command-based deletion
+  linkType?: string | undefined; // Optional: type of link for command-based deletion
+  targetId?: string | undefined; // Optional: target issue ID for command-based deletion
 }
 
 export interface IssueLinkDeletePayload {
   deleted: boolean;
   issueId: string;
   linkId: string;
-  message?: string;
+  message?: string | undefined;
 }
 
 
 export interface YoutrackAttachment {
   id: string;
   name: string;
-  author?: YoutrackUser;
+  author?: YoutrackUser | undefined;
   created: number;
-  updated?: number;
+  updated?: number | undefined;
   size: number;
-  mimeType?: string;
-  url?: string;
-  thumbnailURL?: string;
-  extension?: string;
-  charset?: string;
-  base64Content?: string;
+  mimeType?: string | undefined;
+  url?: string | undefined;
+  thumbnailURL?: string | undefined;
+  extension?: string | undefined;
+  charset?: string | undefined;
+  base64Content?: string | undefined;
 }
 
 export interface MappedYoutrackAttachment {
@@ -661,16 +661,16 @@ export interface MappedYoutrackAttachment {
   author?: {
     id: string;
     login: string;
-    name?: string;
-  };
+    name?: string | undefined;
+  } | undefined;
   created: string;
-  updated?: string;
+  updated?: string | undefined;
   size: number;
   sizeFormatted: string;
-  mimeType?: string;
-  extension?: string;
-  url?: string;
-  thumbnailURL?: string;
+  mimeType?: string | undefined;
+  extension?: string | undefined;
+  url?: string | undefined;
+  thumbnailURL?: string | undefined;
 }
 
 export interface AttachmentsListPayload {
@@ -692,7 +692,7 @@ export interface AttachmentDownloadPayload {
 export interface AttachmentUploadInput {
   issueId: string;
   filePaths: string[];
-  muteUpdateNotifications?: boolean;
+  muteUpdateNotifications?: boolean | undefined;
 }
 
 export interface AttachmentUploadPayload {
@@ -721,18 +721,18 @@ export interface YoutrackStateEvent {
 }
 
 export interface YoutrackCustomFieldValue {
-  id?: string;
-  name?: string;
-  login?: string;
-  presentation?: string;
+  id?: string | undefined;
+  name?: string | undefined;
+  login?: string | undefined;
+  presentation?: string | undefined;
   $type?: string;
 }
 
 export interface YoutrackCustomField {
   id: string;
   name: string;
-  value?: YoutrackCustomFieldValue;
-  possibleEvents?: YoutrackStateEvent[];
+  value?: YoutrackCustomFieldValue | undefined;
+  possibleEvents?: YoutrackStateEvent[] | undefined;
   $type: string;
 }
 
@@ -748,7 +748,7 @@ export interface YoutrackSimpleStateField extends YoutrackCustomField {
   value?: {
     id: string;
     name: string;
-    presentation?: string;
+    presentation?: string | undefined;
     $type: "StateBundleElement";
   };
 }
@@ -760,9 +760,9 @@ export interface IssueChangeStateInput {
 
 export interface IssueChangeStatePayload {
   issueId: string;
-  previousState?: string;
+  previousState?: string | undefined;
   newState: string;
-  transitionUsed?: string;
+  transitionUsed?: string | undefined;
 }
 
 // Mapped activity item with ISO datetime strings
@@ -772,25 +772,25 @@ export interface MappedYoutrackActivityItem {
   author?: {
     id: string;
     login: string;
-    name?: string;
-  };
+    name?: string | undefined;
+  } | undefined;
   category?: {
     id: string;
-  };
+  } | undefined;
   target?: {
-    text?: string;
-  };
+    text?: string | undefined;
+  } | undefined;
   added?: Array<{
-    name?: string;
-    id?: string;
-    login?: string;
-  }>;
+    name?: string | undefined;
+    id?: string | undefined;
+    login?: string | undefined;
+  }> | undefined;
   removed?: Array<{
-    name?: string;
-    id?: string;
-    login?: string;
-  }>;
-  $type?: string;
+    name?: string | undefined;
+    id?: string | undefined;
+    login?: string | undefined;
+  }> | undefined;
+  $type?: string | undefined;
 }
 
 // Response payload for issue_activities tool
@@ -798,16 +798,16 @@ export interface IssueActivitiesPayload {
   activities: MappedYoutrackActivityItem[];
   issueId: string;
   filters?: {
-    author?: string;
-    startDate?: string;
-    endDate?: string;
-    categories?: string;
+    author?: string | undefined;
+    startDate?: string | undefined;
+    endDate?: string | undefined;
+    categories?: string | undefined;
   };
   pagination?: {
     returned: number;
     total: number;
-    limit?: number;
-    skip?: number;
+    limit?: number | undefined;
+    skip?: number | undefined;
   };
 }
 
@@ -830,7 +830,7 @@ export interface IssueStarBatchInput {
 export interface IssueStarPayload {
   issueId: string;
   starred: boolean;
-  message?: string;
+  message?: string | undefined;
 }
 
 export interface IssueStarBatchPayload {

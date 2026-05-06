@@ -24,8 +24,8 @@ import {
 export interface UsersProjectsMixin {
   getCurrentUser: () => Promise<YoutrackUser>;
   getUserByLogin: (login: string) => Promise<YoutrackUser | null>;
-  listUsers: (pagination?: { limit?: number; skip?: number }) => Promise<YoutrackUserListPayload>;
-  listProjects: (pagination?: { limit?: number; skip?: number }) => Promise<YoutrackProjectListPayload>;
+  listUsers: (pagination?: { limit?: number | undefined; skip?: number | undefined }) => Promise<YoutrackUserListPayload>;
+  listProjects: (pagination?: { limit?: number | undefined; skip?: number | undefined }) => Promise<YoutrackProjectListPayload>;
   getProjectByShortName: (shortName: string) => Promise<YoutrackProject | null>;
   // Internal helpers used by other mixins:
   fetchAllProjects: () => Promise<YoutrackProjectListPayload>;
@@ -84,7 +84,7 @@ export function withUsersProjects<TBase extends Constructor<YoutrackClientBase>>
       }
     }
 
-    async listUsers(pagination: { limit?: number; skip?: number } = {}): Promise<YoutrackUserListPayload> {
+    async listUsers(pagination: { limit?: number | undefined; skip?: number | undefined } = {}): Promise<YoutrackUserListPayload> {
       try {
         const response = await this.http.get<YoutrackUser[]>("/api/users", {
           params: {
@@ -104,7 +104,7 @@ export function withUsersProjects<TBase extends Constructor<YoutrackClientBase>>
       }
     }
 
-    async listProjects(pagination: { limit?: number; skip?: number } = {}): Promise<YoutrackProjectListPayload> {
+    async listProjects(pagination: { limit?: number | undefined; skip?: number | undefined } = {}): Promise<YoutrackProjectListPayload> {
       // Single-page request when limit/skip is set explicitly. No caching, no
       // single-flight: the caller asked for a specific window.
       if (!(pagination.limit === undefined && pagination.skip === undefined)) {

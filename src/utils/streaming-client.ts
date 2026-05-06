@@ -14,8 +14,8 @@ import { HTTP_STREAMING_TIMEOUT_MS } from "../constants.js";
 export interface StreamOptions {
   rootDir: string;
   format: "json" | "jsonl";
-  overwrite?: boolean;
-  timeoutMs?: number;
+  overwrite?: boolean | undefined;
+  timeoutMs?: number | undefined;
 }
 
 /**

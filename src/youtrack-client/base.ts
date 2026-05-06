@@ -130,7 +130,7 @@ export function encId(value: string): string {
 export type Constructor<T = object> = new (...args: any[]) => T;
 
 export class YoutrackClientError extends Error {
-  readonly status?: number;
+  readonly status?: number | undefined;
   readonly details?: unknown;
 
   constructor(message: string, status?: number, details?: unknown) {
@@ -180,15 +180,15 @@ export class YoutrackClientBase {
   protected readonly usersByLogin = new Map<string, YoutrackUser>();
   protected readonly projectsByShortName = new Map<string, YoutrackProject>();
   protected readonly projectsById = new Map<string, YoutrackProject>();
-  protected readonly defaultProject?: string;
+  protected readonly defaultProject?: string | undefined;
   protected readonly linkTypesById = new Map<string, YoutrackIssueLinkType>();
   protected readonly linkTypesByName = new Map<string, YoutrackIssueLinkType>();
-  protected cachedCommandSupport?: boolean;
-  protected cachedCountSupport?: boolean;
+  protected cachedCommandSupport?: boolean | undefined;
+  protected cachedCountSupport?: boolean | undefined;
   // Single-flight slots: parallel callers share one in-flight HTTP request.
   // Only the auto-paginated (no limit/skip) path uses these.
-  protected listProjectsInFlight?: Promise<YoutrackProjectListPayload>;
-  protected listLinkTypesInFlight?: Promise<IssueLinkTypesPayload>;
+  protected listProjectsInFlight?: Promise<YoutrackProjectListPayload> | undefined;
+  protected listLinkTypesInFlight?: Promise<IssueLinkTypesPayload> | undefined;
 
   constructor(protected readonly config: YoutrackConfig) {
     this.http = axios.create({
@@ -239,8 +239,8 @@ export class YoutrackClientBase {
    * Tools should call this instead of reaching into protected `getWithFlexibleTop`.
    */
   async searchIssues(params: {
-    query?: string;
-    fields?: string;
+    query?: string | undefined;
+    fields?: string | undefined;
     $top?: number;
     $skip?: number;
   }): Promise<YoutrackIssueDetails[]> {
@@ -257,8 +257,8 @@ export class YoutrackClientBase {
    * instead of reaching into protected `getWithFlexibleTop`.
    */
   async searchArticles(params: {
-    query?: string;
-    fields?: string;
+    query?: string | undefined;
+    fields?: string | undefined;
     $top?: number;
     $skip?: number;
   }): Promise<YoutrackArticle[]> {

@@ -61,7 +61,7 @@ describe("deleteIssueLink subtask fallback", () => {
 
     const issues = captured?.body.issues as Array<{ idReadable: string }>;
 
-    expect(issues[0].idReadable).toBe("BC-1");
+    expect(issues[0]!.idReadable).toBe("BC-1");
   });
 
   it("uses provided targetId when given (regular link)", async () => {

@@ -12,7 +12,7 @@ interface TextContent {
   text: string;
 }
 
-function firstTextPayload(result: { content?: unknown[]; isError?: boolean }): {
+function firstTextPayload(result: { content?: unknown[] | undefined; isError?: boolean | undefined }): {
   isError: boolean;
   parsed: Record<string, unknown>;
 } {

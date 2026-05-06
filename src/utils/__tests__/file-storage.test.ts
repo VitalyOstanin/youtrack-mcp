@@ -84,8 +84,8 @@ describe("processWithFileStorage", () => {
     const lines = content.split("\n").filter((l) => l.length > 0);
 
     expect(lines).toHaveLength(2);
-    expect(JSON.parse(lines[0])).toEqual({ a: 1 });
-    expect(JSON.parse(lines[1])).toEqual({ a: 2 });
+    expect(JSON.parse(lines[0]!)).toEqual({ a: 1 });
+    expect(JSON.parse(lines[1]!)).toEqual({ a: 2 });
   });
 
   it("rejects existing file without overwrite flag", async () => {

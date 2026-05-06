@@ -14,7 +14,7 @@ const baseConfig = {
 
 interface TextContent { type: "text"; text: string }
 
-function parsePayload(result: { content?: unknown[]; isError?: boolean }): {
+function parsePayload(result: { content?: unknown[] | undefined; isError?: boolean | undefined }): {
   isError: boolean;
   parsed: Record<string, unknown>;
 } {
@@ -121,6 +121,6 @@ describe("issues_status handler", () => {
     const errors = parsed.errors as Array<{ issueId: string }>;
 
     expect(errors).toHaveLength(1);
-    expect(errors[0].issueId).toBe("BC-2");
+    expect(errors[0]!.issueId).toBe("BC-2");
   });
 });

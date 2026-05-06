@@ -8,29 +8,29 @@ import { resolveOutputPath } from "./path-safety.js";
 export type FileStorageFormat = "json" | "jsonl";
 
 export interface FileStorageArgs {
-  saveToFile?: boolean;
-  filePath?: string;
-  format?: FileStorageFormat;
-  overwrite?: boolean;
+  saveToFile?: boolean | undefined;
+  filePath?: string | undefined;
+  format?: FileStorageFormat | undefined;
+  overwrite?: boolean | undefined;
 }
 
 export interface StreamingFileStorageOptions {
   dataStream: AsyncIterable<unknown>;
-  filePath?: string;
+  filePath?: string | undefined;
   rootDir: string;
-  format?: FileStorageFormat;
-  overwrite?: boolean;
+  format?: FileStorageFormat | undefined;
+  overwrite?: boolean | undefined;
   /**
    * When true (default), JSON output is wrapped in `[ ... ]`. Set to false to
    * write a single object/value as raw JSON without array wrapping.
    */
-  jsonAsArray?: boolean;
+  jsonAsArray?: boolean | undefined;
 }
 
 export interface FileStorageResult<T> {
   data: T;
-  savedToFile?: boolean;
-  savedTo?: string;
+  savedToFile?: boolean | undefined;
+  savedTo?: string | undefined;
 }
 
 /**

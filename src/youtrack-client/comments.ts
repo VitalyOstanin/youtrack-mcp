@@ -18,7 +18,7 @@ import {
 export interface CommentsMixin {
   getIssueComments: (
     issueId: string,
-    pagination?: { limit?: number; skip?: number },
+    pagination?: { limit?: number | undefined; skip?: number | undefined },
   ) => Promise<IssueCommentsPayload>;
   createIssueComment: (input: IssueCommentCreateInput) => Promise<{ comment: MappedYoutrackIssueComment }>;
   updateIssueComment: (input: IssueCommentUpdateInput) => Promise<IssueCommentUpdatePayload>;
@@ -30,7 +30,7 @@ export function withComments<TBase extends Constructor<YoutrackClientBase>>(
   return class WithComments extends Base {
     async getIssueComments(
       issueId: string,
-      pagination: { limit?: number; skip?: number } = {},
+      pagination: { limit?: number | undefined; skip?: number | undefined } = {},
     ): Promise<IssueCommentsPayload> {
       const resolvedId = this.resolveIssueId(issueId);
       const params: Record<string, unknown> = { fields: defaultFields.comments };

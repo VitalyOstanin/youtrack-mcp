@@ -22,7 +22,7 @@ import {
 export interface IssueLinksMixin {
   getIssueLinks: (
     issueId: string,
-    pagination?: { limit?: number; skip?: number },
+    pagination?: { limit?: number | undefined; skip?: number | undefined },
   ) => Promise<IssueLinksPayload>;
   listLinkTypes: () => Promise<IssueLinkTypesPayload>;
   addIssueLink: (input: IssueLinkCreateInput) => Promise<IssueLinkCreatePayload>;
@@ -39,7 +39,7 @@ export function withIssueLinks<TBase extends Constructor<YoutrackClientBase>>(
   return class WithIssueLinks extends Base {
     async getIssueLinks(
       issueId: string,
-      pagination: { limit?: number; skip?: number } = {},
+      pagination: { limit?: number | undefined; skip?: number | undefined } = {},
     ): Promise<IssueLinksPayload> {
       const resolvedId = this.resolveIssueId(issueId);
       const params: Record<string, unknown> = { fields: defaultFields.issueLinks };
@@ -164,7 +164,7 @@ export function withIssueLinks<TBase extends Constructor<YoutrackClientBase>>(
           params: { fields: defaultFields.issueLinks },
         });
         const variants = this.mapIssueLinkRow(sourceId, response.data);
-        const mapped = variants.find((v) => v.issue.idReadable === targetId) ?? variants[0];
+        const mapped = variants.find((v) => v.issue.idReadable === targetId) ?? variants[0]!;
 
         return { link: mapped };
       } catch (error) {
@@ -267,14 +267,14 @@ export function withIssueLinks<TBase extends Constructor<YoutrackClientBase>>(
       currentIssueId: string,
       row: {
         id: string;
-        direction?: string;
+        direction?: string | undefined;
         linkType: YoutrackIssueLinkType;
         issues?: Array<{
           idReadable: string;
-          summary?: string;
-          project?: { id: string; shortName: string; name?: string };
-          assignee?: YoutrackUser | null;
-        }>;
+          summary?: string | undefined;
+          project?: { id: string; shortName: string; name?: string | undefined } | undefined;
+          assignee?: YoutrackUser | null | undefined;
+        }> | undefined;
       },
     ): YoutrackIssueLink[] {
       const issues = row.issues ?? [];

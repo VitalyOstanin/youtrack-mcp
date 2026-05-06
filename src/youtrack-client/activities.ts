@@ -11,23 +11,23 @@ export interface ActivitiesMixin {
   getIssueActivities: (
     issueId: string,
     options?: {
-      author?: string;
-      startDate?: number;
-      endDate?: number;
-      top?: number;
-      skip?: number;
-      categories?: string[];
+      author?: string | undefined;
+      startDate?: number | undefined;
+      endDate?: number | undefined;
+      top?: number | undefined;
+      skip?: number | undefined;
+      categories?: string[] | undefined;
     },
   ) => Promise<YoutrackActivityItem[]>;
   listActivities: (args: {
     author: string;
-    categories?: string;
-    start?: number;
-    end?: number;
-    limit?: number;
-    skip?: number;
-    fields?: string;
-    reverse?: boolean;
+    categories?: string | undefined;
+    start?: number | undefined;
+    end?: number | undefined;
+    limit?: number | undefined;
+    skip?: number | undefined;
+    fields?: string | undefined;
+    reverse?: boolean | undefined;
   }) => Promise<YoutrackActivityItem[]>;
 }
 
@@ -45,12 +45,12 @@ export function withActivities<TBase extends Constructor<YoutrackClientBase>>(
         skip,
         categories,
       }: {
-        author?: string;
-        startDate?: number;
-        endDate?: number;
-        top?: number;
-        skip?: number;
-        categories?: string[];
+        author?: string | undefined;
+        startDate?: number | undefined;
+        endDate?: number | undefined;
+        top?: number | undefined;
+        skip?: number | undefined;
+        categories?: string[] | undefined;
       } = {},
     ): Promise<YoutrackActivityItem[]> {
       const resolvedId = this.resolveIssueId(issueId);
@@ -107,13 +107,13 @@ export function withActivities<TBase extends Constructor<YoutrackClientBase>>(
       reverse,
     }: {
       author: string;
-      categories?: string;
-      start?: number;
-      end?: number;
-      limit?: number;
-      skip?: number;
-      fields?: string;
-      reverse?: boolean;
+      categories?: string | undefined;
+      start?: number | undefined;
+      end?: number | undefined;
+      limit?: number | undefined;
+      skip?: number | undefined;
+      fields?: string | undefined;
+      reverse?: boolean | undefined;
     }): Promise<YoutrackActivityItem[]> {
       const params: Record<string, unknown> = {
         author,

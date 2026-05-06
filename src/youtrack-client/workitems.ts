@@ -44,32 +44,32 @@ import type { UsersProjectsMixin } from "./users-projects.js";
 
 export interface WorkItemsMixin {
   listWorkItems: (args?: {
-    author?: string;
-    startDate?: string | number | Date;
-    endDate?: string | number | Date;
-    issueId?: string;
-    limit?: number;
-    skip?: number;
-    allUsers?: boolean;
+    author?: string | undefined;
+    startDate?: string | number | Date | undefined;
+    endDate?: string | number | Date | undefined;
+    issueId?: string | undefined;
+    limit?: number | undefined;
+    skip?: number | undefined;
+    allUsers?: boolean | undefined;
   }) => Promise<YoutrackWorkItem[]>;
   getWorkItemsForUsers: (
     logins: string[],
     params?: {
-      startDate?: string | number | Date;
-      endDate?: string | number | Date;
-      issueId?: string;
-      limit?: number;
-      skip?: number;
+      startDate?: string | number | Date | undefined;
+      endDate?: string | number | Date | undefined;
+      issueId?: string | undefined;
+      limit?: number | undefined;
+      skip?: number | undefined;
     },
   ) => Promise<YoutrackWorkItem[]>;
   listAllUsersWorkItems: (params?: {
-    startDate?: string | number | Date;
-    endDate?: string | number | Date;
-    issueId?: string;
-    limit?: number;
-    skip?: number;
+    startDate?: string | number | Date | undefined;
+    endDate?: string | number | Date | undefined;
+    issueId?: string | undefined;
+    limit?: number | undefined;
+    skip?: number | undefined;
   }) => Promise<YoutrackWorkItem[]>;
-  listRecentWorkItems: (params?: { users?: string[]; limit?: number }) => Promise<YoutrackWorkItem[]>;
+  listRecentWorkItems: (params?: { users?: string[] | undefined; limit?: number | undefined }) => Promise<YoutrackWorkItem[]>;
   createWorkItem: (input: YoutrackWorkItemCreateInput) => Promise<YoutrackWorkItem>;
   createWorkItemMapped: (input: YoutrackWorkItemCreateInput) => Promise<MappedYoutrackWorkItem>;
   deleteWorkItem: (issueId: string, workItemId: string) => Promise<WorkItemDeletePayload>;
@@ -101,13 +101,13 @@ export function withWorkItems<
       skip,
       allUsers = false,
     }: {
-      author?: string;
-      startDate?: string | number | Date;
-      endDate?: string | number | Date;
-      issueId?: string;
-      limit?: number;
-      skip?: number;
-      allUsers?: boolean;
+      author?: string | undefined;
+      startDate?: string | number | Date | undefined;
+      endDate?: string | number | Date | undefined;
+      issueId?: string | undefined;
+      limit?: number | undefined;
+      skip?: number | undefined;
+      allUsers?: boolean | undefined;
     } = {}): Promise<YoutrackWorkItem[]> {
       const requestParams: Record<string, unknown> = {
         fields: defaultFields.workItems,
@@ -153,11 +153,11 @@ export function withWorkItems<
     async getWorkItemsForUsers(
       logins: string[],
       params: {
-        startDate?: string | number | Date;
-        endDate?: string | number | Date;
-        issueId?: string;
-        limit?: number;
-        skip?: number;
+        startDate?: string | number | Date | undefined;
+        endDate?: string | number | Date | undefined;
+        issueId?: string | undefined;
+        limit?: number | undefined;
+        skip?: number | undefined;
       } = {},
     ): Promise<YoutrackWorkItem[]> {
       const results = await this.processBatch(
@@ -181,11 +181,11 @@ export function withWorkItems<
 
     async listAllUsersWorkItems(
       params: {
-        startDate?: string | number | Date;
-        endDate?: string | number | Date;
-        issueId?: string;
-        limit?: number;
-        skip?: number;
+        startDate?: string | number | Date | undefined;
+        endDate?: string | number | Date | undefined;
+        issueId?: string | undefined;
+        limit?: number | undefined;
+        skip?: number | undefined;
       } = {},
     ): Promise<YoutrackWorkItem[]> {
       return this.listWorkItems({
@@ -196,8 +196,8 @@ export function withWorkItems<
 
     async listRecentWorkItems(
       params: {
-        users?: string[];
-        limit?: number;
+        users?: string[] | undefined;
+        limit?: number | undefined;
       } = {},
     ): Promise<YoutrackWorkItem[]> {
       const limit = params.limit ?? 50;
