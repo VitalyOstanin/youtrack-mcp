@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.13.2] - 2026-05-07
 
 ### Added
 - `LICENSE` (MIT) file in repository root.
