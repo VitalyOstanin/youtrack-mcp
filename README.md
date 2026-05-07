@@ -3,6 +3,7 @@
 Also available in Russian: [README-ru.md](README-ru.md)
 
 [![CI](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/VitalyOstanin/youtrack-mcp/graph/badge.svg?branch=master)](https://codecov.io/gh/VitalyOstanin/youtrack-mcp)
 [![npm version](https://img.shields.io/npm/v/@vitalyostanin/youtrack-mcp.svg)](https://www.npmjs.com/package/@vitalyostanin/youtrack-mcp)
 
 MCP server for comprehensive YouTrack integration with the following capabilities:

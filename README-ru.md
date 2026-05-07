@@ -1,6 +1,7 @@
 # YouTrack MCP Server
 
 [![CI](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/VitalyOstanin/youtrack-mcp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/VitalyOstanin/youtrack-mcp/graph/badge.svg?branch=master)](https://codecov.io/gh/VitalyOstanin/youtrack-mcp)
 [![npm version](https://img.shields.io/npm/v/@vitalyostanin/youtrack-mcp.svg)](https://www.npmjs.com/package/@vitalyostanin/youtrack-mcp)
 
 MCP сервер для полноценной интеграции с YouTrack со следующими возможностями:
