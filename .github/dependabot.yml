@@ -1,33 +1,45 @@
 version: 2
-updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "ci"
-      include: "scope"
 
-  - package-ecosystem: "npm"
-    directory: "/"
+updates:
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Moscow
     open-pull-requests-limit: 10
-    commit-message:
-      prefix: "deps"
-      include: "scope"
+    versioning-strategy: increase
+    labels:
+      - dependencies
     groups:
+      types:
+        patterns:
+          - "@types/*"
       eslint:
         patterns:
-          - "eslint*"
+          - "eslint"
           - "@eslint/*"
-          - "@typescript-eslint/*"
-      typescript:
-        patterns:
-          - "typescript"
-          - "@types/*"
+          - "typescript-eslint"
       vitest:
         patterns:
           - "vitest"
           - "@vitest/*"
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Moscow
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+      include: scope

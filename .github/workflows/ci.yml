@@ -6,8 +6,15 @@ on:
   pull_request:
     branches: [ "**" ]
 
+# Least-privilege default. The CI workflow only needs to read the repo to
+# build and test; jobs that need additional scopes should opt in explicitly.
+permissions:
+  contents: read
+
+# Cancel in-flight runs on the same ref when a new commit lands. Saves CI
+# minutes and avoids double-publishing intermediate artifacts.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -16,6 +23,7 @@ jobs:
     timeout-minutes: 15
 
     strategy:
+      fail-fast: false
       matrix:
         node-version: [22.x, 24.x]
 
@@ -35,11 +43,23 @@ jobs:
     - name: Run linter
       run: npm run lint
 
-    - name: Typecheck
+    - name: Run typecheck
       run: npm run typecheck
 
-    - name: Run tests
-      run: npm test
+    - name: Run tests with coverage
+      run: npm run test:coverage
+
+    - name: Upload coverage to Codecov
+      # Run on a single matrix entry — uploading the same report twice
+      # under different Node versions just creates noise on the Codecov side
+      # without changing what we measure.
+      if: matrix.node-version == '22.x'
+      uses: codecov/codecov-action@v6
+      with:
+        files: ./coverage/lcov.info
+        flags: unit
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: false
 
     - name: Build project
       run: npm run build
@@ -48,7 +68,37 @@ jobs:
       run: |
         test -f dist/index.js || { echo "Error: dist/index.js not found"; exit 1; }
         test -x dist/index.js || { echo "Error: dist/index.js is not executable"; exit 1; }
-        echo "✅ Build verification passed"
+        echo "Build verification passed"
 
     - name: List build artifacts
       run: ls -lh dist/
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: 22.x
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    # Production deps reach end users via the published package, so a high
+    # or critical advisory there fails the build until it's resolved
+    # (upgrade, override in package.json, or accepted-risk note in PR).
+    - name: Audit production dependencies
+      run: npm audit --omit=dev --audit-level=high
+
+    # Dev-only advisories (build tooling, test runners) don't ship to
+    # users — keep them visible in the run log but don't block PRs on
+    # transient upstream advisories that have no production exposure.
+    - name: Audit all dependencies (advisory only)
+      run: npm audit --audit-level=high
+      continue-on-error: true

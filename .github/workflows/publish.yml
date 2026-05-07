@@ -5,29 +5,42 @@ on:
     tags:
       - 'v*'
 
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+# Default to read-only; the publish job opts into the extra scopes it needs.
+permissions:
+  contents: read
 
-    permissions:
-      contents: write  # Required for creating GitHub releases
-      id-token: write  # Required for npm provenance
+# Two tag pushes for the same version should never race; serialize.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Pre-publish gate: every check we run on master in ci.yml plus a smoke
+  # pack-and-install. Split out from the publish job below so the publish
+  # job has a minimal blast radius (only it needs id-token + contents:
+  # write).
+  pre-publish-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Validate the package against the full supported Node range. The
+    # publish job below pins Node 24 for OIDC reasons, but a tagged
+    # release should not ship if it cannot lint/typecheck/test on the
+    # lower bound declared in `engines.node` (>=22.13.0).
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22.x, 24.x]
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
 
-    - name: Setup Node.js
+    - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v6
       with:
-        node-version: '24'
-        registry-url: 'https://registry.npmjs.org'
-        # Cache disabled intentionally: ensure clean install before publishing.
-        package-manager-cache: false
-
-    - name: Print node/npm versions
-      run: node --version && npm --version
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
 
     - name: Install dependencies
       run: npm ci
@@ -35,7 +48,15 @@ jobs:
     - name: Run linter
       run: npm run lint
 
-    - name: Run tests
+    - name: Run typecheck
+      run: npm run typecheck
+
+    # Mirror the audit gate from ci.yml so a published tag cannot ship
+    # with high/critical advisories on production deps.
+    - name: Audit production dependencies
+      run: npm audit --omit=dev --audit-level=high
+
+    - name: Run unit tests
       run: npm test
 
     - name: Build project
@@ -45,9 +66,69 @@ jobs:
       run: |
         echo "Package contents:"
         npm pack --dry-run
-        echo ""
-        echo "Package verification complete"
 
+    - name: Smoke pack-and-install
+      # Build a real tarball, install it into a clean throwaway project, and
+      # exercise the bin entry. Catches issues that `npm pack --dry-run` can't:
+      # missing files in the `files` allow-list, broken shebang, missing
+      # runtime dependencies, wrong `bin` path. Tarball is discarded — the
+      # actual publish below repacks from source.
+      shell: bash
+      run: |
+        set -euo pipefail
+        PACKAGE_TARBALL="$(npm pack --silent | tail -n 1)"
+        echo "Built tarball: ${PACKAGE_TARBALL}"
+        SMOKE_DIR="$(mktemp -d)"
+        pushd "${SMOKE_DIR}" > /dev/null
+        npm init -y > /dev/null
+        npm install "${GITHUB_WORKSPACE}/${PACKAGE_TARBALL}" --no-save
+        npx --no-install youtrack-mcp --version
+        popd > /dev/null
+        rm -rf "${SMOKE_DIR}" "${PACKAGE_TARBALL}"
+        echo "Smoke install OK"
+
+  publish:
+    needs: pre-publish-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write  # Required for creating GitHub releases
+      id-token: write  # Required for npm Trusted Publishing (OIDC) + provenance
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    # Node 24 ships with npm >= 11.5.1, which is the minimum version that
+    # supports Trusted Publishing (OIDC) on the npm registry. Node 22's
+    # bundled npm is 10.x — too old. The build/test matrix in ci.yml stays
+    # on 22.x/24.x so we still validate the package against the lower
+    # bound in `engines.node`.
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '24'
+        registry-url: 'https://registry.npmjs.org'
+        # Per npm's Trusted Publishing docs, disable the package-manager
+        # cache here — it interferes with the OIDC handshake.
+        package-manager-cache: false
+
+    - name: Print node/npm versions
+      run: node --version && npm --version
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build project
+      run: npm run build
+
+    # Authentication uses npm Trusted Publishing (OIDC). The id-token
+    # GitHub Actions issues is exchanged for a short-lived registry
+    # token via the Trusted Publisher entry on
+    # https://www.npmjs.com/package/@vitalyostanin/youtrack-mcp/access
+    # (GitHub Actions, repo VitalyOstanin/youtrack-mcp, workflow
+    # `publish.yml`). No NPM_TOKEN secret is needed.
     - name: Publish to npm
       run: npm publish --provenance --access public
 
@@ -57,11 +138,9 @@ jobs:
       run: |
         gh release create ${{ github.ref_name }} \
           --title "Release ${{ github.ref_name }}" \
-          --notes "New release of YouTrack MCP Server
+          --notes "Release of @vitalyostanin/youtrack-mcp ${{ github.ref_name }}.
 
-        **Package**: \`@vitalyostanin/youtrack-mcp@${{ github.ref_name }}\`
-
-        Install with:
+        Install:
         \`\`\`bash
         npm install @vitalyostanin/youtrack-mcp@${{ github.ref_name }}
         \`\`\`

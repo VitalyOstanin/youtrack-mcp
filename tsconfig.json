@@ -2,7 +2,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "moduleResolution": "bundler",
-    "outDir": "dist",
+    "noEmit": true,
     "rootDir": "."
   },
   "include": [
@@ -11,6 +11,7 @@
   ],
   "exclude": [
     "dist",
-    "node_modules"
+    "node_modules",
+    "coverage"
   ]
 }

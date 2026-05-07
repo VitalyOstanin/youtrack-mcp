@@ -2,19 +2,18 @@
   "name": "@vitalyostanin/youtrack-mcp",
   "version": "0.13.1",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "postbuild": "chmod +x dist/index.js",
-    "dev": "tsc -p tsconfig.json --watch",
+    "build": "tsc -p tsconfig.build.json",
+    "postbuild": "chmod +x dist/index.js && cp package.json dist/package.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
     "start": "node dist/index.js",
-    "dev:watch": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint . --cache --cache-location node_modules/.cache/eslint/",
     "lint:fix": "eslint . --fix --cache --cache-location node_modules/.cache/eslint/",
-    "format": "eslint . --fix --cache --cache-location node_modules/.cache/eslint/",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "format": "npm run --silent lint:fix",
+    "test": "timeout 600 vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run lint && npm test && npm run build"
+    "test:coverage": "timeout 600 vitest run --coverage",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm audit --omit=dev --audit-level=high && npm run build"
   },
   "keywords": [
     "mcp",
@@ -31,8 +30,10 @@
   "description": "MCP server for comprehensive YouTrack integration: issues, work items with reports, user activity search, knowledge base, projects and users",
   "type": "module",
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.13.0",
+    "npm": ">=10.0.0"
   },
+  "packageManager": "npm@11.12.1",
   "bin": {
     "youtrack-mcp": "dist/index.js"
   },
@@ -49,7 +50,8 @@
     "dist/**/*.d.ts",
     "dist/**/*.json",
     "README.md",
-    "README-ru.md"
+    "README-ru.md",
+    "LICENSE"
   ],
   "publishConfig": {
     "access": "public"
@@ -75,7 +77,6 @@
     "nock": "^14.0.14",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2",
-    "vitest": "^4.1.5",
-    "zod-to-json-schema": "^3.25.2"
+    "vitest": "^4.1.5"
   }
 }

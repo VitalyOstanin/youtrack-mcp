@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `LICENSE` (MIT) file in repository root.
+- `tsconfig.build.json` so production builds emit only `src/` + `index.ts` to `dist/` and exclude tests.
+- `--version` / `-v` CLI flag in `index.ts` so smoke tests and humans can verify the installed binary without running the stdio server.
+
+### Changed
+- Reworked `prepublishOnly` to run lint, typecheck, tests, audit, and build (was: lint + test + build).
+- Reworked CI: added `test:coverage` step with Codecov upload (single matrix entry), separate `audit` job, kept Node 22.x + 24.x matrix and concurrency cancellation.
+- Reworked publish: split into `pre-publish-checks` (lint/typecheck/audit/test/build/smoke) and `publish` jobs, OIDC trusted publishing remains the auth path, added smoke pack-and-install of the real tarball before publishing.
+- Aligned `.github/dependabot.yml` with the other MCP repos: weekly Mon 06:00 Europe/Moscow, `versioning-strategy: increase`, grouped `types`/`eslint`/`vitest`, commit prefix `chore` for npm and `ci` for GitHub Actions.
+- Pinned `packageManager` to `npm@11.12.1` and added `engines.npm >=10.0.0` for parity with the rest of the suite.
+- `postbuild` now copies `package.json` to `dist/package.json` so `--version` reads it from the published tarball.
+
+### Removed
+- Unused `zod-to-json-schema` devDependency.
+- Redundant `dev:watch` script (duplicate of `dev`).
+
 ## [0.13.1] - 2026-05-06
 
 ### Fixed
