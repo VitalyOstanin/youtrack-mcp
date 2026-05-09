@@ -9,6 +9,8 @@ import {
   customFieldIdSchema,
   projectIdSchema,
   userLoginSchema,
+  yqlIdentifierSchema,
+  yqlQuerySchema,
 } from "../validators.js";
 
 describe("issueIdSchema", () => {
@@ -82,5 +84,48 @@ describe("userLoginSchema", () => {
   it("rejects spaces and slashes", () => {
     expect(() => userLoginSchema.parse("john doe")).toThrow();
     expect(() => userLoginSchema.parse("a/b")).toThrow();
+  });
+});
+
+describe("yqlIdentifierSchema", () => {
+  it("accepts plain values, including spaces and unicode", () => {
+    expect(yqlIdentifierSchema.parse("Open")).toBe("Open");
+    expect(yqlIdentifierSchema.parse("In Progress")).toBe("In Progress");
+    expect(yqlIdentifierSchema.parse("Кор")).toBe("Кор");
+  });
+
+  it("rejects { and } so callers can safely wrap as {value}", () => {
+    expect(() => yqlIdentifierSchema.parse("foo}")).toThrow();
+    expect(() => yqlIdentifierSchema.parse("{foo")).toThrow();
+  });
+
+  it("rejects control characters and empty strings", () => {
+    expect(() => yqlIdentifierSchema.parse("a\x00b")).toThrow();
+    expect(() => yqlIdentifierSchema.parse("a\nb")).toThrow();
+    expect(() => yqlIdentifierSchema.parse("")).toThrow();
+  });
+});
+
+describe("yqlQuerySchema", () => {
+  it("accepts free-text YQL with multi-word value braces", () => {
+    expect(yqlQuerySchema.parse("tag: {Technical debt}")).toBe("tag: {Technical debt}");
+    expect(yqlQuerySchema.parse("State: {In Progress} #Unresolved")).toBe(
+      "State: {In Progress} #Unresolved",
+    );
+    expect(
+      yqlQuerySchema.parse(
+        "tag: {Technical debt}, {Technical task} State: -Done",
+      ),
+    ).toBe("tag: {Technical debt}, {Technical task} State: -Done");
+  });
+
+  it("accepts empty queries", () => {
+    expect(yqlQuerySchema.parse("")).toBe("");
+  });
+
+  it("rejects control characters", () => {
+    expect(() => yqlQuerySchema.parse("foo\x00bar")).toThrow();
+    expect(() => yqlQuerySchema.parse("foo\x07bar")).toThrow();
+    expect(() => yqlQuerySchema.parse("foo\x7Fbar")).toThrow();
   });
 });

@@ -55,12 +55,19 @@ export const articleIdSchema = z
   .regex(internalIdRegex, "Article id must be alphanumeric with . _ -");
 
 /**
- * Reject `{`, `}` and ASCII control characters (NUL..US, DEL) in YQL inputs.
- * This is the single source of truth for YQL injection defense across query
- * fragments, field values and identifiers.
+ * Reject `{`, `}` and ASCII control characters in values that are interpolated
+ * inside a `{...}` wrapper. Used by yqlIdentifierSchema.
  */
 // eslint-disable-next-line no-control-regex
-const YQL_FORBIDDEN = /[{}\x00-\x1F\x7F]/;
+const YQL_IDENTIFIER_FORBIDDEN = /[{}\x00-\x1F\x7F]/;
+/**
+ * Reject only ASCII control characters in free-text YQL queries. `{` and `}`
+ * are part of the YouTrack Query Language — they enclose attribute values
+ * that contain spaces (e.g. `tag: {Technical debt}`, `State: {In Progress}`).
+ * See: https://www.jetbrains.com/help/youtrack/server/search-and-command-attributes.html
+ */
+// eslint-disable-next-line no-control-regex
+const YQL_QUERY_FORBIDDEN = /[\x00-\x1F\x7F]/;
 
 /**
  * YQL identifier value used inside `{...}` wrappers (state/type names,
@@ -71,17 +78,20 @@ const YQL_FORBIDDEN = /[{}\x00-\x1F\x7F]/;
 export const yqlIdentifierSchema = z
   .string()
   .min(1)
-  .refine((value) => !YQL_FORBIDDEN.test(value), {
+  .refine((value) => !YQL_IDENTIFIER_FORBIDDEN.test(value), {
     message: "YQL identifier must not contain { } or control characters",
   });
 
 /**
- * Free-text YQL fragment used as a search query. Forbids `{` and `}` so the
- * value cannot break out of the surrounding `({...})` wrapping or smuggle a
- * literal field-value clause.
+ * Free-text YQL fragment used as a search query. Allows `{` and `}` because
+ * they are valid YQL syntax for multi-word attribute values. Only ASCII
+ * control characters are rejected.
+ *
+ * Callers MUST NOT interpolate this value inside another `{...}` wrapper —
+ * use yqlIdentifierSchema for that.
  */
 export const yqlQuerySchema = z
   .string()
-  .refine((value) => !YQL_FORBIDDEN.test(value), {
-    message: "Search query must not contain { } or control characters",
+  .refine((value) => !YQL_QUERY_FORBIDDEN.test(value), {
+    message: "Search query must not contain control characters",
   });
