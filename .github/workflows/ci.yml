@@ -63,7 +63,7 @@ jobs:
       # without changing what we measure.
       if: matrix.node-version == '22.x'
       # codecov/codecov-action pinned to v6.0.0
-      uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
+      uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354
       with:
         # OIDC removes the need for a long-lived CODECOV_TOKEN secret —
         # the action exchanges a short-lived GitHub-issued JWT for an
