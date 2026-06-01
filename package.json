@@ -65,7 +65,7 @@
     "axios": "^1.16.0",
     "form-data": "^4.0.1",
     "luxon": "^3.5.0",
-    "stream-json": "^2.1.0",
+    "stream-json": "^3.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
