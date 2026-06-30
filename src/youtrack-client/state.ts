@@ -2,6 +2,8 @@ import {
   YOUTRACK_ENTITY_TYPE,
   type IssueChangeStateInput,
   type IssueChangeStatePayload,
+  type IssueChangeTypeInput,
+  type IssueChangeTypePayload,
   type IssueError,
   type IssueStatePayload,
   type YoutrackCustomField,
@@ -22,6 +24,7 @@ export interface IssueStateMixin {
   getIssuesState: (issueIds: string[]) => Promise<{ states: IssueStatePayload[]; errors?: IssueError[] }>;
   getIssueCustomFields: (issueId: string) => Promise<YoutrackCustomField[]>;
   changeIssueState: (input: IssueChangeStateInput) => Promise<IssueChangeStatePayload>;
+  changeIssueType: (input: IssueChangeTypeInput) => Promise<IssueChangeTypePayload>;
 }
 
 export function withIssueState<TBase extends Constructor<YoutrackClientBase>>(
@@ -222,6 +225,61 @@ export function withIssueState<TBase extends Constructor<YoutrackClientBase>>(
         }
 
         throw new YoutrackClientError(`Unsupported state field type: ${stateField.$type}`);
+      } catch (error) {
+        throw this.normalizeError(error);
+      }
+    }
+
+    /**
+     * Set the single-enum "Type" custom field (e.g. Bug -> Task -> Feature).
+     *
+     * Uses the same REST path as the StateIssueCustomField branch of
+     * changeIssueState (POST /api/issues/{id} with a customFields payload).
+     * YouTrack resolves the value by either its canonical name (e.g. "Feature")
+     * or its localized name (e.g. "Fonctionnalité"); unknown names fail with
+     * 400/422 and are surfaced with a descriptive error.
+     */
+    async changeIssueType(input: IssueChangeTypeInput): Promise<IssueChangeTypePayload> {
+      const resolvedId = this.resolveIssueId(input.issueId);
+
+      try {
+        const customFields = await this.getIssueCustomFields(resolvedId);
+        const typeField = customFields.find((field) => field.name === "Type");
+        const previousType = typeField?.value?.presentation ?? typeField?.value?.name ?? undefined;
+        const body = {
+          customFields: [
+            {
+              name: "Type",
+              $type: YOUTRACK_ENTITY_TYPE.singleEnumField,
+              value: {
+                name: input.typeName,
+                $type: YOUTRACK_ENTITY_TYPE.enumBundleElement,
+              },
+            },
+          ],
+        };
+
+        try {
+          await this.http.post(`/api/issues/${encId(resolvedId)}`, body);
+        } catch (error) {
+          const normalized = this.normalizeError(error);
+
+          if (normalized.status === 400 || normalized.status === 422) {
+            throw new YoutrackClientError(
+              `Failed to set type to '${input.typeName}'. The type may not exist for this project. Original error: ${normalized.message}`,
+              normalized.status,
+              normalized.details,
+            );
+          }
+
+          throw normalized;
+        }
+
+        return {
+          issueId: resolvedId,
+          previousType,
+          newType: input.typeName,
+        };
       } catch (error) {
         throw this.normalizeError(error);
       }

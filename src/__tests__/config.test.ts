@@ -49,6 +49,20 @@ describe("loadConfig", () => {
     expect(() => loadConfig()).toThrow();
   });
 
+  it("defaults silentCommands to false", () => {
+    const cfg = loadConfig();
+
+    expect(cfg.silentCommands).toBe(false);
+  });
+
+  it("enables silentCommands when YOUTRACK_SILENT_COMMANDS=true", () => {
+    process.env.YOUTRACK_SILENT_COMMANDS = "true";
+
+    const cfg = loadConfig();
+
+    expect(cfg.silentCommands).toBe(true);
+  });
+
   it("redacts token via enrichConfigWithRedaction", () => {
     const cfg = loadConfig();
     const redacted = enrichConfigWithRedaction(cfg);
