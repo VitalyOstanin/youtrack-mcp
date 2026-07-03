@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.14.1] - 2026-07-03
+
+### Changed
+- Dependency maintenance: bumped runtime and dev dependencies to their latest compatible versions (`axios` 1.18.1, `form-data` 4.0.6, `luxon` 3.7.2, `stream-json` 3.4.0, plus `eslint` / `vitest` / `typescript-eslint` / `@types/node` 26). No change to the server's own API or behavior.
+- CI: bumped `actions/checkout` to v7 and `codecov/codecov-action` to v7.
+
 ## [0.14.0] - 2026-07-03
 
 ### Added
