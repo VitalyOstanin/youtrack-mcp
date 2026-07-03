@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.3] - 2026-07-03
+
+### Fixed
+- `issues_search` now accepts `{` and `}` in the free-text `query` parameter. Curly braces are valid YouTrack Query Language for enclosing multi-word attribute values (`tag: {Technical debt}`, `State: {In Progress}`), and the YouTrack web UI emits them on autocomplete. The shared `YQL_FORBIDDEN` validator was split in two: `yqlIdentifierSchema` (state/type/project filter args, interpolated inside a `{...}` wrapper) still rejects braces, while `yqlQuerySchema` (the whole-expression free-text query, never wrapped) now rejects only ASCII control characters. Thanks to @duffpod (#5).
+
+### Changed
+- CI: switched Codecov upload to OIDC (dropped `CODECOV_TOKEN`).
+
 ## [0.13.2] - 2026-05-07
 
 ### Added
