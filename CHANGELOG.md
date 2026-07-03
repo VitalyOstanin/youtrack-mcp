@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `issue_change_type` tool — set the issue Type custom field by canonical or localized value name (e.g. `Bug` -> `Task` -> `Feature`/`Fonctionnalité`). Returns previous and new type; unknown types fail with a descriptive 400 error.
+- `YOUTRACK_SILENT_COMMANDS` environment variable (boolean, default `false`) controlling whether command-based link create/delete fallbacks apply silently.
+
+### Changed
+- **Command-based link create/delete now apply non-silently by default** (was: always silent). Silent apply requires the YouTrack "Apply Commands Silently" permission; accounts without it received HTTP 403, so `issue_link_add` / `issue_link_delete` failed whenever the REST `/api/issues/{id}/links` endpoint was unavailable (e.g. on-prem instances returning 405). Set `YOUTRACK_SILENT_COMMANDS=true` to restore the previous silent behavior. Non-silent apply sends the usual YouTrack notifications.
+
 ## [0.13.3] - 2026-07-03
 
 ### Fixed

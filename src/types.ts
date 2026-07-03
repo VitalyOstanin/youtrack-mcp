@@ -16,7 +16,9 @@ export const YOUTRACK_ENTITY_TYPE = {
   stateField: "StateIssueCustomField",
   stateMachineField: "StateMachineIssueCustomField",
   singleUserField: "SingleUserIssueCustomField",
+  singleEnumField: "SingleEnumIssueCustomField",
   stateBundleElement: "StateBundleElement",
+  enumBundleElement: "EnumBundleElement",
   event: "Event",
 } as const;
 
@@ -45,6 +47,13 @@ export interface YoutrackConfig {
    * `outputDir` when not provided. Files outside this directory are rejected.
    */
   uploadDir?: string | undefined;
+  /**
+   * Whether command-based fallbacks (link create/delete via `/api/commands`)
+   * apply silently. Silent apply requires the YouTrack "Apply Commands
+   * Silently" permission; accounts without it get HTTP 403. Defaults to false
+   * so link operations work for any account that can run commands.
+   */
+  silentCommands?: boolean | undefined;
 }
 
 export interface DurationValue {
@@ -763,6 +772,17 @@ export interface IssueChangeStatePayload {
   previousState?: string | undefined;
   newState: string;
   transitionUsed?: string | undefined;
+}
+
+export interface IssueChangeTypeInput {
+  issueId: string;
+  typeName: string;
+}
+
+export interface IssueChangeTypePayload {
+  issueId: string;
+  previousType?: string | undefined;
+  newType: string;
 }
 
 // Mapped activity item with ISO datetime strings

@@ -13,6 +13,7 @@ const configSchema = z.object({
   YOUTRACK_DEFAULT_PROJECT: z.string().optional(),
   YOUTRACK_OUTPUT_DIR: z.string().optional(),
   YOUTRACK_UPLOAD_DIR: z.string().optional(),
+  YOUTRACK_SILENT_COMMANDS: z.string().optional(),
 });
 const SETUP_DOC_URL = "https://github.com/VitalyOstanin/youtrack-mcp#requirements";
 
@@ -62,6 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): YoutrackConfig
     defaultProject: parsed.data.YOUTRACK_DEFAULT_PROJECT,
     outputDir,
     uploadDir,
+    silentCommands: parsed.data.YOUTRACK_SILENT_COMMANDS === "true",
   };
 }
 

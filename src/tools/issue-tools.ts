@@ -131,6 +131,16 @@ const issueChangeStateArgs = {
     .describe("Target state name (e.g., 'In Progress', 'Open', 'Fixed', 'Verified'). Case-insensitive."),
 };
 const issueChangeStateSchema = z.object(issueChangeStateArgs);
+const issueChangeTypeArgs = {
+  issueId: issueIdValidator.describe("Issue code (e.g., BC-9205)"),
+  typeName: z
+    .string()
+    .min(1)
+    .describe(
+      "Target Type value, by canonical or localized name (e.g., 'Bug', 'Task', 'Feature', 'Fonctionnalité').",
+    ),
+};
+const issueChangeTypeSchema = z.object(issueChangeTypeArgs);
 const issuesCountArgs = {
   projectIds: z.array(yqlIdentifierSchema).optional().describe("Filter by project IDs or short names"),
   createdAfter: dateInputSchema.optional().describe("Filter by creation date (YYYY-MM-DD or timestamp)"),
@@ -517,6 +527,29 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
       client.changeIssueState({
         issueId: payload.issueId,
         stateName: payload.stateName,
+      }),
+    ),
+  );
+
+  server.registerTool(
+    "issue_change_type",
+    {
+      description: [
+        "Set the issue Type custom field (e.g., Bug -> Task -> Feature).",
+        "Use cases:",
+        "- Reclassify a misfiled issue (Bug -> Task) from automation.",
+        "- Promote a request to a Feature/Fonctionnalité.",
+        "Parameter examples: see schema descriptions.",
+        "Response fields: issueId, previousType, newType.",
+        "Limitations: accepts the canonical or localized value name; unknown types fail with a descriptive error. Re-fetch via issue_details to verify.",
+      ].join("\n"),
+      inputSchema: issueChangeTypeArgs,
+      annotations: WRITE_IDEMPOTENT_ANNOTATIONS,
+    },
+    createToolHandler(issueChangeTypeSchema, async (payload) =>
+      client.changeIssueType({
+        issueId: payload.issueId,
+        typeName: payload.typeName,
       }),
     ),
   );

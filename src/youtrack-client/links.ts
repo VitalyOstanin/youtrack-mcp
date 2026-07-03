@@ -233,7 +233,10 @@ export function withIssueLinks<TBase extends Constructor<YoutrackClientBase>>(
       const commandBody = {
         query: commandQuery,
         issues: [{ idReadable: sourceId }],
-        silent: true,
+        // Silent apply requires the "Apply Commands Silently" permission, which
+        // many accounts lack (HTTP 403). Gated behind config (YOUTRACK_SILENT_COMMANDS),
+        // defaulting to a normal, non-silent apply.
+        silent: this.config.silentCommands ?? false,
       };
 
       try {
@@ -384,7 +387,8 @@ export function withIssueLinks<TBase extends Constructor<YoutrackClientBase>>(
         const commandBody = {
           query: commandQuery,
           issues: [{ idReadable: input.issueId }],
-          silent: true,
+          // See note in addIssueLink: gated behind config, defaults to non-silent.
+          silent: this.config.silentCommands ?? false,
         };
 
         await this.http.post("/api/commands", commandBody);
