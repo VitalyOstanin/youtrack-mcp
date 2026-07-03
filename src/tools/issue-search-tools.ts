@@ -15,7 +15,7 @@ export const issuesSearchArgs = {
   query: yqlQuerySchema
     .optional()
     .describe(
-      "Search string for issues (e.g., 'login error'). If not provided or empty, all issues will be returned. You can also use YouTrack Query Language (e.g., 'State: Open', 'Type: Bug')",
+      "Search string for issues (e.g., 'login error'). If not provided or empty, all issues will be returned. You can use YouTrack Query Language, including {curly braces} to enclose multi-word attribute values (e.g., 'State: {In Progress}', 'tag: {Technical debt}', 'Type: Bug').",
     ),
   limit: z.number().int().positive().max(200).default(50).describe("Max results per page"),
   skip: z.number().int().nonnegative().default(0).describe("Offset for pagination"),
