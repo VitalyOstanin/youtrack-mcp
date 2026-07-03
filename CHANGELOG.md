@@ -8,6 +8,9 @@
 ### Changed
 - CI: switched Codecov upload to OIDC (dropped `CODECOV_TOKEN`).
 
+### Security
+- Bumped dependencies to patched versions to clear high-severity npm advisories: `form-data` 4.0.5 → 4.0.6 (CRLF injection, GHSA-hmw2-7cc7-3qxx), `hono` 4.12.18 → 4.12.27, `qs` → 6.15.3. Only `package-lock.json` changed (all patched versions fall within existing semver ranges); the advisories affect HTTP-transport code paths not exercised by this stdio server.
+
 ## [0.13.2] - 2026-05-07
 
 ### Added
