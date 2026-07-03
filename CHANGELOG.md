@@ -9,6 +9,17 @@
 ### Changed
 - **Command-based link create/delete now apply non-silently by default** (was: always silent). Silent apply requires the YouTrack "Apply Commands Silently" permission; accounts without it received HTTP 403, so `issue_link_add` / `issue_link_delete` failed whenever the REST `/api/issues/{id}/links` endpoint was unavailable (e.g. on-prem instances returning 405). Set `YOUTRACK_SILENT_COMMANDS=true` to restore the previous silent behavior. Non-silent apply sends the usual YouTrack notifications.
 
+## [0.13.3] - 2026-07-03
+
+### Fixed
+- `issues_search` now accepts `{` and `}` in the free-text `query` parameter. Curly braces are valid YouTrack Query Language for enclosing multi-word attribute values (`tag: {Technical debt}`, `State: {In Progress}`), and the YouTrack web UI emits them on autocomplete. The shared `YQL_FORBIDDEN` validator was split in two: `yqlIdentifierSchema` (state/type/project filter args, interpolated inside a `{...}` wrapper) still rejects braces, while `yqlQuerySchema` (the whole-expression free-text query, never wrapped) now rejects only ASCII control characters. Thanks to @duffpod (#5).
+
+### Changed
+- CI: switched Codecov upload to OIDC (dropped `CODECOV_TOKEN`).
+
+### Security
+- Bumped dependencies to patched versions to clear high-severity npm advisories: `form-data` 4.0.5 → 4.0.6 (CRLF injection, GHSA-hmw2-7cc7-3qxx), `hono` 4.12.18 → 4.12.27, `qs` → 6.15.3. Only `package-lock.json` changed (all patched versions fall within existing semver ranges); the advisories affect HTTP-transport code paths not exercised by this stdio server.
+
 ## [0.13.2] - 2026-05-07
 
 ### Added
