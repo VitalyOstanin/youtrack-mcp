@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.14.0] - 2026-07-03
 
 ### Added
 - `issue_change_type` tool — set the issue Type custom field by canonical or localized value name (e.g. `Bug` -> `Task` -> `Feature`/`Fonctionnalité`). Returns previous and new type; unknown types fail with a descriptive 400 error.
