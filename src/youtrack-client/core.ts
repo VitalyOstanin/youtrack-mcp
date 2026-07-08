@@ -163,22 +163,16 @@ export function withIssueCore<
 
       if (input.parentIssueId) {
         resolvedParentIdReadable = this.resolveIssueId(input.parentIssueId);
+      }
 
-        const customFields = await this.resolveCreateCustomFields(
-          projectIdentifier,
-          input,
-          resolvedParentIdReadable,
-        );
+      const customFields = await this.resolveCreateCustomFields(
+        projectIdentifier,
+        input,
+        resolvedParentIdReadable,
+      );
 
-        if (customFields) {
-          body.customFields = customFields;
-        }
-      } else {
-        const customFields = await this.resolveCreateCustomFields(projectIdentifier, input);
-
-        if (customFields) {
-          body.customFields = customFields;
-        }
+      if (customFields) {
+        body.customFields = customFields;
       }
 
       try {
@@ -250,10 +244,11 @@ export function withIssueCore<
               return false;
             }
 
-            const sourceId = link.sourceId ?? currentIssue.idReadable;
+            const sourceId = this.resolveIssueId(link.sourceId ?? currentIssue.idReadable);
+            const targetId = this.resolveIssueId(link.targetId);
 
             return (
-              link.targetId === resolvedParentIdReadable ||
+              targetId === resolvedParentIdReadable ||
               sourceId === resolvedParentIdReadable
             );
           });

@@ -127,4 +127,41 @@ describe("createIssue custom fields", () => {
     expect(result.issue.idReadable).toBe("IOS-2");
     expect(scope.isDone()).toBe(true);
   });
+
+  it("skips auto Subtask link when caller already provided one with normalized parent id", async () => {
+    const scope = nock(baseUrl)
+      .post("/api/issues")
+      .query(true)
+      .reply(200, {
+        id: "92-3",
+        idReadable: "IOS-3",
+        summary: "child",
+        project: { id: "77-89", shortName: "IOS" },
+      })
+      .post("/api/issues/IOS-3/links")
+      .query(true)
+      .reply(200, {
+        id: "61-3s",
+        direction: "OUTWARD",
+        linkType: { name: "Subtask", id: "61-3", directed: true },
+        issues: [{ idReadable: "IOS-95664", summary: "parent" }],
+      });
+    const client = new YoutrackClient(baseConfig);
+    const result = await client.createIssue({
+      projectId: "77-89",
+      summary: "child",
+      parentIssueId: "IOS-95664",
+      inheritCustomFieldsFromParent: false,
+      links: [
+        {
+          linkType: "Subtask",
+          targetId: "95664",
+          direction: "inbound",
+        },
+      ],
+    });
+
+    expect(result.issue.idReadable).toBe("IOS-3");
+    expect(scope.isDone()).toBe(true);
+  });
 });

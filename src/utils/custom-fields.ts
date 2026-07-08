@@ -1,3 +1,4 @@
+import { YoutrackClientError } from "../youtrack-client/base.js";
 import { YOUTRACK_ENTITY_TYPE, type YoutrackCustomField, type YoutrackCustomFieldValue } from "../types.js";
 
 export interface CustomFieldInput {
@@ -25,10 +26,10 @@ const PROJECT_TO_ISSUE_FIELD_TYPE: Record<string, string> = {
   EnumProjectCustomField: YOUTRACK_ENTITY_TYPE.singleEnumField,
   StateProjectCustomField: YOUTRACK_ENTITY_TYPE.stateField,
   UserProjectCustomField: YOUTRACK_ENTITY_TYPE.singleUserField,
-  TextProjectCustomField: "TextIssueCustomField",
-  PeriodProjectCustomField: "PeriodIssueCustomField",
-  DateProjectCustomField: "DateIssueCustomField",
-  SimpleProjectCustomField: "SimpleIssueCustomField",
+  TextProjectCustomField: YOUTRACK_ENTITY_TYPE.textField,
+  PeriodProjectCustomField: YOUTRACK_ENTITY_TYPE.periodField,
+  DateProjectCustomField: YOUTRACK_ENTITY_TYPE.dateField,
+  SimpleProjectCustomField: YOUTRACK_ENTITY_TYPE.simpleField,
 };
 
 export function normalizeCustomFieldValues(value: string | string[]): string[] {
@@ -129,7 +130,25 @@ export function resolveIssueFieldTypeFromProjectDefinition(definition: {
     return YOUTRACK_ENTITY_TYPE.stateField;
   }
 
-  return YOUTRACK_ENTITY_TYPE.singleEnumField;
+  if (valueType === "integer" || valueType === "float") {
+    return YOUTRACK_ENTITY_TYPE.simpleField;
+  }
+
+  if (valueType === "period") {
+    return YOUTRACK_ENTITY_TYPE.periodField;
+  }
+
+  if (valueType === "date" || valueType === "date and time") {
+    return YOUTRACK_ENTITY_TYPE.dateField;
+  }
+
+  if (valueType === "text" || valueType === "string") {
+    return YOUTRACK_ENTITY_TYPE.textField;
+  }
+
+  throw new YoutrackClientError(
+    `Unable to resolve issue field type for project custom field (projectType: ${projectType ?? "unknown"}, valueType: ${valueType ?? "unknown"})`,
+  );
 }
 
 export function mapProjectCustomFieldDefinitions(
@@ -168,7 +187,7 @@ export function buildIssueCustomFieldPayload(
   values: string[],
 ): Record<string, unknown> {
   if (values.length === 0) {
-    throw new Error(`Custom field '${fieldName}' requires at least one value`);
+    throw new YoutrackClientError(`Custom field '${fieldName}' requires at least one value`);
   }
 
   if (issueFieldType === YOUTRACK_ENTITY_TYPE.multiEnumField) {
@@ -195,6 +214,62 @@ export function buildIssueCustomFieldPayload(
         name: values[0],
         $type: YOUTRACK_ENTITY_TYPE.stateBundleElement,
       },
+    };
+  }
+
+  if (issueFieldType === YOUTRACK_ENTITY_TYPE.textField) {
+    return {
+      name: fieldName,
+      $type: issueFieldType,
+      value: values[0],
+    };
+  }
+
+  if (issueFieldType === YOUTRACK_ENTITY_TYPE.simpleField) {
+    const numericValue = Number(values[0]);
+
+    if (!Number.isFinite(numericValue)) {
+      throw new YoutrackClientError(
+        `Custom field '${fieldName}' requires a numeric value, got '${values[0]}'`,
+      );
+    }
+
+    return {
+      name: fieldName,
+      $type: issueFieldType,
+      value: numericValue,
+    };
+  }
+
+  if (issueFieldType === YOUTRACK_ENTITY_TYPE.periodField) {
+    const minutes = Number(values[0]);
+
+    if (!Number.isFinite(minutes)) {
+      throw new YoutrackClientError(
+        `Custom field '${fieldName}' requires a period value in minutes, got '${values[0]}'`,
+      );
+    }
+
+    return {
+      name: fieldName,
+      $type: issueFieldType,
+      value: { minutes },
+    };
+  }
+
+  if (issueFieldType === YOUTRACK_ENTITY_TYPE.dateField) {
+    const timestamp = Number(values[0]);
+
+    if (!Number.isFinite(timestamp)) {
+      throw new YoutrackClientError(
+        `Custom field '${fieldName}' requires a date value as unix timestamp (ms), got '${values[0]}'`,
+      );
+    }
+
+    return {
+      name: fieldName,
+      $type: issueFieldType,
+      value: timestamp,
     };
   }
 
