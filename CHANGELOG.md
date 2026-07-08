@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.15.0] - 2026-07-08
 
 ### Added
 - `issue_create` now accepts `customFields[]` (`name` + `value`) for required project fields such as `Stream`.
@@ -473,10 +473,21 @@
 - Batch operations for work items
 - Comprehensive reporting tools for work items
 
+[0.15.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.14.1...v0.15.0
+[0.14.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.14.0...v0.14.1
+[0.14.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.13.3...v0.14.0
+[0.13.3]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.13.2...v0.13.3
+[0.13.2]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.13.1...v0.13.2
+[0.13.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.13.0...v0.13.1
+[0.13.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.10.2...v0.11.0
 [0.10.2]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.4...v0.8.0
+[0.7.4]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/VitalyOstanin/youtrack-mcp/compare/v0.7.0...v0.7.1
