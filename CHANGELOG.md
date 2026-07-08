@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `issue_create` now accepts `customFields[]` (`name` + `value`) for required project fields such as `Stream`.
+- `issue_create` inherits parent custom fields by default when `parentIssueId` is set (`inheritCustomFieldsFromParent`, default `true`); explicit `customFields` override inherited values. `State` and `Assignee` are not copied.
+- `issue_create` with `parentIssueId` now creates a directed `Subtask` link to the parent (instead of setting the issue `parent` field, which does not surface subtasks in some YouTrack projects).
+
 ## [0.14.1] - 2026-07-03
 
 ### Changed
