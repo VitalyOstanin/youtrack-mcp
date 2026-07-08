@@ -1,5 +1,12 @@
 import { mapIssue, mapIssueDetails } from "../utils/mappers.js";
 import {
+  buildIssueCustomFieldsPayload,
+  extractCustomFieldInputsFromParent,
+  mapProjectCustomFieldDefinitions,
+  mergeCustomFieldInputs,
+  type CustomFieldInput,
+} from "../utils/custom-fields.js";
+import {
   YOUTRACK_ENTITY_TYPE,
   type IssueCreatePayload,
   type IssueDetailsPayload,
@@ -86,6 +93,57 @@ export function withIssueCore<
       return rawIssue;
     }
 
+    async getProjectCustomFieldDefinitions(projectId: string) {
+      try {
+        const response = await this.http.get<
+          Array<{
+            id: string;
+            $type?: string;
+            field?: {
+              name?: string;
+              fieldType?: {
+                valueType?: string;
+                isMultiValue?: boolean;
+              };
+            };
+          }>
+        >(`/api/admin/projects/${encId(projectId)}/customFields`, {
+          params: {
+            fields: "id,$type,field(name,fieldType(valueType,isMultiValue))",
+          },
+        });
+
+        return mapProjectCustomFieldDefinitions(response.data);
+      } catch (error) {
+        throw this.normalizeError(error);
+      }
+    }
+
+    async resolveCreateCustomFields(
+      projectId: string,
+      input: YoutrackIssueCreateInput,
+      parentIssueIdReadable?: string,
+    ): Promise<Array<Record<string, unknown>> | undefined> {
+      let customFieldInputs: CustomFieldInput[] = [...(input.customFields ?? [])];
+      const shouldInherit =
+        input.inheritCustomFieldsFromParent !== false && parentIssueIdReadable !== undefined;
+
+      if (shouldInherit) {
+        const parentIssue = await this.getIssue(parentIssueIdReadable, true);
+        const inherited = extractCustomFieldInputsFromParent(parentIssue.issue.customFields);
+
+        customFieldInputs = mergeCustomFieldInputs(inherited, customFieldInputs);
+      }
+
+      if (customFieldInputs.length === 0) {
+        return undefined;
+      }
+
+      const definitions = await this.getProjectCustomFieldDefinitions(projectId);
+
+      return buildIssueCustomFieldsPayload(customFieldInputs, definitions);
+    }
+
     async createIssue(input: YoutrackIssueCreateInput): Promise<IssueLookupPayload> {
       const projectIdentifier = input.projectId ?? this.defaultProject;
 
@@ -101,18 +159,26 @@ export function withIssueCore<
         project: { id: projectIdentifier },
         ...(input.usesMarkdown !== undefined ? { usesMarkdown: input.usesMarkdown } : {}),
       };
+      let resolvedParentIdReadable: string | undefined;
 
       if (input.parentIssueId) {
-        const resolvedParentIdReadable = this.resolveIssueId(input.parentIssueId);
-        const parentIssue = await this.getIssueRaw(resolvedParentIdReadable);
+        resolvedParentIdReadable = this.resolveIssueId(input.parentIssueId);
 
-        if (!parentIssue.id) {
-          throw new YoutrackClientError(
-            `Parent issue '${resolvedParentIdReadable}' does not expose an internal id required for linking`,
-          );
+        const customFields = await this.resolveCreateCustomFields(
+          projectIdentifier,
+          input,
+          resolvedParentIdReadable,
+        );
+
+        if (customFields) {
+          body.customFields = customFields;
         }
+      } else {
+        const customFields = await this.resolveCreateCustomFields(projectIdentifier, input);
 
-        body.parent = { id: parentIssue.id };
+        if (customFields) {
+          body.customFields = customFields;
+        }
       }
 
       try {
@@ -175,6 +241,34 @@ export function withIssueCore<
               message: `${linkErrors.length} link operation(s) failed; see details`,
               details: linkErrors,
             });
+          }
+        }
+
+        if (resolvedParentIdReadable) {
+          const hasSubtaskLinkToParent = input.links?.some((link) => {
+            if (link.linkType.toLowerCase() !== "subtask") {
+              return false;
+            }
+
+            const sourceId = link.sourceId ?? currentIssue.idReadable;
+
+            return (
+              link.targetId === resolvedParentIdReadable ||
+              sourceId === resolvedParentIdReadable
+            );
+          });
+
+          if (!hasSubtaskLinkToParent) {
+            try {
+              await this.addIssueLink({
+                sourceId: resolvedParentIdReadable,
+                targetId: currentIssue.idReadable,
+                linkType: "Subtask",
+                direction: "inbound",
+              });
+            } catch (error) {
+              partialErrors.push(this.buildPartialError("addSubtaskLink", error));
+            }
           }
         }
 

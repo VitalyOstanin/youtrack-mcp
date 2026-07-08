@@ -17,6 +17,7 @@ export const YOUTRACK_ENTITY_TYPE = {
   stateMachineField: "StateMachineIssueCustomField",
   singleUserField: "SingleUserIssueCustomField",
   singleEnumField: "SingleEnumIssueCustomField",
+  multiEnumField: "MultiEnumIssueCustomField",
   stateBundleElement: "StateBundleElement",
   enumBundleElement: "EnumBundleElement",
   event: "Event",
@@ -102,6 +103,11 @@ export interface IssueCreatePayload extends IssueLookupPayload {
   partialErrors?: PartialOperationError[] | undefined;
 }
 
+export interface YoutrackIssueCreateCustomFieldInput {
+  name: string;
+  value: string | string[];
+}
+
 export interface YoutrackIssueCreateInput {
   projectId?: string | undefined;
   summary: string;
@@ -109,6 +115,8 @@ export interface YoutrackIssueCreateInput {
   parentIssueId?: string | undefined;
   assigneeLogin?: string | undefined;
   stateName?: string | undefined;
+  customFields?: YoutrackIssueCreateCustomFieldInput[] | undefined;
+  inheritCustomFieldsFromParent?: boolean | undefined;
   links?: Array<{
     linkType: string;
     targetId: string;

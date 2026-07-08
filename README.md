@@ -347,7 +347,7 @@ Tools that delete data require an explicit `confirmation: true` literal in their
 | `issues_details` | Detailed information about multiple issues (batch mode, max 50). Brief (default): predefined fields only. Full (`briefOutput=false`): adds `customFields` for each issue | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `issue_comments` | Issue comments with server-side pagination | `issueId` — issue code; `limit` (default 100, max 200), `skip` for pagination; `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
 | `issues_comments` | Comments for multiple issues (batch mode, max 50) | `issueIds[]` — array of issue codes, max 50; `briefOutput` — optional boolean (default `true`); `saveToFile`, `filePath`, `format`, `overwrite` — file storage options |
-| `issue_create` | Create issue | `projectId`, `summary`, optional `description`, `parentIssueId`, `assigneeLogin`, `stateName`, `usesMarkdown`, `links` (array of link objects) |
+| `issue_create` | Create issue | `projectId`, `summary`, optional `description`, `parentIssueId`, `assigneeLogin`, `stateName`, `customFields[]`, `inheritCustomFieldsFromParent`, `usesMarkdown`, `links` (array of link objects) |
 | `issue_update` | Update existing issue | `issueId`, optionally `summary`, `description`, `parentIssueId` (empty string clears parent), `usesMarkdown` |
 | `issue_assign` | Assign issue to user | `issueId`, `assigneeLogin` (login or `me`) |
 | `issue_comment_create` | Add comment to issue | `issueId`, `text` — comment text, optionally `usesMarkdown` |
@@ -454,6 +454,9 @@ Some operations cannot be undone and require an explicit `confirmation: true` li
 **issue_create parameters:**
 
 - `parentIssueId` — resolves against `YOUTRACK_DEFAULT_PROJECT` when no project prefix is provided (e.g., `123` → `BC-123` if default project is `BC`).
+- `customFields[]` — optional custom fields to set at creation time. Each item has `name` and `value` (string or string array for multi-value fields). Project field types are resolved via `/api/admin/projects/{projectId}/customFields`.
+- `inheritCustomFieldsFromParent` — when `true` (default) and `parentIssueId` is provided, copies parent custom fields except `State` and `Assignee`. Explicit `customFields` override inherited values.
+- `parentIssueId` — also creates a `Subtask` link to the parent after the issue is saved (re-fetch with `issue_links` to confirm).
 - `links[]` — optional array describing additional links to create after the issue is saved. Each item supports:
   - `linkType` — name or id of the link type (e.g., `Subtask`, `Relates`).
   - `targetId` — issue id or readable id. Plain numbers are resolved with the default project, matching `resolveIssueId` behaviour.

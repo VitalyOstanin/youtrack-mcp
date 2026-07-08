@@ -59,6 +59,23 @@ const issueCreateArgs = {
   parentIssueId: issueIdValidator.optional().describe("Parent issue ID"),
   assigneeLogin: userLoginSchema.or(z.literal("me")).optional().describe("Assignee login or me"),
   stateName: z.string().optional().describe("Initial state name (case-insensitive)"),
+  customFields: z
+    .array(
+      z.object({
+        name: z.string().min(1).describe("Custom field name (e.g., 'Stream', 'Priority')"),
+        value: z
+          .union([z.string().min(1), z.array(z.string().min(1)).min(1)])
+          .describe("Field value as a string or array of strings for multi-value fields"),
+      }),
+    )
+    .optional()
+    .describe("Custom fields to set during issue creation"),
+  inheritCustomFieldsFromParent: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true (default) and parentIssueId is set, copy parent custom fields except State/Assignee; explicit customFields override inherited values",
+    ),
   links: z
     .array(
       z.object({
@@ -245,10 +262,11 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
     "issue_create",
     {
       description: [
-        "Create a new issue with optional initial assignee, state, parent and links.",
+        "Create a new issue with optional initial assignee, state, parent, custom fields and links.",
         "Use cases:",
         "- File a bug or task from automation with a known assignee/state.",
         "- Bootstrap a hierarchy by setting parentIssueId or links[] (Subtask, Relates, etc.).",
+        "- Set required project custom fields (e.g., Stream) via customFields or inherit them from parent.",
         "- Use markdown with <details>/<summary> for collapsible code/log sections.",
         "Parameter examples: see schema descriptions.",
         "Response fields: id, idReadable, summary, description, project, parent, assignee.",
@@ -265,6 +283,8 @@ export function registerIssueTools(server: McpServer, client: YoutrackClient) {
         parentIssueId: payload.parentIssueId,
         assigneeLogin: payload.assigneeLogin,
         stateName: payload.stateName,
+        customFields: payload.customFields,
+        inheritCustomFieldsFromParent: payload.inheritCustomFieldsFromParent,
         links: payload.links,
         usesMarkdown: payload.usesMarkdown,
       }),
