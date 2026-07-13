@@ -71,7 +71,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/luxon": "^3.7.2",
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10.6.0",
     "nock": "^14.0.16",
