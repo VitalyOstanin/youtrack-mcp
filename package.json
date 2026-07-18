@@ -73,10 +73,10 @@
     "@types/luxon": "^3.7.2",
     "@types/node": "^26.1.1",
     "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^10.6.0",
+    "eslint": "^10.7.0",
     "nock": "^14.0.16",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.62.1",
+    "typescript-eslint": "^8.64.0",
     "vitest": "^4.1.9"
   }
 }
