@@ -7,6 +7,7 @@ import {
 } from "../constants.js";
 
 import type {
+  IssueError,
   IssueLinkTypesPayload,
   YoutrackArticle,
   YoutrackConfig,
@@ -364,6 +365,76 @@ export class YoutrackClientBase {
     }
 
     return results;
+  }
+
+  /**
+   * Re-check ids that a batch search query did not return.
+   *
+   * A search like `issue id: A B C` answers with HTTP 200 and an EMPTY list as
+   * soon as one of the ids cannot be resolved — YouTrack does not fall back to
+   * the subset it could resolve. Treating "absent from the response" as "does
+   * not exist" therefore reports EXISTING issues as missing whenever a single
+   * dead id travels in the same batch, and the caller cannot tell the two apart.
+   *
+   * This helper resolves each absent id individually via `GET /api/issues/<id>`,
+   * which answers per issue: a 404 confirms the id is really gone, a successful
+   * response means the id was only lost to the poisoned query and is handed back
+   * to the caller. Callers merge `found` into their result set and report
+   * `errors` as the genuinely missing ones.
+   *
+   * Costs one request per absent id, so the common case (every id resolvable)
+   * still needs just the single search request.
+   */
+  protected async verifyMissingIssues(
+    missingIds: string[],
+    fields: string,
+  ): Promise<{ found: YoutrackIssueDetails[]; errors: IssueError[] }> {
+    if (!missingIds.length) {
+      return { found: [], errors: [] };
+    }
+
+    interface FoundResult {
+      issue: YoutrackIssueDetails;
+      success: true;
+    }
+    interface MissingResult {
+      issueId: string;
+      error: string;
+      success: false;
+    }
+    type Result = FoundResult | MissingResult;
+
+    const results = await this.processBatch(
+      missingIds,
+      async (issueId): Promise<Result> => {
+        try {
+          const response = await this.http.get<YoutrackIssueDetails>(`/api/issues/${encId(issueId)}`, {
+            params: { fields },
+          });
+
+          return { issue: response.data, success: true };
+        } catch (error) {
+          const normalized = this.normalizeError(error);
+
+          return { issueId, error: normalized.message, success: false };
+        }
+      },
+      10,
+    );
+    const found: YoutrackIssueDetails[] = [];
+    const errors: IssueError[] = [];
+
+    for (const result of results) {
+      if (result.success) {
+        found.push(result.issue);
+
+        continue;
+      }
+
+      errors.push({ issueId: result.issueId, error: `Issue '${result.issueId}' not found` });
+    }
+
+    return { found, errors };
   }
 
   /**

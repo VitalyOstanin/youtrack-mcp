@@ -45,19 +45,12 @@ export function withIssueBatch<TBase extends Constructor<YoutrackClientBase>>(
           $top: resolvedIds.length,
         });
         const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
-        const errors: IssueError[] = [];
-
-        for (const issueId of resolvedIds) {
-          if (!foundIds.has(issueId)) {
-            errors.push({
-              issueId,
-              error: `Issue '${issueId}' not found`,
-            });
-          }
-        }
-
+        const absentIds = resolvedIds.filter((issueId) => !foundIds.has(issueId));
+        // A single unresolvable id empties the whole search response, so ids
+        // absent here are not necessarily missing — verify each one directly.
+        const { found: recovered, errors } = await this.verifyMissingIssues(absentIds, fields);
         const payload = {
-          issues: foundIssues.map(mapIssueDetails),
+          issues: [...foundIssues, ...recovered].map(mapIssueDetails),
           errors: errors.length ? errors : undefined,
         };
 
@@ -85,19 +78,13 @@ export function withIssueBatch<TBase extends Constructor<YoutrackClientBase>>(
           $top: resolvedIds.length,
         });
         const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
-        const errors: IssueError[] = [];
-
-        for (const issueId of resolvedIds) {
-          if (!foundIds.has(issueId)) {
-            errors.push({
-              issueId,
-              error: `Issue '${issueId}' not found`,
-            });
-          }
-        }
+        const absentIds = resolvedIds.filter((issueId) => !foundIds.has(issueId));
+        // A single unresolvable id empties the whole search response, so ids
+        // absent here are not necessarily missing — verify each one directly.
+        const { found: recovered, errors } = await this.verifyMissingIssues(absentIds, fields);
 
         return {
-          issues: foundIssues.map(mapIssueDetails),
+          issues: [...foundIssues, ...recovered].map(mapIssueDetails),
           errors: errors.length ? errors : undefined,
         };
       } catch (error) {
@@ -119,11 +106,18 @@ export function withIssueBatch<TBase extends Constructor<YoutrackClientBase>>(
       const query = `issue id: ${resolvedIds.join(" ")}`;
 
       try {
-        return await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
+        const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
           fields: defaultFields.issueDetailsLight,
           query,
           $top: resolvedIds.length,
         });
+        const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
+        const absentIds = resolvedIds.filter((issueId) => !foundIds.has(issueId));
+        // This variant reports no errors at all, so a poisoned query would drop
+        // issues silently — recover the absent ones before returning.
+        const { found: recovered } = await this.verifyMissingIssues(absentIds, defaultFields.issueDetailsLight);
+
+        return [...foundIssues, ...recovered];
       } catch (error) {
         throw this.normalizeError(error);
       }
