@@ -113,7 +113,6 @@ describe("a single unresolvable id must not empty the whole batch", () => {
   it("spends no extra request when every id resolves", async () => {
     const client = new YoutrackClient(baseConfig);
     const get = mockPoisonedSearch(client, live);
-
     const result = await client.getIssuesDetails(["BC-1", "BC-2"]);
 
     expect(result.issues).toHaveLength(2);
