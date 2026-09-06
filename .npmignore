@@ -30,6 +30,7 @@ node_modules/
 
 # Documentation (keep only README files)
 AGENTS.md
+TODO.md
 
 # Test and coverage
 tests/
