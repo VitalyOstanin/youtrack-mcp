@@ -5,7 +5,7 @@
 ### Added
 - `issue_create` now accepts `customFields[]` (`name` + `value`) for required project fields such as `Stream`.
 - `issue_create` inherits parent custom fields by default when `parentIssueId` is set (`inheritCustomFieldsFromParent`, default `true`); explicit `customFields` override inherited values. `State` and `Assignee` are not copied.
-- `issue_create` with `parentIssueId` now creates a directed `Subtask` link to the parent (instead of setting the issue `parent` field, which does not surface subtasks in some YouTrack projects).
+- `issue_create` with `parentIssueId` now creates a directed `Subtask` link to the parent (instead of setting the issue `parent` field, which does not surface subtasks in some YouTrack projects). Thanks to @themnts (#24).
 
 ## [0.14.1] - 2026-07-03
 
@@ -17,7 +17,7 @@
 
 ### Added
 - `issue_change_type` tool — set the issue Type custom field by canonical or localized value name (e.g. `Bug` -> `Task` -> `Feature`/`Fonctionnalité`). Returns previous and new type; unknown types fail with a descriptive 400 error.
-- `YOUTRACK_SILENT_COMMANDS` environment variable (boolean, default `false`) controlling whether command-based link create/delete fallbacks apply silently.
+- `YOUTRACK_SILENT_COMMANDS` environment variable (boolean, default `false`) controlling whether command-based link create/delete fallbacks apply silently. Thanks to @alexvaut (#23).
 
 ### Changed
 - **Command-based link create/delete now apply non-silently by default** (was: always silent). Silent apply requires the YouTrack "Apply Commands Silently" permission; accounts without it received HTTP 403, so `issue_link_add` / `issue_link_delete` failed whenever the REST `/api/issues/{id}/links` endpoint was unavailable (e.g. on-prem instances returning 405). Set `YOUTRACK_SILENT_COMMANDS=true` to restore the previous silent behavior. Non-silent apply sends the usual YouTrack notifications.
