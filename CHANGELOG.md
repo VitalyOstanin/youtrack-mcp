@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-09-27
+
 ### Fixed
 - `issues_lookup`, `issues_details` and `issues_status` no longer report existing issues as not found when an unresolvable id travels in the same batch. YouTrack answers an `issue id: A B C` search with an empty list as soon as one id cannot be resolved (and with 400 `invalid_query` when none can), so ids missing from the search are now re-checked one by one. Only a 404 on that check is reported as "not found"; other failures keep their own message, and ids are matched case-insensitively. Thanks to @joshuas-smith-el (#37).
 
