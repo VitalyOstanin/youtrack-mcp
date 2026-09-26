@@ -168,6 +168,20 @@ function pickSafeErrorDetails(data: unknown): Record<string, unknown> | undefine
 }
 
 /**
+ * YouTrack answers 400 `invalid_query` to an `issue id:` search in which none
+ * of the ids resolve.
+ */
+function isInvalidQueryError(error: unknown): boolean {
+  if (!axios.isAxiosError(error) || error.response?.status !== 400) {
+    return false;
+  }
+
+  const { data } = error.response as { data: unknown };
+
+  return typeof data === "object" && data !== null && (data as Record<string, unknown>).error === "invalid_query";
+}
+
+/**
  * Base layer of the YoutrackClient: holds the axios instance, the per-process
  * caches (users / projects / link types) and the low-level helpers that domain
  * code reuses (`getWithFlexibleTop`, `processBatch`, `normalizeError`).
@@ -368,24 +382,66 @@ export class YoutrackClientBase {
   }
 
   /**
-   * Re-check ids that a batch search query did not return.
+   * Look up issues by id with a single `issue id: A B C` search, then re-check
+   * the ids the search did not return.
    *
-   * A search like `issue id: A B C` answers with HTTP 200 and an EMPTY list as
-   * soon as one of the ids cannot be resolved — YouTrack does not fall back to
-   * the subset it could resolve. Treating "absent from the response" as "does
-   * not exist" therefore reports EXISTING issues as missing whenever a single
-   * dead id travels in the same batch, and the caller cannot tell the two apart.
+   * The search is not reliable on its own. As soon as one id cannot be resolved,
+   * YouTrack answers 200 with an EMPTY list instead of the resolvable subset,
+   * and when none of the ids resolve it answers 400 `invalid_query`. Treating
+   * "absent from the response" as "does not exist" would therefore report
+   * existing issues as missing whenever a dead id travels in the same batch.
    *
-   * This helper resolves each absent id individually via `GET /api/issues/<id>`,
-   * which answers per issue: a 404 confirms the id is really gone, a successful
-   * response means the id was only lost to the poisoned query and is handed back
-   * to the caller. Callers merge `found` into their result set and report
-   * `errors` as the genuinely missing ones.
+   * Ids are matched case-insensitively, because YouTrack returns the canonical
+   * `idReadable` (`BC-1`) whatever case the caller used (`bc-1`).
    *
-   * Costs one request per absent id, so the common case (every id resolvable)
-   * still needs just the single search request.
+   * Cost: the common case (every id resolvable) is one request. A poisoned
+   * search returns nothing, so every requested id is re-checked: one dead id in
+   * a batch of N turns 1 request into N+1, at concurrency 10.
    */
-  protected async verifyMissingIssues(
+  protected async findIssuesByIds(
+    resolvedIds: string[],
+    fields: string,
+  ): Promise<{ issues: YoutrackIssueDetails[]; errors: IssueError[] }> {
+    let foundIssues: YoutrackIssueDetails[];
+
+    try {
+      foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
+        fields,
+        query: `issue id: ${resolvedIds.join(" ")}`,
+        $top: resolvedIds.length,
+      });
+    } catch (error) {
+      if (!isInvalidQueryError(error)) {
+        throw error;
+      }
+
+      foundIssues = [];
+    }
+
+    const foundKeys = new Set(foundIssues.map((issue) => issue.idReadable.toUpperCase()));
+    const absentIds = resolvedIds.filter((issueId) => !foundKeys.has(issueId.toUpperCase()));
+    const { found: recovered, errors } = await this.verifyMissingIssues(absentIds, fields);
+    const issues: YoutrackIssueDetails[] = [];
+    const seen = new Set<string>();
+
+    for (const issue of [...foundIssues, ...recovered]) {
+      const key = issue.idReadable.toUpperCase();
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        issues.push(issue);
+      }
+    }
+
+    return { issues, errors };
+  }
+
+  /**
+   * Resolve each id individually via `GET /api/issues/<id>`. A 404 confirms the
+   * id is really gone; any other failure (timeout, 5xx, 403 on a project the
+   * token cannot read) is reported with its own message, not as "not found".
+   */
+  private async verifyMissingIssues(
     missingIds: string[],
     fields: string,
   ): Promise<{ found: YoutrackIssueDetails[]; errors: IssueError[] }> {
@@ -393,16 +449,7 @@ export class YoutrackClientBase {
       return { found: [], errors: [] };
     }
 
-    interface FoundResult {
-      issue: YoutrackIssueDetails;
-      success: true;
-    }
-    interface MissingResult {
-      issueId: string;
-      error: string;
-      success: false;
-    }
-    type Result = FoundResult | MissingResult;
+    type Result = { issue: YoutrackIssueDetails; success: true } | { error: IssueError; success: false };
 
     const results = await this.processBatch(
       missingIds,
@@ -414,9 +461,12 @@ export class YoutrackClientBase {
 
           return { issue: response.data, success: true };
         } catch (error) {
-          const normalized = this.normalizeError(error);
+          const message =
+            axios.isAxiosError(error) && error.response?.status === 404
+              ? `Issue '${issueId}' not found`
+              : this.normalizeError(error).message;
 
-          return { issueId, error: normalized.message, success: false };
+          return { error: { issueId, error: message }, success: false };
         }
       },
       10,
@@ -427,11 +477,9 @@ export class YoutrackClientBase {
     for (const result of results) {
       if (result.success) {
         found.push(result.issue);
-
-        continue;
+      } else {
+        errors.push(result.error);
       }
-
-      errors.push({ issueId: result.issueId, error: `Issue '${result.issueId}' not found` });
     }
 
     return { found, errors };
