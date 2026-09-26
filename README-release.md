@@ -119,6 +119,13 @@ If CHANGELOG files exist, ensure they include:
 - New version number and release date
 - All new features, fixes, and breaking changes
 - Links to related issues/MRs
+- Credit for external contributions: every entry that comes from a merged PR by an outside author ends with `Thanks to @<login> (#<PR>).` Add it when the PR is merged, under `## [Unreleased]`, rather than at release time. To check that none is missing, list the external PRs merged since the previous tag:
+
+```bash
+gh pr list --state merged --search "merged:>=$(git log -1 --format=%ad --date=short "$(git describe --tags --abbrev=0)")" \
+  --json number,author,title \
+  --jq '.[] | select(.author.is_bot | not) | select(.author.login != "VitalyOstanin") | "#\(.number) @\(.author.login) \(.title)"'
+```
 
 **Example CHANGELOG entry:**
 
