@@ -63,7 +63,7 @@ export function withIssueState<TBase extends Constructor<YoutrackClientBase>>(
     /**
      * Batch state lookup. Issues a single search query (`issue id: A B C`) and
      * extracts the State custom field for each match. Ids the query does not
-     * return are re-checked individually (see `verifyMissingIssues`), because a
+     * return are re-checked individually (see `findIssuesByIds`), because a
      * single unresolvable id empties the whole search response; only ids that
      * fail that direct check are reported in `errors`.
      */
@@ -73,21 +73,11 @@ export function withIssueState<TBase extends Constructor<YoutrackClientBase>>(
       }
 
       const resolvedIds = issueIds.map((id) => this.resolveIssueId(id));
-      const query = `issue id: ${resolvedIds.join(" ")}`;
       const fields = "id,idReadable,customFields(id,name,value(id,name,presentation),$type)";
 
       try {
-        const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
-          fields,
-          query,
-          $top: resolvedIds.length,
-        });
-        const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
-        const absentIds = resolvedIds.filter((issueId) => !foundIds.has(issueId));
-        // A single unresolvable id empties the whole search response, so ids
-        // absent here are not necessarily missing — verify each one directly.
-        const { found: recovered, errors } = await this.verifyMissingIssues(absentIds, fields);
-        const states: IssueStatePayload[] = [...foundIssues, ...recovered].map((issue) => {
+        const { issues, errors } = await this.findIssuesByIds(resolvedIds, fields);
+        const states: IssueStatePayload[] = issues.map((issue) => {
           const stateField = issue.customFields?.find(
             (f) => f.$type === YOUTRACK_ENTITY_TYPE.stateField || f.$type === YOUTRACK_ENTITY_TYPE.stateMachineField || f.name === "State",
           );

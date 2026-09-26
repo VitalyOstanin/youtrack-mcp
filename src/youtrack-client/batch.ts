@@ -34,27 +34,14 @@ export function withIssueBatch<TBase extends Constructor<YoutrackClientBase>>(
         return { issues: [], errors: [] };
       }
 
-      const resolvedIds = this.resolveIssueIds(issueIds);
-      const query = `issue id: ${resolvedIds.join(" ")}`;
-
       try {
         const fields = includeCustomFields ? withIssueCustomFieldEvents(defaultFields.issue) : defaultFields.issue;
-        const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
-          fields,
-          query,
-          $top: resolvedIds.length,
-        });
-        const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
-        const absentIds = resolvedIds.filter((issueId) => !foundIds.has(issueId));
-        // A single unresolvable id empties the whole search response, so ids
-        // absent here are not necessarily missing — verify each one directly.
-        const { found: recovered, errors } = await this.verifyMissingIssues(absentIds, fields);
-        const payload = {
-          issues: [...foundIssues, ...recovered].map(mapIssueDetails),
+        const { issues, errors } = await this.findIssuesByIds(this.resolveIssueIds(issueIds), fields);
+
+        return {
+          issues: issues.map(mapIssueDetails),
           errors: errors.length ? errors : undefined,
         };
-
-        return payload;
       } catch (error) {
         throw this.normalizeError(error);
       }
@@ -65,26 +52,14 @@ export function withIssueBatch<TBase extends Constructor<YoutrackClientBase>>(
         return { issues: [], errors: [] };
       }
 
-      const resolvedIds = this.resolveIssueIds(issueIds);
-      const query = `issue id: ${resolvedIds.join(" ")}`;
-
       try {
         const fields = includeCustomFields
           ? withIssueDetailsCustomFieldEvents(defaultFields.issueDetails)
           : defaultFields.issueDetails;
-        const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
-          fields,
-          query,
-          $top: resolvedIds.length,
-        });
-        const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
-        const absentIds = resolvedIds.filter((issueId) => !foundIds.has(issueId));
-        // A single unresolvable id empties the whole search response, so ids
-        // absent here are not necessarily missing — verify each one directly.
-        const { found: recovered, errors } = await this.verifyMissingIssues(absentIds, fields);
+        const { issues, errors } = await this.findIssuesByIds(this.resolveIssueIds(issueIds), fields);
 
         return {
-          issues: [...foundIssues, ...recovered].map(mapIssueDetails),
+          issues: issues.map(mapIssueDetails),
           errors: errors.length ? errors : undefined,
         };
       } catch (error) {
@@ -95,29 +70,19 @@ export function withIssueBatch<TBase extends Constructor<YoutrackClientBase>>(
     /**
      * Light version of getIssuesDetails() that fetches only minimal fields
      * (id, idReadable, updated, updater). Used for filtering in user_activity
-     * mode to reduce payload size.
+     * mode to reduce payload size. Ids that cannot be resolved are dropped
+     * without an error; see `findIssuesByIds` for the request cost when one of
+     * them is present.
      */
     async getIssuesDetailsLight(issueIds: string[]): Promise<YoutrackIssueDetails[]> {
       if (!issueIds.length) {
         return [];
       }
 
-      const resolvedIds = this.resolveIssueIds(issueIds);
-      const query = `issue id: ${resolvedIds.join(" ")}`;
-
       try {
-        const foundIssues = await this.getWithFlexibleTop<YoutrackIssueDetails[]>("/api/issues", {
-          fields: defaultFields.issueDetailsLight,
-          query,
-          $top: resolvedIds.length,
-        });
-        const foundIds = new Set(foundIssues.map((issue) => issue.idReadable));
-        const absentIds = resolvedIds.filter((issueId) => !foundIds.has(issueId));
-        // This variant reports no errors at all, so a poisoned query would drop
-        // issues silently — recover the absent ones before returning.
-        const { found: recovered } = await this.verifyMissingIssues(absentIds, defaultFields.issueDetailsLight);
+        const { issues } = await this.findIssuesByIds(this.resolveIssueIds(issueIds), defaultFields.issueDetailsLight);
 
-        return [...foundIssues, ...recovered];
+        return issues;
       } catch (error) {
         throw this.normalizeError(error);
       }
