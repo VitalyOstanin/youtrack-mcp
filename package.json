@@ -57,15 +57,15 @@
     "access": "public"
   },
   "overrides": {
-    "ip-address": "^10.3.1"
+    "ip-address": "^10.7.4"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@vitalyostanin/mutex-pool": "^0.0.3",
-    "axios": "^1.18.1",
+    "axios": "^1.20.0",
     "form-data": "^4.0.6",
     "luxon": "^3.7.2",
-    "stream-json": "^3.5.0",
+    "stream-json": "^3.7.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

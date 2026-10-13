@@ -5,6 +5,9 @@
 ### Fixed
 - `issue_attachments_list` now returns every attachment of an issue instead of at most 42. YouTrack caps a collection response at 42 items when `$top` is omitted, so the newest attachments were silently missing. The same cap is lifted (`$top=-1`) for other unpaginated collection reads: comments in `issues_comments` and in the strict user-activity search, the watcher list checked by `issue_star` / `issue_unstar` and their batch variants, issue custom fields read by `issue_change_state` / `issue_change_type`, and the cached list of link types (`issue_link_types`, `issue_link_add`). Thanks to @kruchininfl (#52).
 
+### Changed
+- Dependency maintenance: cleared all `npm audit` advisories — `@modelcontextprotocol/sdk` raised to `^1.32.1`, `axios` to `^1.20.0`, `stream-json` to `^3.7.0`, the `ip-address` override to `^10.7.4`; transitive `fast-uri` 3.1.8, `proxy-addr` 2.0.8, `brace-expansion` 5.0.12 and `source-map-js` 1.2.2 refreshed in the lockfile. No change to the server's own API or behavior.
+
 ## [0.15.2] - 2026-09-27
 
 ### Fixed
