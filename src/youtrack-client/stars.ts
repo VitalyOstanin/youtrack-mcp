@@ -36,7 +36,7 @@ export function withStars<
     async getIssueWatchers(issueId: string): Promise<YoutrackIssueWatcher[]> {
       try {
         const response = await this.http.get<YoutrackIssueWatcher[]>(`/api/issues/${encId(issueId)}/watchers/issueWatchers`, {
-          params: { fields: "id,user(id,login,name),isStarred,$type" },
+          params: { fields: "id,user(id,login,name),isStarred,$type", $top: -1 },
         });
         const watchers = response.data;
 

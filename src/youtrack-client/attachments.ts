@@ -41,7 +41,7 @@ export function withAttachments<TBase extends Constructor<YoutrackClientBase>>(
     async listAttachments(issueId: string): Promise<AttachmentsListPayload> {
       try {
         const response = await this.http.get<YoutrackAttachment[]>(`/api/issues/${encId(issueId)}/attachments`, {
-          params: { fields: defaultFields.attachments },
+          params: { fields: defaultFields.attachments, $top: -1 },
         });
         const mapped = mapAttachments(response.data);
         const payload = {

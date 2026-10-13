@@ -110,7 +110,7 @@ export function withIssueBatch<TBase extends Constructor<YoutrackClientBase>>(
         async (issueId): Promise<Result> => {
           try {
             const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${encId(issueId)}/comments`, {
-              params: { fields: defaultFields.comments },
+              params: { fields: defaultFields.comments, $top: -1 },
             });
 
             return { issueId, comments: response.data, success: true };
@@ -169,7 +169,7 @@ export function withIssueBatch<TBase extends Constructor<YoutrackClientBase>>(
         async (issueId): Promise<Result> => {
           try {
             const response = await this.http.get<YoutrackIssueComment[]>(`/api/issues/${encId(issueId)}/comments`, {
-              params: { fields: defaultFields.commentsLight },
+              params: { fields: defaultFields.commentsLight, $top: -1 },
             });
 
             return { issueId, comments: response.data, success: true };

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- `issue_attachments_list` now returns every attachment of an issue instead of at most 42. YouTrack caps a collection response at 42 items when `$top` is omitted, so the newest attachments were silently missing. The same cap is lifted (`$top=-1`) for other unpaginated collection reads: comments in `issues_comments` and in the strict user-activity search, the watcher list checked by `issue_star` / `issue_unstar` and their batch variants, issue custom fields read by `issue_change_state` / `issue_change_type`, and the cached list of link types (`issue_link_types`, `issue_link_add`). Thanks to @kruchininfl (#52).
+
 ## [0.15.2] - 2026-09-27
 
 ### Fixed

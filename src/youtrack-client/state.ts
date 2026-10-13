@@ -102,6 +102,7 @@ export function withIssueState<TBase extends Constructor<YoutrackClientBase>>(
         const response = await this.http.get<YoutrackCustomField[]>(`/api/issues/${encId(issueId)}/customFields`, {
           params: {
             fields: CUSTOM_FIELDS_STATE_FETCH,
+            $top: -1,
           },
         });
         const customFields = response.data;

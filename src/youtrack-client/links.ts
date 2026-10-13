@@ -104,7 +104,7 @@ export function withIssueLinks<TBase extends Constructor<YoutrackClientBase>>(
     private async fetchAllLinkTypes(): Promise<IssueLinkTypesPayload> {
       try {
         const response = await this.http.get<YoutrackIssueLinkType[]>("/api/issueLinkTypes", {
-          params: { fields: defaultFields.linkTypes },
+          params: { fields: defaultFields.linkTypes, $top: -1 },
         });
 
         response.data.forEach((type) => {

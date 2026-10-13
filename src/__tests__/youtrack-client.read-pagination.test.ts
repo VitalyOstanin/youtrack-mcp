@@ -98,3 +98,27 @@ describe("read pagination forwarding", () => {
     expect(req?.params.$skip).toBe(3);
   });
 });
+
+describe("unbounded collection reads", () => {
+  // Without $top YouTrack returns at most 42 items; -1 lifts the limit.
+  const cases: Array<[string, string, (client: YoutrackClient) => Promise<unknown>]> = [
+    ["listAttachments", "/api/issues/BC-1/attachments", (c) => c.listAttachments("BC-1")],
+    ["getIssueWatchers", "/api/issues/BC-1/watchers/issueWatchers", (c) => c.getIssueWatchers("BC-1")],
+    ["getIssueCustomFields", "/api/issues/BC-1/customFields", (c) => c.getIssueCustomFields("BC-1")],
+    ["listLinkTypes", "/api/issueLinkTypes", (c) => c.listLinkTypes()],
+    ["getMultipleIssuesComments", "/api/issues/BC-1/comments", (c) => c.getMultipleIssuesComments(["BC-1"])],
+    ["getMultipleIssuesCommentsLight", "/api/issues/BC-1/comments", (c) => c.getMultipleIssuesCommentsLight(["BC-1"])],
+  ];
+
+  it.each(cases)("%s requests all items with $top=-1", async (_name, url, call) => {
+    const client = new YoutrackClient(baseConfig);
+    const cap = captureRequest(client);
+
+    await call(client).catch(() => undefined);
+
+    const req = cap.last();
+
+    expect(req?.url).toBe(url);
+    expect(req?.params.$top).toBe(-1);
+  });
+});
